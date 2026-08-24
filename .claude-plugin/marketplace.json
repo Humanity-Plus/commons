@@ -1,0 +1,15 @@
+{
+  "name": "humanity-plus",
+  "owner": {
+    "name": "Humanity Plus",
+    "url": "https://github.com/Humanity-Plus"
+  },
+  "description": "Skills and frameworks from the Humanity Plus Commons.",
+  "plugins": [
+    {
+      "name": "review-toolkit",
+      "source": "./skills/code-reviews",
+      "description": "AI code-review loop for PRs and branches: multi-lens review with HTML report, safe fixing, GitHub publishing, review-debt filing, and a primitives-map generator."
+    }
+  ]
+}

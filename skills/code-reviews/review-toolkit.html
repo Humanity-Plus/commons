@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review Toolkit: setup &amp; guide</title>
+<style>
+  /* Same visual language as the review report (render.ts) so the toolkit feels like one product. */
+  :root{
+    --bg:#0d0d12; --panel:#16161d; --panel2:#1c1c25; --border:#2a2a33;
+    --text:#e6e6ea; --muted:#9a9aa6; --accent:#6e56cf;
+    --red:#e5484d; --amber:#ffb224; --green:#46a758; --blue:#8ab4f8;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+    line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:880px;margin:0 auto;padding:40px 24px 90px}
+  a{color:var(--blue);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:var(--mono);font-size:12.5px;font-weight:600;color:#d3c7ff;
+    background:color-mix(in srgb,var(--accent) 15%,var(--panel2));
+    border:1px solid color-mix(in srgb,var(--accent) 32%,var(--border));
+    padding:1px 6px;border-radius:5px;white-space:nowrap}
+  pre{background:#0b0b0f;border:1px solid var(--border);border-radius:8px;
+    padding:13px 16px;overflow-x:auto;margin:0 0 16px;position:relative}
+  pre code{background:none;border:none;padding:0;color:#d6d6df;font-weight:400;
+    font-size:12.5px;line-height:1.6;white-space:pre}
+  pre .c{color:var(--muted)} /* comment */
+  pre .p{color:#7ee0a0}      /* prompt / command name */
+
+  header.top{padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:30px}
+  .kicker{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);margin-bottom:8px}
+  h1{margin:0 0 8px;font-size:28px;letter-spacing:-.02em}
+  .lede{color:var(--muted);font-size:15.5px;max-width:640px;margin:0}
+
+  nav.toc{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 0}
+  nav.toc a{font-size:12px;padding:3px 11px;border-radius:20px;border:1px solid var(--border);
+    background:var(--panel);color:var(--muted)}
+  nav.toc a:hover{color:var(--text);border-color:var(--accent);text-decoration:none}
+
+  h2{font-size:18px;letter-spacing:-.01em;margin:44px 0 6px;display:flex;align-items:center;gap:10px}
+  h2 .n{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:700}
+  .sub{color:var(--muted);font-size:13.5px;margin:0 0 18px}
+  h3{font-size:14px;margin:22px 0 8px}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:14px}
+  .card > :first-child{margin-top:0}
+  .card > :last-child{margin-bottom:0}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:0 0 16px;
+    border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600;font-size:11px;
+    text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  td .hint{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+
+  /* pipeline diagram */
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:6px 0 18px}
+  .flow-step{flex:1;min-width:120px;background:var(--panel2);border:1px solid var(--border);
+    border-radius:10px;padding:12px 14px;position:relative;margin-right:26px}
+  .flow-step:last-child{margin-right:0}
+  .flow-step::after{content:"→";position:absolute;right:-21px;top:50%;transform:translateY(-50%);
+    color:var(--accent);font-size:16px;font-weight:700}
+  .flow-step:last-child::after{content:none}
+  .flow-cmd{font-family:var(--mono);font-size:12.5px;font-weight:700;color:#7ee0a0}
+  .flow-phase{font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.06em;color:var(--accent);margin-bottom:4px}
+  .flow-desc{font-size:12px;color:var(--muted);margin-top:3px}
+  @media(max-width:680px){.flow{flex-direction:column}.flow-step{margin:0 0 24px}
+    .flow-step::after{content:"↓";right:auto;left:50%;top:auto;bottom:-22px;transform:translateX(-50%)}}
+
+  /* command cards, colored left border, square left corners (straight color bar) */
+  .cmd{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--cc,var(--accent));
+    border-radius:0 12px 12px 0;padding:18px 22px;margin-bottom:14px}
+  .cmd-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .cmd-name{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--cc,var(--accent))}
+  .cmd-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+    padding:2px 9px;border-radius:20px;background:var(--panel2);border:1px solid var(--border);color:var(--muted)}
+  .cmd-tag.writes{color:#ff9ea0;border-color:color-mix(in srgb,var(--red) 45%,transparent);
+    background:color-mix(in srgb,var(--red) 12%,transparent)}
+  .cmd-tag.readonly{color:#7ee0a0;border-color:color-mix(in srgb,var(--green) 45%,transparent);
+    background:color-mix(in srgb,var(--green) 12%,transparent)}
+  .cmd p{margin:6px 0}
+  .cmd .args{margin:10px 0 0;padding:0;list-style:none;display:grid;gap:5px}
+  .cmd .args li{font-size:13px;color:var(--muted);display:flex;gap:10px;align-items:baseline}
+  .cmd .args code{flex:none}
+
+  /* scenario cards */
+  .scenario{background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:20px 22px;margin-bottom:16px}
+  .scenario h3{margin:0 0 4px;font-size:15px}
+  .scenario .who{font-size:12px;color:var(--muted);font-style:italic;margin:0 0 12px}
+  .scenario ol{margin:0;padding-left:22px;display:grid;gap:8px;font-size:13.5px}
+  .scenario ol li::marker{color:var(--accent);font-weight:700}
+  .scenario .outcome{margin-top:12px;padding:10px 14px;border:1px solid var(--border);
+    border-left:3px solid var(--green);border-radius:0 8px 8px 0;
+    background:color-mix(in srgb,var(--green) 6%,var(--panel2));font-size:13px;color:var(--muted)}
+  .scenario .outcome b{color:#7ee0a0}
+
+  /* callouts, same convention: straight colored bar on the left */
+  .callout{margin:0 0 16px;padding:12px 16px;border:1px solid var(--border);border-left-width:4px;
+    border-radius:0 10px 10px 0;background:var(--panel2);font-size:13.5px}
+  .callout .t{font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;margin:0 0 5px}
+  .callout.note{border-left-color:var(--blue)}.callout.note .t{color:var(--blue)}
+  .callout.warn{border-left-color:var(--amber)}.callout.warn .t{color:var(--amber)}
+  .callout.danger{border-left-color:var(--red)}.callout.danger .t{color:#ff9ea0}
+  .callout p{margin:0 0 8px}.callout p:last-child{margin-bottom:0}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0 0 16px;align-items:start}
+  .cols-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:0 0 16px;align-items:start}
+  @media(max-width:720px){.cols,.cols-3{grid-template-columns:1fr}}
+
+  .level{font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.06em;color:var(--accent);margin:0 0 6px}
+
+  footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--border);
+    color:var(--muted);font-size:12px;display:flex;gap:14px;flex-wrap:wrap}
+  .brand{font-weight:700;color:var(--text);background:var(--panel2);border:1px solid var(--border);
+    border-radius:6px;padding:2px 8px}
+</style></head>
+<body><div class="wrap">
+
+<header class="top">
+  <div class="kicker">AI review toolkit</div>
+  <h1>The Review Toolkit</h1>
+  <p class="lede">An AI review loop for your PRs and branches: a multi-lens reviewer that produces
+  an HTML report, a fixer that safely resolves the findings, and a publisher that posts the review
+  to GitHub. Works in <b>Claude Code</b>, <b>Cursor</b>, and any agent
+  <a href="https://skills.sh">skills.sh</a> supports. Part of the
+  <a href="https://github.com/Humanity-Plus/commons">Humanity Plus Commons</a>, MIT-licensed.</p>
+  <nav class="toc">
+    <a href="#install">Install</a>
+    <a href="#pieces">What you get</a>
+    <a href="#configure">Configure</a>
+    <a href="#pipeline">How a review runs</a>
+    <a href="#commands">Skill reference</a>
+    <a href="#agents">Agent automation</a>
+    <a href="#scenarios">Example scenarios</a>
+    <a href="#apps">Cursor vs Claude Code</a>
+    <a href="#tips">Tips &amp; safety</a>
+  </nav>
+</header>
+
+<h2 id="install"><span class="n">01</span> Install (one command)</h2>
+<p class="sub">Two ways in, two philosophies, <b>pick one</b>. Installing both leaves you with every
+review skill twice.</p>
+
+<div class="cols">
+  <div class="card">
+    <h3>Option 1: skills CLI <span style="color:var(--muted);font-weight:400">(any agent, editable files)</span></h3>
+    <p>Works with Claude Code, Cursor, Codex, and most other coding agents. The CLI lists the
+    skills; you pick which ones and which agents.</p>
+<pre><code>npx skills add Humanity-Plus/commons -g</code></pre>
+<pre><code>npx skills add Humanity-Plus/commons --list <span class="c"># see every skill first</span>
+npx skills add Humanity-Plus/commons \
+  --skill review-pr -g                      <span class="c"># take one specific skill</span>
+npx skills update                           <span class="c"># pull the latest later</span></code></pre>
+    <p>The skills land as ordinary files you own and can edit; nothing updates behind
+    your back.</p>
+  </div>
+  <div class="card">
+    <h3>Option 2: Claude Code plugin <span style="color:var(--muted);font-weight:400">(managed bundle)</span></h3>
+    <p>Claude Code only. Installs the whole toolkit as one plugin from this repo's
+    marketplace.</p>
+<pre><code>claude plugin marketplace add Humanity-Plus/commons
+claude plugin install review-toolkit@humanity-plus</code></pre>
+    <p>Or inside a session: <code>/plugin marketplace add Humanity-Plus/commons</code> then
+    <code>/plugin install review-toolkit@humanity-plus</code>.</p>
+    <p>Plugin skills are <b>namespaced</b>: invoke them as <code>/review-toolkit:review-pr</code>,
+    <code>/review-toolkit:review-fix</code>, … Update later with
+    <code>claude plugin marketplace update humanity-plus</code>.</p>
+  </div>
+</div>
+
+<div class="callout warn">
+  <p class="t">CLI installs: global only</p>
+  <p>With the skills CLI, install globally (<code>-g</code>), never project-scoped into a repo you
+  then review other people's PRs in, a malicious PR checkout could swap the skill files for its
+  own copy that executes as you. The plugin lane installs globally by nature, so it's safe by
+  default.</p>
+</div>
+
+<div class="callout note">
+  <p class="t">Prerequisites</p>
+  <p><b><a href="https://bun.sh">bun</a></b> renders the HTML report (<code>curl -fsSL https://bun.sh/install | bash</code>)
+  and <b><a href="https://cli.github.com">gh</a></b> (GitHub CLI, <code>brew install gh</code> then <code>gh auth login</code>)
+  is needed for PR mode and publishing. Local-branch review works without <code>gh</code>.</p>
+</div>
+
+<h2 id="pieces"><span class="n">02</span> What gets installed</h2>
+<p class="sub">Six skills. Two carry the core know-how, three chain them into everyday workflows, one
+bootstraps the configuration. In Claude Code every skill is also invocable directly as a slash
+command, <code>/review-pr</code>, <code>/review-fix</code>, … with the CLI install, or namespaced
+(<code>/review-toolkit:review-pr</code>) with the plugin.</p>
+
+<table>
+  <thead><tr><th>Skill</th><th>Role</th><th>What it is</th></tr></thead>
+  <tbody>
+    <tr><td><code>review-pr</code></td><td>core</td><td>The reviewer. Runs independent lenses as parallel subagents (optionally sharded by feature area on large diffs, with a <b>seams</b> lens for cross-area contracts), verifies findings with a skeptic pass, calibrates severities with an <b>arbiter</b>, and renders the HTML report. Report-only, never edits code.</td></tr>
+    <tr><td><code>resolve-review</code></td><td>core</td><td>The fixer. Turns a findings file into an ordered fix plan, applies one scoped edit per finding on <em>your own</em> branch (every site in a grouped finding's <code>locations</code> list), validates with the repo's existing checks, and reports fixed / partial / skipped / failed.</td></tr>
+    <tr><td><code>review-fix</code></td><td>workflow</td><td>Review + fix in one pass, results in chat (no HTML). The agent-friendly loop.</td></tr>
+    <tr><td><code>publish-review</code></td><td>workflow</td><td>Post a previous review to the GitHub PR as one real review.</td></tr>
+    <tr><td><code>review-issues</code></td><td>workflow</td><td>File non-blocking findings (readability, naming, soft conventions) as grouped, deduped <code>review-debt</code> GitHub issues for a scheduled fixer.</td></tr>
+    <tr><td><code>map-primitives</code></td><td>setup</td><td>The mapper. Bootstraps or refreshes <code>docs/primitives.md</code> + <code>primitives.yaml</code>, the machine-readable map of your system's building blocks that the review's <b>primitives</b> lens consumes, and reports drift (the same concept re-declared in multiple shapes).</td></tr>
+  </tbody>
+</table>
+
+<p>How the pieces chain together:</p>
+<div class="flow">
+  <div class="flow-step"><div class="flow-cmd">/review-pr</div>
+    <div class="flow-desc">lenses → verify → arbiter → <b>findings.json</b> + <b>report.html</b></div></div>
+  <div class="flow-step"><div class="flow-cmd">/resolve-review</div>
+    <div class="flow-desc">plan → scoped fixes → validate → resolution table</div></div>
+  <div class="flow-step"><div class="flow-cmd">/publish-review</div>
+    <div class="flow-desc">findings → inline PR comments + review body</div></div>
+</div>
+<p class="sub"><code>/review-fix</code> is a shortcut that runs the first two steps back-to-back on your own branch in
+<strong>findings-only mode</strong> (full pipeline, no HTML).</p>
+
+<h2 id="configure"><span class="n">03</span> Configure it for your repo</h2>
+<p class="sub">The toolkit works out of the box, but three repo-owned files are its real configuration,
+they're what turn a generic review into <em>your</em> review, and where great results come from.</p>
+
+<table>
+  <thead><tr><th>File</th><th>Feeds</th><th>What goes in it</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>REVIEW.md</code><span class="hint">repo root</span></td>
+      <td>every lens, the verify pass, and the verdict</td>
+      <td>Everything a reviewer can't infer from a diff: repo facts (<i>“auth isn't wired yet”,
+      “PRs are stacked”, “these paths are generated”</i>), what high severity means <em>here</em>,
+      a do-not-report list (what CI already enforces), an always-check list of your invariants,
+      which stack areas the scorecard should grade, soft style preferences, and optional
+      model-tier overrides. Start from <code>skills/review-pr/REVIEW.example.md</code>. This file is
+      what kills repeat false positives.</td>
+    </tr>
+    <tr>
+      <td><code>docs/conventions/</code><span class="hint">one file per topic</span></td>
+      <td>the <b>conventions</b> lens</td>
+      <td>Your own written rules, short, citable, split per topic (<code>react.md</code>,
+      <code>typescript.md</code>, <code>testing.md</code>, …). Every conventions finding cites the
+      rule it violates, and <b>no written rule means no finding</b>, this is what keeps the lens
+      from devolving into a generic style bot. <code>AGENTS.md</code>/<code>CLAUDE.md</code> and
+      <code>.cursor/rules/</code> are read too.</td>
+    </tr>
+    <tr>
+      <td><code>docs/primitives.yaml</code><span class="hint">+ primitives.md for prose</span></td>
+      <td>the <b>primitives</b> lens</td>
+      <td>A machine-readable map of your system's building blocks: each primitive with the
+      <code>sources</code> files that define it, the <code>invariants</code> it must keep, and what
+      it relates to. This is how a review can tell whether a diff <em>composes</em> existing
+      primitives, <em>extends</em> one, or quietly <em>invents a new shape</em>, the classic
+      failure of agent-written code. Bootstrap it with the <code>map-primitives</code> skill.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="cols">
+  <div class="card">
+    <h3>REVIEW.md, the shape that works</h3>
+    <p>The lenses look for these headings specifically:</p>
+<pre><code># Review instructions
+## What Important means here   <span class="c">← your severity bar</span>
+## Do not report               <span class="c">← CI-enforced, generated, historical</span>
+## Always check                <span class="c">← your invariants, each citing its rule</span>
+## Stack                       <span class="c">← areas the scorecard grades</span>
+## Repo facts                  <span class="c">← what a diff can't tell a reviewer</span>
+## Style                       <span class="c">← soft preferences (low/nit)</span>
+## Review roles                <span class="c">← optional model-tier overrides</span></code></pre>
+    <p>Point it at your convention docs (“Web UI → react.md, backend → convex.md”) so lenses
+    read the right files fully before reviewing. Two references ship with the skill:
+    <code>REVIEW.example.md</code> is the skeleton to copy, and
+    <code>REVIEW.worked-example.md</code> is a sanitized <em>real</em> one from a production
+    app, what yours should grow toward.</p>
+  </div>
+  <div class="card">
+    <h3>primitives.yaml, one entry</h3>
+<pre><code>primitives:
+  - id: order
+    area: data
+    name: Order
+    sources: [src/db/schema.ts, src/orders/]
+    invariants:
+      - Status only moves forward; cancel is a
+        status, not a delete.
+      - Totals are derived on write, never
+        recomputed in the UI.
+    relates_to: [customer, invoice]</code></pre>
+    <p><code>sources</code> is how changed file paths map onto primitives; a directory matches
+    everything under it. Keep ids stable, and update the map in the same PR that changes a
+    primitive.</p>
+  </div>
+</div>
+
+<div class="callout warn">
+  <p class="t">Generated, then curated</p>
+  <p>All three files can be drafted by an agent: run <code>/map-primitives</code> to bootstrap the
+  primitives map, and ask your agent to draft <code>REVIEW.md</code> (from
+  <code>REVIEW.example.md</code>) and to distill <code>docs/conventions/</code> from the patterns
+  actually in your codebase. But treat every draft as a draft, <b>these files are trusted
+  context</b>: a wrong “repo fact” suppresses real findings, and a stale rule grades new code
+  against a dead convention. Read every line, prune what's wrong, and keep them living: add rules
+  as they prove out, delete rules that stop pulling their weight.</p>
+</div>
+
+<div class="callout note">
+  <p class="t">Trust boundary &amp; compatibility</p>
+  <p>In PR mode, <code>REVIEW.md</code>, the convention docs, and the primitives map are read from
+  the <b>base branch only</b>, a PR can never rewrite the ruler it's measured with.
+  <code>REVIEW.md</code> is deliberately the same file Anthropic's Claude Code Review reads, so one
+  committed file drives both reviewers with no duplication. Keep it self-contained, neither tool
+  expands <code>@</code>-imports.</p>
+</div>
+
+<h2 id="pipeline"><span class="n">04</span> How a review runs</h2>
+<p class="sub">One orchestrator, several independent perspectives, then skepticism and calibration.</p>
+
+<div class="flow">
+  <div class="flow-step">
+    <div class="flow-phase">Phase 1</div>
+    <div class="flow-cmd">triage</div>
+    <div class="flow-desc">feature areas, risk map, interfaces, decides whether to shard</div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-phase">Phase 2</div>
+    <div class="flow-cmd">lenses</div>
+    <div class="flow-desc">parallel subagents; sharded + seams on large diffs; optional holistic</div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-phase">Phase 3</div>
+    <div class="flow-cmd">verify</div>
+    <div class="flow-desc">skeptic pass per finding, refute / confirm / downgrade</div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-phase">Phase 3.5</div>
+    <div class="flow-cmd">arbiter</div>
+    <div class="flow-desc">regrade, group swarms, fold past the report budget</div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-phase">Phase 4</div>
+    <div class="flow-cmd">render</div>
+    <div class="flow-desc">findings.json → report.html (skipped in findings-only)</div>
+  </div>
+</div>
+
+<h3>Lenses</h3>
+<table>
+  <thead><tr><th>Lens</th><th>Question it answers</th><th>When</th></tr></thead>
+  <tbody>
+    <tr><td><code>triage</code></td><td>What changed, grouped by feature area and risk?</td><td>always first</td></tr>
+    <tr><td><code>first-five</code></td><td>The 5 things automated changes get wrong (errors, input, external calls, mutations, deps)</td><td>always</td></tr>
+    <tr><td><code>conventions</code></td><td>Repo rules, stack idioms, sibling precedent + per-area scorecard</td><td>when convention docs exist</td></tr>
+    <tr><td><code>warm</code></td><td>New/upgraded deps: Worth it, Alive, Right-sized, Maintained?</td><td>deps only</td></tr>
+    <tr><td><code>zombies</code></td><td>Missing high-value tests (Zero / One / Many / Boundaries / Interface / Exceptions / Simple)</td><td>always</td></tr>
+    <tr><td><code>preflight</code></td><td>What must happen to deploy safely?</td><td>always</td></tr>
+    <tr><td><code>intent</code></td><td>Does the diff match what the change claims to do (PR body, linked issues, spec files)?</td><td>when a spec source exists</td></tr>
+    <tr><td><code>seams</code></td><td>Do the sides of every contract the diff crosses still fit together?</td><td>when triage finds interfaces</td></tr>
+    <tr><td><code>primitives</code></td><td>What did the change do to the system's primitives (composes / extends / adds), and did it invent shapes outside the map?</td><td>repo has <code>primitives.yaml</code></td></tr>
+  </tbody>
+</table>
+
+<div class="cols">
+  <div class="card">
+    <h3>Adaptive sharding</h3>
+    <p>Diffs over <code>shard-threshold</code> changed lines (default <b>400</b>) shard
+    <code>first-five</code>, <code>zombies</code>, and <code>conventions</code>, one subagent per
+    (lens × feature area). <code>warm</code> / <code>preflight</code> / <code>intent</code> stay
+    whole-diff. Small PRs are untouched.</p>
+  </div>
+  <div class="card">
+    <h3>Severity arbiter</h3>
+    <p>After verify, one pass regrades severity relatively, collapses 3+ same-class findings into
+    one card with a <code>locations</code> list, and folds findings past the report
+    <code>budget</code> (default <b>15</b>) into a collapsed <i>More findings</i> section, never drops.</p>
+  </div>
+</div>
+
+<div class="cols">
+  <div class="card">
+    <h3>Holistic comparison <span style="color:var(--muted);font-weight:400">(optional)</span></h3>
+    <p>Pass <code>holistic</code> to also run a whole-diff generalist in parallel with Phase 2.
+    Overlap stats land in a <b>Holistic comparison</b> card, holistic-only findings flag gaps in
+    the lens decomposition. Off by default; an eval harness, not part of the everyday loop.</p>
+  </div>
+  <div class="card">
+    <h3>Role-based models</h3>
+    <p>Subagents fill roles (<code>triage</code>, <code>lens</code>, <code>seams</code>,
+    <code>verify</code>, <code>arbiter</code>, <code>holistic</code>) mapped to tiers
+    (<code>fast</code> / <code>balanced</code> / <code>strongest</code>, resolved against whatever
+    the host tool offers. No hardcoded model ids. Override per repo in
+    <code>REVIEW.md</code> → <code>## Review roles</code>.</p>
+  </div>
+</div>
+
+<h2 id="commands"><span class="n">05</span> Skill reference</h2>
+<p class="sub">Type <code>/</code> in the chat and pick the skill; anything you type after it becomes the argument.
+In agents without slash invocation, ask for the skill by name ("use review-pr on PR 482").</p>
+
+<article class="cmd" style="--cc:#8ab4f8">
+  <div class="cmd-head"><span class="cmd-name">/review-pr</span>
+    <span class="cmd-tag readonly">read-only</span></div>
+  <p>The full review. Produces <code>review-report/findings.json</code> (source of truth) and
+  <code>review-report/report.html</code>, verdict, severity donut, risk heatmap, conventions
+  scorecard, test-gap matrix, preflight checklist, plus (when applicable) grouped findings,
+  a folded <i>More findings</i> section, and a Holistic comparison card. Ends with a short
+  chat summary: verdict, counts, top 3 findings.</p>
+  <ul class="args">
+    <li><code>/review-pr</code> current branch vs <code>main</code></li>
+    <li><code>/review-pr 482</code> that PR number (fetched with <code>gh</code>)</li>
+    <li><code>/review-pr https://github.com/…/pull/482</code> a PR URL</li>
+    <li><code>/review-pr feature/wbs-tree</code> a branch vs its base</li>
+    <li><code>/review-pr 482 shard-threshold=250</code> shard earlier than the default 400 lines</li>
+    <li><code>/review-pr 482 budget=20</code> keep more findings above the fold</li>
+    <li><code>/review-pr 482 holistic</code> also run the whole-diff generalist comparison</li>
+    <li><code>/review-pr 482 context=docs/review.md</code> use a non-default context file</li>
+    <li><code>/review-pr 482 no-report</code> findings-only: full pipeline, <code>findings.json</code>,
+      no HTML and <b>no fix phase</b>, review in a fresh unbiased session, then fix later with
+      <code>/resolve-review</code> in the worktree that has the branch</li>
+  </ul>
+</article>
+
+<article class="cmd" style="--cc:#7ee0a0">
+  <div class="cmd-head"><span class="cmd-name">/review-fix</span>
+    <span class="cmd-tag writes">writes code</span></div>
+  <p>The fast local loop, and the command to point agents at. Runs the same full review in
+  <b>findings-only mode</b> (pipeline through arbiter, no HTML, no browser), then immediately
+  fixes what's fixable on the current branch. Reports a resolution table straight to chat,
+  plus a "over to you" list for things only a human can close. Never commits by itself.</p>
+  <ul class="args">
+    <li><code>/review-fix</code> current branch vs <code>main</code>, fix in place</li>
+    <li><code>/review-fix feature/x</code> review + fix that branch</li>
+  </ul>
+</article>
+
+<article class="cmd" style="--cc:#ffca7a">
+  <div class="cmd-head"><span class="cmd-name">/resolve-review</span>
+    <span class="cmd-tag writes">writes code</span></div>
+  <p>The second half, run separately: consume an existing <code>review-report/findings.json</code>
+  (from a prior <code>/review-pr</code>), fix the selected findings, validate each fix with the repo's
+  existing typecheck/lint/tests, and revert anything that breaks them. Grouped findings fix
+  every site in <code>locations[]</code>; folded findings sit below the default threshold
+  (include them only on explicit request).</p>
+  <ul class="args">
+    <li><code>/resolve-review</code> default set, verified findings at medium+</li>
+    <li><code>/resolve-review high</code> only high severity and above</li>
+    <li><code>/resolve-review conventions</code> only one lens / feature area / specific finding ids</li>
+  </ul>
+</article>
+
+<article class="cmd" style="--cc:#d3c7ff">
+  <div class="cmd-head"><span class="cmd-name">/publish-review</span>
+    <span class="cmd-tag">posts to GitHub</span></div>
+  <p>Turn a previous PR-mode review into <em>one real GitHub review</em>: findings anchored in the diff
+  become inline <code>file:line</code> comments, everything else folds into the review body. Always
+  dry-runs first and shows you exactly what will be posted, nothing goes out without your confirmation.</p>
+  <ul class="args">
+    <li><code>/publish-review</code> inline comments for all anchorable findings</li>
+    <li><code>/publish-review gist</code> also host the HTML report as a secret gist and link it</li>
+    <li><code>/publish-review medium</code> only medium+ inline; the rest in the body</li>
+    <li><code>/publish-review body-only</code> one summary comment, no inline comments</li>
+  </ul>
+</article>
+
+<article class="cmd" style="--cc:#ff9ea0">
+  <div class="cmd-head"><span class="cmd-name">/review-issues</span>
+    <span class="cmd-tag">posts to GitHub</span></div>
+  <p>The review-debt lane. Files the review's <em>non-blocking</em> findings (low/nitpick,
+  readability, naming, soft conventions) as GitHub issues so they get fixed later instead of
+  dying with the report: <b>one issue per defect class</b> (never per nitpick), fingerprint-deduped
+  across runs so re-reviews never re-file tracked debt, labeled <code>review-debt</code> + category.
+  A scheduled fixer (e.g. the <code>issue-fixer</code> routine) drains them on clean runs.
+  Confirms before creating; severity policy unchanged, this changes routing, not grading.</p>
+  <ul class="args">
+    <li><code>/review-issues</code> file low + nitpick findings from the latest review</li>
+    <li><code>/review-issues medium</code> widen the band to medium and below</li>
+    <li><code>/review-issues category=Readability</code> only one category</li>
+    <li><code>/review-issues yes</code> skip the confirmation (for routines that carry consent)</li>
+  </ul>
+</article>
+
+<h2 id="agents"><span class="n">06</span> Agent automation</h2>
+<p class="sub">Three ways to make agents run the review loop before opening a PR, in increasing order of enforcement.</p>
+
+<div class="cols-3">
+  <div class="card">
+    <p class="level">1 · Advisory</p>
+    <h3>AGENTS.md rule</h3>
+    <p>Works in Cursor, Claude Code, and cloud sessions, add one line to your project's
+    <code>AGENTS.md</code>: “Before creating any PR, run <code>/review-fix</code> and include the
+    resolution summary in the PR body.” A long session can still drift past it.</p>
+  </div>
+  <div class="card">
+    <p class="level">2 · Prompt</p>
+    <h3>Routine prompts</h3>
+    <p>For scheduled cloud agents, put the instruction in the routine's own prompt
+    (“…then run <code>/review-fix</code> before filing the PR”). The prompt is the reliable
+    channel there, don't count on the routine noticing a file mid-run.</p>
+  </div>
+  <div class="card">
+    <p class="level">3 · Hard gate</p>
+    <h3>Claude Code hook</h3>
+    <p><code>hooks/require-review-before-pr.sh</code> blocks <code>gh pr create</code> until
+    <code>review-report/findings.json</code> exists <em>and is newer than the last commit</em>.
+    The harness enforces it, the agent can't skip it. See <code>hooks/README.md</code>.</p>
+  </div>
+</div>
+
+<div class="callout note">
+  <p class="t">Cursor vs the hook</p>
+  <p>Cursor does not execute Claude Code hooks, rely on the <code>AGENTS.md</code> rule there.
+  The hook is a freshness check, not a quality check: it proves a review ran against the
+  latest commit; whether remaining findings are acceptable is still your (and the agent's) call.</p>
+</div>
+
+<h2 id="scenarios"><span class="n">07</span> Example scenarios</h2>
+<p class="sub">Everyday situations and which command to reach for.</p>
+
+<article class="scenario">
+  <h3>“I'm about to open a PR, check my work first”</h3>
+  <p class="who">You, on your own feature branch, before pushing.</p>
+  <ol>
+    <li>In the repo's chat, run <code>/review-fix</code>.</li>
+    <li>The agent reviews your branch against <code>main</code> through the full pipeline
+        (lenses → verify → arbiter), then fixes the verified findings in place, a null-check
+        it missed, a convention violation with the rule it cites, a couple of missing edge-case tests.</li>
+    <li>Read the resolution table in chat, skim <code>git diff</code>, and commit what you agree with.</li>
+  </ol>
+  <div class="outcome"><b>Outcome:</b> the obvious review comments are already resolved before a
+  teammate ever sees the PR. No HTML report is produced, this is the quick loop.</div>
+</article>
+
+<article class="scenario">
+  <h3>“Review this PR properly before we merge it”</h3>
+  <p class="who">You, reviewing a teammate's pull request.</p>
+  <ol>
+    <li>Run <code>/review-pr 482</code> (or paste the PR URL).</li>
+    <li>The skill fetches the PR with <code>gh</code>, runs the lenses as parallel subagents
+        (sharding + seams on large diffs), a skeptic pass verifies every finding, and the arbiter
+        calibrates the report.</li>
+    <li>Open <code>review-report/report.html</code>: verdict up top, risk heatmap by feature area,
+        findings written like short teaching articles with diffs and diagrams.</li>
+    <li>Happy with it? Run <code>/publish-review gist</code>, after a dry-run and your confirmation,
+        the findings land on the PR as inline comments plus a summary review, with a link to the full report.</li>
+  </ol>
+  <div class="outcome"><b>Outcome:</b> a thorough, evidence-based review posted as one GitHub review, 
+  not a wall of bot comments. The review stays report-only; nothing on the PR branch is executed or edited.</div>
+</article>
+
+<article class="scenario">
+  <h3>“The review found 14 things, fix the important ones”</h3>
+  <p class="who">You, after a <code>/review-pr</code> on your own branch.</p>
+  <ol>
+    <li>Run <code>/resolve-review high</code> to only tackle high severity and above
+        (or <code>/resolve-review conventions</code> to clear just the craft findings).</li>
+    <li>The skill plans fixes ordered by severity, applies one minimal edit per finding
+        (every site in a grouped finding), and runs the repo's existing checks after each,
+        anything that breaks them is reverted and marked <i>failed</i>.</li>
+    <li>Advisory items (deploy steps, PR-description mismatches) and folded findings come back
+        as an explicit “over to you” list instead of being guessed at.</li>
+  </ol>
+  <div class="outcome"><b>Outcome:</b> a ledger of exactly what changed and what still needs a human,
+  with <code>git diff --stat</code>. You stay in control of the commit.</div>
+</article>
+
+<article class="scenario">
+  <h3>“Make the agent refuse to open a PR without a review”</h3>
+  <p class="who">You, wiring Claude Code so the review loop can't be skipped.</p>
+  <ol>
+    <li>Add the pre-PR rule above to the project's <code>AGENTS.md</code>.</li>
+    <li>Install <code>hooks/require-review-before-pr.sh</code> (project or global),see
+        <code>hooks/README.md</code>.</li>
+    <li>When an agent tries <code>gh pr create</code> without a fresh <code>findings.json</code>,
+        the hook blocks it and tells the agent to run <code>/review-fix</code> first.</li>
+  </ol>
+  <div class="outcome"><b>Outcome:</b> every PR that goes out has been through the review → fix loop
+  against the commit being filed. Cursor still relies on the advisory <code>AGENTS.md</code> rule.</div>
+</article>
+
+<article class="scenario">
+  <h3>“Do new dependencies and test coverage hold up?”</h3>
+  <p class="who">Anyone, these run automatically inside every review.</p>
+  <ol>
+    <li>Run <code>/review-pr</code>; no extra flags needed.</li>
+    <li>The <b>WARM</b> lens audits each new/upgraded package: Worth it, Alive, Right-sized,
+        Maintained securely, rendered as a table in the report.</li>
+    <li>The <b>ZOMBIES</b> lens maps missing high-value tests (Zero / One / Many / Boundaries /
+        Interface / Exceptions / Simple) per feature area, and <code>/resolve-review tests</code>
+        can then write them.</li>
+    <li>The <b>preflight</b> lens leaves you a checkbox list of deploy-time actions (migrations,
+        config, secrets) right in the report.</li>
+  </ol>
+  <div class="outcome"><b>Outcome:</b> dependency risk, test gaps, and deploy steps are surfaced on
+  every review without anyone remembering to ask.</div>
+</article>
+
+<h2 id="apps"><span class="n">08</span> Cursor vs Claude Code</h2>
+<p class="sub">Same skills, the installer can place them in both. Hooks are Claude Code only.</p>
+
+<div class="cols">
+  <div class="card">
+    <h3>Cursor</h3>
+    <p>Skills → <code>~/.cursor/skills/</code> (global install)</p>
+    <p>Skills are loaded automatically when the agent decides they're relevant; asking for one
+    by name ("use review-pr on PR 482") is the reliable path. Pre-PR enforcement is advisory
+    via <code>AGENTS.md</code>.</p>
+  </div>
+  <div class="card">
+    <h3>Claude Code</h3>
+    <p>Skills → <code>~/.claude/skills/</code> (CLI install) or a managed plugin (plugin install)</p>
+    <p>Every skill is also a slash command: type <code>/review-pr 482</code> (CLI install) or
+    <code>/review-toolkit:review-pr 482</code> (plugin) and the skill receives <code>482</code> as
+    its argument. Optionally install the pre-PR hook for a hard gate.</p>
+  </div>
+</div>
+
+<div class="callout note">
+  <p class="t">If a workflow skill can't find its core skill</p>
+  <p>The workflow skills are thin, the logic lives in <code>review-pr</code> and
+  <code>resolve-review</code>. If the agent says one of those isn't available, the fix is always
+  the same: reinstall (<code>npx skills add Humanity-Plus/commons -g</code>, or reinstall the
+  <code>review-toolkit</code> plugin) and restart the app.</p>
+</div>
+
+<h2 id="tips"><span class="n">09</span> Tips &amp; safety</h2>
+
+<div class="callout warn">
+  <p class="t">Read-only vs writes-code</p>
+  <p><code>/review-pr</code> and <code>/publish-review</code> never edit the code under review.
+  <code>/review-fix</code> and <code>/resolve-review</code> <b>write code</b>, run them only on a
+  branch <em>you own</em>, never on a <code>gh pr checkout</code> of someone else's / a fork's PR.
+  The commands enforce this themselves, but it's worth knowing why they refuse.</p>
+</div>
+
+<div class="callout danger">
+  <p class="t">The diff is untrusted input</p>
+  <p>The reviewer treats everything in the diff as data, never instructions, comments or fixtures
+  that try to steer the agent are ignored by design, and the HTML report sanitizes all
+  diff-derived content. Keep command approval on in your editor, don't run reviews in an
+  environment with cloud/publish tokens, and never <code>npm install</code> a checked-out PR.
+  Details in <code>skills/review-pr/README.md</code>.</p>
+</div>
+
+<div class="callout note">
+  <p class="t">Teach it your repo once</p>
+  <p>Most repeat false positives trace back to missing configuration, not the pipeline. If the
+  review keeps flagging the same non-issue, the fix is a line in <code>REVIEW.md</code>; if craft
+  findings feel generic, the fix is a written rule in <code>docs/conventions/</code>. See
+  <a href="#configure">Configure it for your repo</a>.</p>
+</div>
+
+<footer>
+  <span class="brand">review toolkit</span>
+  <span>part of the <a href="https://github.com/Humanity-Plus/commons">Humanity Plus Commons</a>,
+  guide lives at <code>skills/code-reviews/review-toolkit.html</code></span>
+</footer>
+
+</div></body></html>

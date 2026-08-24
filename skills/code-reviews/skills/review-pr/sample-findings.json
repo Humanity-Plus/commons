@@ -1,0 +1,485 @@
+{
+  "meta": {
+    "mode": "pr",
+    "title": "Add Stripe payment capture flow",
+    "author": "octocat",
+    "base": "main",
+    "head": "feat/stripe-capture",
+    "headSha": "9f3c1ab7de4455aa0011223344556677889900aa",
+    "repo": "acme/checkout",
+    "prNumber": 482,
+    "url": "https://github.com/acme/checkout/pull/482",
+    "filesChanged": 9,
+    "additions": 412,
+    "deletions": 63,
+    "generatedAt": "2026-07-01T10:00:00Z",
+    "lenses": [
+      {
+        "name": "triage",
+        "status": "ran"
+      },
+      {
+        "name": "first-five",
+        "status": "ran"
+      },
+      {
+        "name": "conventions",
+        "status": "ran"
+      },
+      {
+        "name": "intent",
+        "status": "ran"
+      },
+      {
+        "name": "warm",
+        "status": "ran"
+      },
+      {
+        "name": "zombies",
+        "status": "ran"
+      },
+      {
+        "name": "preflight",
+        "status": "ran"
+      },
+      {
+        "name": "seams",
+        "status": "ran"
+      },
+      {
+        "name": "arbiter",
+        "status": "ran"
+      },
+      {
+        "name": "primitives",
+        "status": "ran"
+      }
+    ],
+    "sharding": {
+      "sharded": true,
+      "threshold": 400,
+      "areas": [
+        "Payments",
+        "Auth",
+        "Tooling"
+      ]
+    },
+    "holistic": {
+      "lensesOnly": 14,
+      "holisticOnly": 1,
+      "both": 1
+    }
+  },
+  "verdict": {
+    "decision": "request-changes",
+    "confidence": "high",
+    "summary": "Solid feature, but two things block merge.\n\n1. **Guaranteed crash on capture.** `charge.ts:42` calls a Stripe method that does not exist, so every capture throws.\n2. **Undisclosed auth change.** The session TTL jumps from 1h to 30d with no mention in the PR body.\n\nThe Payments area also needs boundary tests before this ships."
+  },
+  "triage": {
+    "groups": [
+      {
+        "name": "Payments",
+        "risk": "high",
+        "reason": "Mutates billing state and calls the Stripe API.",
+        "files": [
+          {
+            "path": "src/pay/charge.ts",
+            "status": "modified"
+          },
+          {
+            "path": "src/pay/stripe.ts",
+            "status": "added"
+          },
+          {
+            "path": "src/pay/types.ts",
+            "status": "modified"
+          }
+        ]
+      },
+      {
+        "name": "Auth",
+        "risk": "high",
+        "reason": "Session lifetime configuration touched.",
+        "files": [
+          {
+            "path": "src/auth/session.ts",
+            "status": "modified"
+          }
+        ]
+      },
+      {
+        "name": "Tooling",
+        "risk": "low",
+        "reason": "Dependency and config housekeeping.",
+        "files": [
+          {
+            "path": "package.json",
+            "status": "modified"
+          },
+          {
+            "path": "src/util/fmt.ts",
+            "status": "modified"
+          }
+        ]
+      }
+    ],
+    "skipped": [
+      "bun.lock",
+      "dist/bundle.js"
+    ]
+  },
+  "scorecard": [
+    {
+      "area": "TypeScript",
+      "status": "pass",
+      "note": "No unchecked casts; new types in `types.ts` match the SDK shapes.",
+      "findingIds": []
+    },
+    {
+      "area": "Payments",
+      "status": "fail",
+      "note": "Violates the repo's error-handling rule — empty catch swallows declines.",
+      "findingIds": [
+        "conventions-1"
+      ]
+    },
+    {
+      "area": "Readability",
+      "status": "warn",
+      "note": "`charge.ts` mixes validation, API calls, and mapping in one 210-line function.",
+      "findingIds": [
+        "conventions-2"
+      ]
+    },
+    {
+      "area": "Tests",
+      "status": "warn",
+      "note": "Backend logic is covered on the happy path only (see Test gaps).",
+      "findingIds": []
+    }
+  ],
+  "findings": [
+    {
+      "id": "first-five-1",
+      "lens": "first-five",
+      "severity": "critical",
+      "category": "External Calls",
+      "file": "src/pay/charge.ts",
+      "line": 42,
+      "title": "Calls undefined Stripe.captureIntent()",
+      "evidence": "The Stripe Node SDK groups calls by resource: payment intents live under `stripe.paymentIntents.*`, and the method that finalizes an already-authorized charge is `capturePaymentIntent()`. There is no `captureIntent()` — so this call can never succeed.\n\n## What the code does\n\n`src/pay/charge.ts:42` calls a method that doesn't exist:\n\n```ts\nconst res = await stripe.captureIntent(intentId); // not a function\n```\n\nEvery capture request funnels through that one line, so the failure is total:\n\n<figure class=\"diagram\">\n<svg viewBox=\"0 0 640 76\" xmlns=\"http://www.w3.org/2000/svg\" font-family=\"ui-sans-serif, system-ui\" font-size=\"12\">\n  <defs><marker id=\"ah\" markerWidth=\"9\" markerHeight=\"9\" refX=\"6\" refY=\"3\" orient=\"auto\"><path d=\"M0 0 L6 3 L0 6 z\" fill=\"#8a94a6\"/></marker></defs>\n  <rect x=\"6\" y=\"22\" width=\"150\" height=\"34\" rx=\"7\" fill=\"#1b1d24\" stroke=\"#8ab4f8\"/>\n  <text x=\"81\" y=\"43\" text-anchor=\"middle\" fill=\"#c9d3e6\">capture request</text>\n  <line x1=\"158\" y1=\"39\" x2=\"212\" y2=\"39\" stroke=\"#8a94a6\" stroke-width=\"1.5\" marker-end=\"url(#ah)\"/>\n  <rect x=\"214\" y=\"22\" width=\"196\" height=\"34\" rx=\"7\" fill=\"#1b1d24\" stroke=\"#8ab4f8\"/>\n  <text x=\"312\" y=\"43\" text-anchor=\"middle\" fill=\"#c9d3e6\" font-family=\"ui-monospace, monospace\">captureIntent(id)</text>\n  <line x1=\"412\" y1=\"39\" x2=\"466\" y2=\"39\" stroke=\"#8a94a6\" stroke-width=\"1.5\" marker-end=\"url(#ah)\"/>\n  <rect x=\"468\" y=\"22\" width=\"166\" height=\"34\" rx=\"7\" fill=\"#2a1416\" stroke=\"#e5484d\"/>\n  <text x=\"551\" y=\"43\" text-anchor=\"middle\" fill=\"#ff9ea0\" font-weight=\"700\">TypeError</text>\n</svg>\n<figcaption>The single bad call sits on the only path every capture takes.</figcaption>\n</figure>\n\n## Why it always breaks\n\nJavaScript only notices a missing method *when the line runs* — there's no compile-time check catching it here — so it sailed through review and then throws the instant a capture happens:\n\n| Call | In the SDK? | Result |\n| --- | --- | --- |\n| `stripe.captureIntent(id)` | no | `TypeError` at runtime |\n| `stripe.capturePaymentIntent(id)` | yes | captures the charge |\n\nA grep of the installed types confirms it:\n\n```text\n$ grep -rc captureIntent node_modules/stripe/types\n0\n```\n\n<div class=\"callout danger\"><div class=\"callout-title\">Impact</div>Because <b>every</b> capture path runs this one line, the feature fails 100% of the time — this is a guaranteed crash, not an edge case.</div>",
+      "suggestion": "Call the real method:\n\n```diff\n-const res = await stripe.captureIntent(intentId);\n+const res = await stripe.capturePaymentIntent(intentId);\n```\n\n<div class=\"callout ok\"><div class=\"callout-title\">Takeaway</div>Lean on the SDK's TypeScript types (or editor autocomplete) to confirm a method name before shipping — the compiler flags a typo'd method instantly, long before it reaches production.</div>",
+      "featureArea": "Payments",
+      "verified": true,
+      "source": "both"
+    },
+    {
+      "id": "first-five-2",
+      "lens": "first-five",
+      "severity": "high",
+      "category": "Error Handling",
+      "file": "src/pay/charge.ts",
+      "line": 58,
+      "title": "Stripe error swallowed by empty catch",
+      "evidence": "The `try/catch` around the capture call has an **empty catch block**, so a declined card resolves as success upstream:\n\n```ts\ntry {\n  await capture(intentId);\n} catch {}          // ← decline is silently eaten\nreturn { ok: true };\n```\n\nCallers can never distinguish a real capture from a declined one.",
+      "suggestion": "Re-throw or return a typed failure so callers can react to declines instead of always seeing `ok: true`.",
+      "featureArea": "Payments",
+      "verified": true,
+      "source": "lenses"
+    },
+    {
+      "id": "intent-1",
+      "lens": "intent",
+      "severity": "high",
+      "category": "Undisclosed",
+      "file": "src/auth/session.ts",
+      "line": 15,
+      "title": "Session TTL raised from 1h to 30d, not mentioned in PR",
+      "evidence": "The PR body describes **only** the Stripe capture flow. But `src/auth/session.ts:15` also raises the session lifetime by ~720×:\n\n```diff\n-const SESSION_TTL = 3600;      // 1 hour\n+const SESSION_TTL = 2592000;   // 30 days\n```\n\nWhy this matters: the session TTL is how long a stolen cookie stays usable. Going from 1 hour to 30 days widens that window enormously — a real security trade-off that reviewers approving \"a Stripe change\" would never notice.",
+      "suggestion": "Confirm this is intentional. Either document it in the PR description or split it into a separate, reviewable change.",
+      "featureArea": "Auth",
+      "verified": true,
+      "source": "lenses"
+    },
+    {
+      "id": "first-five-3",
+      "lens": "first-five",
+      "severity": "medium",
+      "category": "Input Boundaries",
+      "file": "src/pay/charge.ts",
+      "line": 30,
+      "title": "Amount not validated before hitting Stripe",
+      "evidence": "`charge(amount)` forwards `amount` straight to Stripe without checking it is a positive integer within the allowed ceiling. A negative or absurdly large value reaches the payment API unchecked.",
+      "suggestion": "Validate `1 <= amount <= 999999` before the API call.",
+      "featureArea": "Payments",
+      "verified": true,
+      "source": "lenses"
+    },
+    {
+      "id": "warm-1",
+      "lens": "warm",
+      "severity": "medium",
+      "category": "Dependency",
+      "file": "package.json",
+      "line": 0,
+      "title": "left-pad@1.3.0",
+      "evidence": "Used **once** in `src/util/fmt.ts:12` to pad a 3-char code. Last published 2018.",
+      "suggestion": "Replace with `String.prototype.padStart`.",
+      "featureArea": "Tooling",
+      "warm": {
+        "worth": "fail",
+        "alive": "warn",
+        "rightSized": "pass",
+        "secure": "pass"
+      },
+      "ecosystem": "npm",
+      "changeType": "added",
+      "packageVerdict": "reconsider",
+      "verified": true,
+      "source": "lenses"
+    },
+    {
+      "id": "warm-2",
+      "lens": "warm",
+      "severity": "low",
+      "category": "Dependency",
+      "file": "package.json",
+      "line": 0,
+      "title": "stripe@14.2.0",
+      "evidence": "Actively maintained, widely used, no known advisories at this version.",
+      "suggestion": "",
+      "featureArea": "Payments",
+      "warm": {
+        "worth": "pass",
+        "alive": "pass",
+        "rightSized": "pass",
+        "secure": "pass"
+      },
+      "ecosystem": "npm",
+      "changeType": "added",
+      "packageVerdict": "keep",
+      "verified": true,
+      "source": "lenses"
+    },
+    {
+      "id": "zombies-1",
+      "lens": "zombies",
+      "severity": "medium",
+      "category": "Boundaries",
+      "zombiesLetter": "B",
+      "partial": false,
+      "file": "src/pay/charge.ts",
+      "line": 30,
+      "title": "No test at the 999999-cent ceiling",
+      "evidence": "charge() should reject amounts over 999999 but no test exercises the boundary.",
+      "suggestion": "Assert `charge(999999)` succeeds and `charge(1000000)` throws.",
+      "featureArea": "Payments",
+      "source": "lenses"
+    },
+    {
+      "id": "zombies-2",
+      "lens": "zombies",
+      "severity": "high",
+      "category": "Exceptions",
+      "zombiesLetter": "E",
+      "partial": true,
+      "file": "src/pay/charge.ts",
+      "line": 58,
+      "title": "Declined-card path untested",
+      "evidence": "A test covers a successful capture but none asserts behavior when Stripe returns `card_declined`.",
+      "suggestion": "Add a test that stubs a declined charge and asserts the caller sees a failure.",
+      "featureArea": "Payments",
+      "source": "lenses"
+    },
+    {
+      "id": "zombies-3",
+      "lens": "zombies",
+      "severity": "low",
+      "category": "Zero",
+      "zombiesLetter": "Z",
+      "partial": false,
+      "file": "src/pay/charge.ts",
+      "line": 20,
+      "title": "No test for zero-amount charge",
+      "evidence": "Behavior for `charge(0)` is unspecified and untested.",
+      "suggestion": "Decide and assert whether `charge(0)` is rejected.",
+      "featureArea": "Payments",
+      "source": "lenses"
+    },
+    {
+      "id": "preflight-1",
+      "lens": "preflight",
+      "severity": "high",
+      "category": "Configuration",
+      "confidence": "high",
+      "file": "src/pay/stripe.ts",
+      "line": 4,
+      "title": "Set STRIPE_SECRET_KEY in production",
+      "evidence": "stripe.ts:4 reads process.env.STRIPE_SECRET_KEY; the app will fail to boot without it.",
+      "suggestion": "Add `STRIPE_SECRET_KEY` to the production secret store before deploy.",
+      "featureArea": "Payments",
+      "source": "lenses"
+    },
+    {
+      "id": "preflight-2",
+      "lens": "preflight",
+      "severity": "medium",
+      "category": "Operational",
+      "confidence": "medium",
+      "file": "src/auth/session.ts",
+      "line": 15,
+      "title": "Watch session store size after TTL increase",
+      "evidence": "Raising session TTL to 30d will grow the session store; monitor memory/row count post-deploy.",
+      "suggestion": "Add a dashboard alert on session store growth.",
+      "featureArea": "Auth",
+      "source": "lenses"
+    },
+    {
+      "id": "conventions-1",
+      "lens": "conventions",
+      "severity": "medium",
+      "category": "Convention",
+      "file": "src/pay/charge.ts",
+      "line": 58,
+      "title": "Empty catch violates the error-handling convention",
+      "evidence": "The empty `catch {}` at `src/pay/charge.ts:58` isn't just a bug risk — it breaks a rule this repo commits to in writing.\n\n## The rule\n\n`docs/conventions/error-handling.md` states, as a **MUST** (echoed in `AGENTS.md`): *\"never swallow an error — re-throw, or return a typed failure. Empty catch blocks are not allowed.\"*\n\n```ts\ntry {\n  await capture(intentId);\n} catch {}          // ← rule violation: silent swallow\n```\n\n## Why the repo has this rule\n\nSwallowed errors are the hardest class of bug to trace in production: the failure is real, but no log, metric, or caller ever learns about it. The convention exists so every failure is either handled or propagated.",
+      "suggestion": "Re-throw or map to a typed failure, per the convention:\n\n```diff\n-} catch {}\n+} catch (err) {\n+  throw new CaptureError(\"capture failed\", { cause: err });\n+}\n```\n\nTakeaway: when a rule is written down, cite it in review — it turns \"I'd prefer\" into \"our agreed standard,\" which is easier for the author to act on.",
+      "featureArea": "Payments",
+      "rule": "docs/conventions/error-handling.md: no empty catch — re-throw or return a typed failure",
+      "verified": true,
+      "source": "lenses"
+    },
+    {
+      "id": "conventions-2",
+      "lens": "conventions",
+      "severity": "low",
+      "category": "Readability",
+      "file": "src/pay/charge.ts",
+      "line": 1,
+      "title": "charge() mixes validation, I/O, and mapping in one 210-line function",
+      "evidence": "`charge()` handles input validation, the Stripe call, and response mapping in a single ~210-line function.\n\n## The rule\n\n`docs/conventions/readability.md` targets functions under ~60 lines and suggests separating I/O from pure transformation. This is a **SHOULD**, so it's a nudge, not a blocker.\n\n```text\n$ awk '/function charge/,/^}/' src/pay/charge.ts | wc -l\n210\n```",
+      "suggestion": "Pull `validateAmount()` and `mapChargeResult()` out as small pure helpers, leaving `charge()` to orchestrate. Smaller units are easier to unit-test (see the Payments test gaps).\n\nTakeaway: separating pure logic from I/O is what lets you test the tricky branches without stubbing the network.",
+      "featureArea": "Payments",
+      "rule": "docs/conventions/readability.md: functions under ~60 lines; separate I/O from transformation",
+      "source": "lenses"
+    },
+    {
+      "id": "first-five-4",
+      "lens": "first-five",
+      "severity": "medium",
+      "category": "Input Boundaries",
+      "file": "src/pay/types.ts",
+      "line": 8,
+      "title": "Optional `metadata` dereferenced without a null check (pattern, 4 sites)",
+      "evidence": "`ChargeInput.metadata` is optional (`src/pay/types.ts:8`), but four call sites dereference it unguarded — any charge created without metadata throws `TypeError`.\n\n```ts\nconst tag = input.metadata.orderTag; // metadata may be undefined\n```\n\nAll four sites repeat the same shape; this is one systemic gap, not four separate bugs.",
+      "suggestion": "Guard the access (`input.metadata?.orderTag`) or make `metadata` required at the validation boundary.\n\nTakeaway: an optional field makes every unguarded dereference a claim that someone upstream checked — grep the call sites before trusting it.",
+      "featureArea": "Payments",
+      "area": "Payments",
+      "verified": true,
+      "source": "lenses",
+      "locations": [
+        {
+          "file": "src/pay/types.ts",
+          "line": 8,
+          "note": "make `metadata` required here, or document why it is optional"
+        },
+        {
+          "file": "src/pay/charge.ts",
+          "line": 77,
+          "note": "guard with `input.metadata?.orderTag`"
+        },
+        {
+          "file": "src/pay/stripe.ts",
+          "line": 33,
+          "note": "guard with `input.metadata?.orderTag`"
+        },
+        {
+          "file": "src/util/fmt.ts",
+          "line": 21,
+          "note": "pass an empty object default instead of dereferencing"
+        }
+      ],
+      "regradeNote": "Grouped by the arbiter: 4 findings of the same missing-null-check class collapsed into one; severity set once for the class."
+    },
+    {
+      "id": "conventions-3",
+      "lens": "conventions",
+      "severity": "nitpick",
+      "category": "Naming",
+      "file": "src/util/fmt.ts",
+      "line": 9,
+      "title": "`fmtAmt` abbreviation diverges from the spelled-out naming convention",
+      "evidence": "`docs/conventions/naming.md` prefers spelled-out names (`formatAmount`) over abbreviations; `src/util/fmt.ts:9` adds `fmtAmt`.",
+      "suggestion": "Rename to `formatAmount`.",
+      "featureArea": "Tooling",
+      "area": "Tooling",
+      "rule": "docs/conventions/naming.md: prefer spelled-out names over abbreviations",
+      "folded": true,
+      "source": "lenses"
+    },
+    {
+      "id": "holistic-1",
+      "lens": "holistic",
+      "severity": "medium",
+      "category": "Cross-cutting",
+      "file": "src/pay/charge.ts",
+      "line": 91,
+      "title": "Capture retry can double-charge when the first attempt actually succeeded",
+      "evidence": "The retry loop re-calls capture on timeout — but a timeout does not mean the first capture failed; Stripe may have processed it. No idempotency key is passed, so a retried capture can charge twice.\n\nNo single lens owns this: it spans error handling, external calls, and operational behavior, which is why only the full-context pass surfaced it.",
+      "suggestion": "Pass an idempotency key on capture and treat a timeout as unknown-outcome rather than failure.",
+      "featureArea": "Payments",
+      "verified": true,
+      "source": "holistic"
+    }
+  ],
+  "limitations": [
+    "Registry release dates for `left-pad` could not be re-verified offline; based on cached metadata.",
+    "Zombies analysis assumes the existing test suite in `tests/pay` is complete."
+  ],
+  "systemChange": {
+    "mapPath": "docs/project/primitives.yaml",
+    "overall": "adds",
+    "mapUpdated": false,
+    "primitives": [
+      {
+        "id": "charge",
+        "name": "Charge",
+        "area": "data",
+        "classification": "extends",
+        "files": [
+          "src/pay/charge.ts",
+          "src/pay/types.ts"
+        ],
+        "invariantsTouched": [
+          "Amounts are integer minor units; a float amount is always a bug."
+        ],
+        "relatesTo": [
+          "session"
+        ],
+        "note": "Adds capture flow fields to the charge shape and threads them through the validator."
+      },
+      {
+        "id": "session",
+        "name": "Session",
+        "area": "auth",
+        "classification": "composes",
+        "files": [
+          "src/auth/session.ts"
+        ],
+        "relatesTo": [
+          "charge"
+        ],
+        "note": "Reads the session TTL constant; no declaration changed."
+      }
+    ],
+    "added": [
+      {
+        "name": "capture-retry-queue",
+        "files": [
+          "src/pay/retryQueue.ts"
+        ],
+        "note": "New durable-retry primitive, not in the map."
+      }
+    ]
+  }
+}

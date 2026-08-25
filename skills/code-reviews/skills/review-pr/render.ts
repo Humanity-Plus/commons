@@ -47,7 +47,9 @@
  *   generic Findings section). Plus, per lens:
  *   warm:        { warm:{worth,alive,rightSized,secure}, ecosystem, changeType, packageVerdict }
  *   zombies:     { zombiesLetter, partial }
- *   preflight:   { confidence }
+ *   preflight:   { confidence, verifiable? }  // verifiable = the exact command/
+ *                              // query/place that settles the item (vs. a pure
+ *                              // human judgment call, which omits it)
  *   conventions: { rule }   // cited repo rule as one "path: gist" string
  * Optional skill-added fields (absent on the default small-PR path — the skill,
  * not the lenses, sets these):
@@ -104,6 +106,7 @@ interface Finding {
   zombiesLetter?: string;
   partial?: boolean;
   confidence?: string;
+  verifiable?: string;
   rule?: string;
   // skill-added optionals (absent on the default path)
   area?: string;
@@ -1018,7 +1021,11 @@ function preflightSection(m: Meta, findings: Finding[]): string {
             <span class="pf-title">${esc(f.title)}</span>
             ${f.file ? `<span class="pf-ref">${fileRef(m, f.file, f.line)}</span>` : ""}
           </label>
-          ${f.suggestion ? `<div class="pf-note md">${renderRich(f.suggestion, m)}</div>` : ""}
+          ${f.suggestion ? `<div class="pf-note md">${renderRich(f.suggestion, m)}</div>` : ""}${
+            f.verifiable
+              ? `<div class="pf-verify"><span class="pf-verify-tag">verify</span><code>${esc(f.verifiable)}</code></div>`
+              : ""
+          }
         </div></li>`
         )
         .join("")}</ul></div>`
@@ -1343,6 +1350,11 @@ function page(r: Report): string {
   .pf-high{background:#5c1f22;color:#ff9ea0}.pf-medium{background:#5a4212;color:#ffb224}.pf-low{background:#1f3a5c;color:#8ab4f8}
   .pf-title{font-weight:600;font-size:14px}
   .pf-note{color:var(--muted);font-size:12.5px}
+  .pf-verify{display:flex;align-items:baseline;gap:8px;margin-top:4px}
+  .pf-verify-tag{flex:none;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    color:#7ee0a0;background:color-mix(in srgb,#46a758 14%,var(--panel2));
+    border:1px solid color-mix(in srgb,#46a758 32%,var(--border));border-radius:20px;padding:1px 8px}
+  .pf-verify code{font-size:11.5px;color:#d6d6df}
   .pf-note.md p{margin:0}
   .pf-note.md .md-pre{margin:6px 0 0}
 

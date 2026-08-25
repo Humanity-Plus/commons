@@ -378,8 +378,20 @@ you had to); the defaults above apply.
    - Brief every lens (and verify) with the merge-forward framing: *base is N
      commits ahead; judge findings against the merged result — a rule or check
      that's newer than this code still fails the merge.*
+   - **Owned checkouts: materialize the merge and run the gates on it.**
+     `merge-tree` exit 0 answers "does the *text* merge?" — a fixture refactored
+     on base underneath a test this branch just modified auto-merges silently and
+     breaks semantically. When the checkout is owned and the branch is behind:
+     create the merged tree in a scratch worktree (`git worktree add <tmp>
+     <base>` + merge the branch, or check out `merge-tree --write-tree`'s
+     result), run the repo's **gates** there (typecheck, lint, targeted tests —
+     workspace runner as always), and feed failures to the lenses as
+     **merge-time ground truth**. This is the pipeline's heaviest step — that's
+     why it's gated on owned + behind-base — and in batch runs over stacked
+     follow-up PRs it has caught real information every time. Clean up the
+     scratch worktree after.
    - Record it in `limitations` ("branch is N commits behind <base>; reviewed
-     merge-forward; conflicts in: …").
+     merge-forward; conflicts in: …; merged-tree gates: <green / failures>").
 8. **Check for a dependent/stacked PR** (see "Stack-aware review" below). In PR mode
    this is one or two cheap `gh` calls that work for *any* stacking tool (or none), so
    run it unconditionally: if a PR is stacked above/below this one, gather the stack so
@@ -506,11 +518,21 @@ skip rules.
 diffs.** Any diff where triage found **one feature area** and the shard threshold
 isn't crossed gets the same medium-tier treatment regardless of file count (field:
 a 7-file, 227-line, one-area diff paid the full six-lens fan-out for two `[]`
-returns). The complete ladder, keyed to what triage actually found: **light**
-(single file, <~50 lines, no high-risk area) → **medium** (one feature area under
-the shard threshold, or small-but-high-risk) → **full fan-out** (multi-area under
-the shard threshold) → **sharded** (over threshold, ≥3 areas, interfaces gate
-passes).
+returns).
+
+**The complete ladder — mechanical predicates, in order; the first row that
+matches wins** (no re-deriving the tier per run):
+
+| Tier | Predicate (on triage's output + distinct changed lines) | Who reviews |
+|------|---------------------------------------------------------|-------------|
+| **trivial** | single hunk, < ~10 lines | the orchestrator itself, inline, with the concatenated checklist — zero lens spawns (Phase 3 verification discipline still applies) |
+| **light** | single file, < ~50 lines, no high-risk area | one generalist subagent, all lens definitions |
+| **medium** | one feature area under the shard threshold — or single-file-small but high-risk | combined bugs+tests generalist (+ per area if several such areas), `conventions`, globals per their skip rules |
+| **full fan-out** | multi-area, under the shard threshold | every lens whole-diff |
+| **sharded** | over threshold AND ≥3 areas AND interfaces gate passes | risk-tiered per-area shards |
+
+`seams`/`intent`/`primitives`/`preflight`/`warm` run per their own objective skip
+conditions at every tier.
 
 Otherwise — the normal path:
 
@@ -886,7 +908,17 @@ reports "fixed" while the hole survives. This is a **contract field, not prose**
 verify subagents return `fixWorks` on every confirmed/weakened verdict (see
 `verify.md`), and inline verifications record the same judgment. On
 `fixWorks: false`, **rewrite the suggestion** from the verified mechanism before
-Phase 4 hands anything off. Pass it the same
+Phase 4 hands anything off.
+
+**On owned checkouts, `fixWorks` is command-settled, not judged, wherever the
+repo's gates can express it.** Field case: three lenses *and the source issue*
+converged on a fix that fails the repo's typecheck (`lib` target) *and* its lint
+rule — consensus validated the problem, not the fix, and applying it would have
+turned a green branch red. When the suggestion is a concrete patch: apply it on
+scratch, run the **targeted** gates (typecheck/lint on the touched file), then
+revert by **inverse edit** (the mutation-revert safety rules apply — never a
+file-level `git restore` over uncommitted work). Judgment-`fixWorks` remains only
+where gates can't express the question or the checkout is untrusted. Pass it the same
 **repository review context** and, if you gathered one, the **stack summary** —
 a finding that the context declares out-of-scope (e.g. a missing migration in a
 greenfield repo) or that a descendant PR already reverts/supersedes should be
@@ -995,6 +1027,14 @@ contradiction between a lens's fetch and the stale Phase 0 measurement).
    claim and evidence text** — stitched prose is where fabricated refs hide (a
    merged finding has cited `:250-266` for code at 220–228), and the anchor check
    alone doesn't see them. Grep each embedded ref's target; correct or flag.
+   **Concrete examples in evidence get the same skepticism as anchors.** Lenses
+   fabricate illustrative examples the way they used to fabricate line numbers
+   (field: "the unanchored regex would swallow `settings.test.tsx`" — both
+   patterns swallow it; right conclusion, checkably false example, and it would
+   have shipped as an assertion under the reviewer's name). An "input X produces
+   Y" claim in evidence is a mechanical claim — verify it (a few lines of
+   `node -e` on an owned checkout, or reasoning against the source) or **delete
+   the example and keep the conclusion**.
    **Reconcile the scorecard against the verified pool**: a scorecard status that a
    verified finding from *any* lens contradicts (Tests "pass" while a verified
    finding proves a file has no spec) gets downgraded, with the reconciliation

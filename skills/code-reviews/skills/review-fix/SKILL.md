@@ -57,9 +57,10 @@ the code under review.
    that survive the differential get handed to the lenses as ground truth: on a
    stale branch, a failing CI-enforced check is exactly where a blocker hides, and
    no read-only lens can see it.
-   (Baseline **before** `review-report/` exists, and when re-running checks later,
-   remember filesystem-scanning linters see that directory even though git ignores
-   it — a red check pointing into your own artifact is noise, not a regression.)
+   (Baseline **before** `review-report/` exists; for whole-repo checks later, run
+   them through `<review-pr-skill-dir>/check-clean.sh <cmd…>` — it moves the
+   artifact aside and trap-restores it, so a red check can neither point into
+   your own artifact nor strand it.)
 2. **Review (findings only).** Invoke the `review-pr` skill in **findings-only mode**:
    run the same full lens sequence as a normal review — triage → first-five, conventions,
    warm, zombies, preflight, intent → verify → arbiter — exactly as normal, write

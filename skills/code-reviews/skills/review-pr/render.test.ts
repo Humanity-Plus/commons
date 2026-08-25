@@ -260,6 +260,21 @@ test("trackedIssue renders as a linked chip; hostile URLs are dropped", () => {
   expect((html.match(/chip chip-tracked/g) || []).length).toBe(1); // only the valid one gets a chip
 });
 
+test("preflight verifiable renders as an escaped verify line, absent otherwise", () => {
+  const mk = (over: Record<string, unknown> = {}) => ({
+    id: "preflight-1", lens: "preflight", severity: "medium", category: "Operational",
+    confidence: "medium", file: "", line: 0, title: "Check the alert rule",
+    evidence: "e", suggestion: "s", featureArea: "Ops", ...over,
+  });
+  const html = page(
+    baseReport({ findings: [mk({ verifiable: 'gh api /alerts | grep "<session>"' })] })
+  );
+  expect(html).toContain('class="pf-verify"');
+  expect(html).toContain("&lt;session&gt;"); // escaped, not live markup
+  const without = page(baseReport({ findings: [mk()] }));
+  expect(without).not.toContain('class="pf-verify"');
+});
+
 test("default path: none of the new sections/chips render when the fields are absent", () => {
   const html = page(baseReport({ findings: [mkFinding()] }));
   expect(html).not.toContain('id="more-findings"');

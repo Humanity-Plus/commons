@@ -10,8 +10,8 @@ adapt them to your team.
 
 Two ways in, two philosophies, **pick one**. The skills CLI copies editable skill
 files into your agent, so you can hack on them and make them your own; the Claude
-Code plugin installs the Review Toolkit as a managed bundle. Installing both leaves
-you with every review skill twice.
+Code plugins install the Review Toolkit and Code Publish bundles as managed
+plugins. Installing both lanes leaves you with the same skills twice.
 
 ### Option 1: skills CLI (any agent, editable files)
 
@@ -33,9 +33,9 @@ npx skills add Humanity-Plus/commons -g                 # install globally, not 
 Skills are installed as ordinary files you own and can edit. Nothing updates behind
 your back, pull our latest changes when you want them with `npx skills update`.
 
-### Option 2: Claude Code plugin (managed bundle)
+### Option 2: Claude Code plugins (managed bundles)
 
-Claude Code only. Installs the whole Review Toolkit as one plugin:
+Claude Code only. Add the marketplace once, then install the bundles you want:
 
 ```bash
 claude plugin marketplace add Humanity-Plus/commons
@@ -45,11 +45,15 @@ claude plugin marketplace add Humanity-Plus/commons
 claude plugin install review-toolkit@humanity-plus
 ```
 
+```bash
+claude plugin install code-publish@humanity-plus
+```
+
 (Inside a session: `/plugin marketplace add Humanity-Plus/commons`, then
-`/plugin install review-toolkit@humanity-plus`.) Plugin skills are namespaced,
-invoke them as `/review-toolkit:review-pr`, `/review-toolkit:review-fix`, and so
-on. Update later with `claude plugin marketplace update humanity-plus`. The
-standalone skills (code publish, design systems) are CLI-only for now.
+`/plugin install <name>@humanity-plus`.) Plugin skills are namespaced, invoke
+them as `/review-toolkit:review-pr`, `/code-publish:create-pr`, and so on.
+Update later with `claude plugin marketplace update humanity-plus`. The design
+systems skills are CLI-only for now.
 
 > **Installing review skills with the CLI? Use `-g` (global).** Review skills
 > installed into a project you then review other people's PRs in can be swapped
@@ -104,12 +108,22 @@ until a fresh review has run against the code being PR'd.
 
 ### Code publish
 
-**[create-pr](skills/code-publish/create-pr/SKILL.md)**
+Three skills for the moment work leaves your machine and lands on GitHub. They
+share one philosophy: **disclose who wrote it, and make what was written easy to
+read** — the opposite of skills that try to make agent output pass as human.
+Also installable as the `code-publish` plugin
+([bundle README](skills/code-publish/README.md)).
+
+**[write-clearly](skills/code-publish/skills/write-clearly/SKILL.md)**
+Clarity rules for prose deliverables — PR bodies, issue text, docs, reports.
+Cuts filler and hedging, names sources, prefers mechanism or number over vibes.
+
+**[create-pr](skills/code-publish/skills/create-pr/SKILL.md)**
 Opens or updates a pull request with an outcome-led title in the repo's own
 convention and a problem-first description a reviewer can understand without
 reconstructing the motivation from the diff.
 
-**[github-comment-attribution](skills/code-publish/github-comment-attribution/SKILL.md)**
+**[github-comment-attribution](skills/code-publish/skills/github-comment-attribution/SKILL.md)**
 Prepends a one-line attribution header to agent-authored GitHub comments, issues,
 and replies so humans and agents can tell them apart from the account owner's own
 words.

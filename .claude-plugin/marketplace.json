@@ -10,6 +10,11 @@
       "name": "review-toolkit",
       "source": "./skills/code-reviews",
       "description": "AI code-review loop for PRs and branches: multi-lens review with HTML report, safe fixing, GitHub publishing, review-debt filing, and a primitives-map generator."
+    },
+    {
+      "name": "code-publish",
+      "source": "./skills/code-publish",
+      "description": "Publishing work to GitHub: clear prose deliverables (write-clearly), outcome-led PRs (create-pr), and attribution headers on agent-authored comments (github-comment-attribution)."
     }
   ]
 }

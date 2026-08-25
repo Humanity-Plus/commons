@@ -603,7 +603,11 @@ test gaps and craft findings without it. The arbiter still corrects as backstop;
 this prevents the churn at the source. **The same closing lines carry the
 `featureArea` rule: copy it verbatim from the triage list provided — never invent
 a name** (field: lenses returned "Save-error surface" for areas triage had named
-differently; normalization stays as backstop).
+differently; normalization stays as backstop) — **and the empty-case rule: no
+findings means `[]`, still a raw JSON array, never prose** (the last
+return-contract leak: agents with nothing to report drift to a prose "no
+findings" or a fenced `[]`, because every example they've seen shows a populated
+array).
 
 - `lenses/first-five.md` — the five common mistakes (bugs).
 - `lenses/conventions.md` — craft & tech-stack conformance vs the repo's own convention
@@ -823,6 +827,13 @@ to every finding built on it. One resolution frequently settles several findings
 once; never let contradictory findings pass verify independently at high severity.
 
 Then **triage each claim by how it can be checked** before spawning anything:
+
+**On owned checkouts, behavior claims go to the experiment bucket first.** Field
+runs keep proving the same thing: reading code *predicts* behavior, a probe
+*observes* it — two lenses and an orchestrator all reasoned wrongly from source
+about the same option until a probe settled it in one run. Mechanical stays first
+for existence claims (a grep answers "is this symbol there?" outright), but "what
+does this code *do*?" goes to a probe before it goes to a skeptic.
 
 - **Mechanical claims** — provable or refutable by one or two read-only commands
   whose output is unambiguous (`wc -l` against a stated size, a `grep` for whether a
@@ -1123,6 +1134,26 @@ the artifact differs. Two mode-specific adjustments:
   summary says what a fixer needs: *"N blockers (critical/high) · M should-fix
   (medium) · K advisories"* — `request-changes`/`approve` means nothing when
   nothing is being published.
+
+**Queue mode (consecutive reviews in one session — e.g. working a PR backlog).**
+Field-tested over multi-PR batches; three rules keep it lean and correct:
+
+- **Repo-level context carries over; diff-level context never does.** Discover
+  once per session: the review context (`REVIEW.md`), convention docs, the
+  primitives map, the severity bar, the repo's gate commands. Re-do per PR,
+  always: the base fetch (each merge moves base), the workspace reset (that's
+  what the findings archive exists for), the baseline gates, and the PR's own
+  metadata (state, head SHA — the queue is a snapshot; the world moves).
+- **`findings.json` is still written per PR — it is not optional in queue mode.**
+  A field agent reasonably substituted the PR-comment trail; that quietly breaks
+  four contracts at once (`publish.ts`, `/review-issues path=`, `resolve-review`,
+  and the pre-PR hook's freshness check all consume the file). Comments are the
+  human-facing record; findings.json is the machine one. Write it, run its
+  consumers, let the next PR's reset archive it.
+- **A session spanning a toolkit update keeps the skill text it loaded.** Long
+  queue sessions outlive skill releases; verifying "disk matches remote" proves
+  nothing about what's in context. If the toolkit updated mid-queue, finish the
+  batch and restart before the next one.
 
 ## Publishing the review to GitHub (optional, PR mode)
 

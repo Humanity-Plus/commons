@@ -54,6 +54,23 @@ test("buildBlock neutralizes hostile names in mermaid and table cells", () => {
   expect(block).not.toContain('"];');
 });
 
+test("long invariants clip on a word boundary with an ellipsis, not mid-word", () => {
+  const original =
+    "Agents may set draft or in review but never approve because approval requires every section ready or not applicable with at least one ready and the guard lives in isPrdApprovable which every writer must call";
+  const long = JSON.parse(JSON.stringify(report));
+  long.systemChange.primitives[0].invariantsTouched = [original];
+  const block = buildBlock(long);
+  const line = block.split("\n").find((l) => l.includes("Agents may set"))!;
+  expect(line).toContain("…"); // clipped with ellipsis
+  const prefix = line.slice(line.indexOf("Agents"), line.indexOf("…"));
+  // The kept text must be a prefix of the original that ends exactly at a word
+  // boundary — i.e. the next character in the original is a space (not mid-word).
+  expect(original.startsWith(prefix)).toBe(true);
+  expect(original[prefix.length]).toBe(" ");
+  expect(prefix.endsWith(" ")).toBe(false); // no dangling space before the ellipsis
+  expect(prefix.length).toBeLessThanOrEqual(160);
+});
+
 test("buildBlock throws without a systemChange section", () => {
   expect(() => buildBlock({ verdict: { decision: "comment" } })).toThrow("no systemChange");
 });

@@ -116,7 +116,10 @@ Classify each selected finding:
 - **Advisory — hand back, don't auto-edit** — `intent` (PR-description/disclosure: a
   human decides whether to split or document, not a code edit), most `preflight` (deploy
   actions like "set `STRIPE_SECRET_KEY` in prod" or "run the migration" happen outside
-  the code). If a preflight item *does* imply a code change (add a config default, guard
+  the code). **Exception: a `preflight` finding carrying `verifiable` is a
+  "do it now" item, not a hand-back** — the field states exactly how to settle it;
+  when you have the access and the check is read-only, run it and report the
+  result. Hand back only when blocked, saying what blocked you. If a preflight item *does* imply a code change (add a config default, guard
   a missing env read), fix that part and hand back the ops part.
 
 Order the fixable set: **severity first** (critical → high → medium), then **group by

@@ -55,6 +55,15 @@ Keep suggestions concrete and tied to real values, and write file refs as
      inside code that is unreachable (dead condition, impossible state) is a
      different finding — the dead branch itself — not a missing test. Say which
      it is.
+   - **Every new or changed test in the diff must have a nameable mutation that
+     makes it fail.** For each one, state the mutation that should break it
+     ("flip the clamp bound", "point the consumer at a hardcoded copy"). If you
+     cannot name one, the assertion cannot fail — that's a finding at the
+     severity of what the test *claims* to guard. Naming is your job; on owned
+     checkouts the orchestrator **runs** the mutations (experiment bucket) rather
+     than trusting either of you to reason about them — field data: four of five
+     test-only PRs in one batch had an assertion that could not fail, and none
+     were visible from reading.
 3. Where a test partially covers a behavior (incomplete assertions), flag it and set
    `partial: true`.
 4. **Group your own findings by test subject — don't emit a swarm.** When several

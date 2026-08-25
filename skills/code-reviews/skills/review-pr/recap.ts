@@ -23,12 +23,17 @@ const RISK: Record<Classification, string> = { adds: "high", extends: "medium", 
 
 // Mermaid + markdown-table cells share this: keep labels boring so a hostile
 // diff can't smuggle markup into the PR body through a primitive name.
-const plain = (s: unknown): string =>
-  String(s ?? "")
+// Clipping happens on a WORD boundary with an ellipsis — a hard slice(0,160)
+// landed mid-sentence in invariant blockquotes (field report).
+const plain = (s: unknown): string => {
+  const t = String(s ?? "")
     .replace(/[^\w\s,./:&+'-]/g, " ")
     .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 160);
+    .trim();
+  if (t.length <= 160) return t;
+  const cut = t.lastIndexOf(" ", 160);
+  return `${t.slice(0, cut > 100 ? cut : 160).trimEnd()}…`;
+};
 
 const mmId = (s: string): string => plain(s).replace(/[^\w-]/g, "_") || "p";
 

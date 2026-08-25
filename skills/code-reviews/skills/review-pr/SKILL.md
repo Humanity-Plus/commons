@@ -374,7 +374,14 @@ you had to); the defaults above apply.
      "base-side changes to the same files"). Field evidence: with only the
      briefing, no specialized lens made a PR-file-vs-base-commit connection that
      a whole-diff generalist made — lenses over-index on "review this diff"
-     unless the base side is *in* the diff they're handed.
+     unless the base side is *in* the diff they're handed. **And interpret it —
+     you already read this diff, the lenses shouldn't have to re-infer its
+     meaning**: alongside the raw diff, write one to three lines of "what changed
+     on base that this PR should know" (a new shared helper the siblings migrated
+     to, a renamed contract, a moved guard). Field: that hand-written line
+     produced two of four findings on a run where a 13-commit base-side diff was
+     too much text to infer "there is now a shared helper you should be using"
+     from.
    - Brief every lens (and verify) with the merge-forward framing: *base is N
      commits ahead; judge findings against the merged result — a rule or check
      that's newer than this code still fails the merge.*
@@ -525,7 +532,7 @@ matches wins** (no re-deriving the tier per run):
 
 | Tier | Predicate (on triage's output + distinct changed lines) | Who reviews |
 |------|---------------------------------------------------------|-------------|
-| **trivial** | single hunk, < ~10 lines | the orchestrator itself, inline, with the concatenated checklist — zero lens spawns (Phase 3 verification discipline still applies) |
+| **trivial** | single hunk, < ~10 lines | the orchestrator itself, inline, with the concatenated checklist — zero lens spawns. **Zero spawns is not zero work**: trivial still owes real verification — is the changed surface deployed/referenced anywhere else (grep for dynamic references), does the commit/changelog type still fit, and Phase 3 discipline on any claim you make |
 | **light** | single file, < ~50 lines, no high-risk area | one generalist subagent, all lens definitions |
 | **medium** | one feature area under the shard threshold — or single-file-small but high-risk | combined bugs+tests generalist (+ per area if several such areas), `conventions`, globals per their skip rules |
 | **full fan-out** | multi-area, under the shard threshold | every lens whole-diff |
@@ -533,6 +540,16 @@ matches wins** (no re-deriving the tier per run):
 
 `seams`/`intent`/`primitives`/`preflight`/`warm` run per their own objective skip
 conditions at every tier.
+
+**Test-only diffs get a mode, not just a tier.** When every changed file matches
+test/spec patterns (`*.test.*`, `*.spec.*`, test fixtures), the decisive question
+is uniform and mechanical — **"would each new or changed test fail if the behavior
+it covers regressed?"** — and it isn't a lens choice. Whatever tier the size
+predicates select, add the mutation-first framing to every brief: *for each test in
+the diff, name the mutation that should break it*. On **owned checkouts, the
+orchestrator runs the mutations** rather than asking a lens to reason about them —
+field data: four of five test-only PRs in one batch carried at least one assertion
+that could not fail, none visible from reading, all settled by running.
 
 Otherwise — the normal path:
 
@@ -833,7 +850,19 @@ runs keep proving the same thing: reading code *predicts* behavior, a probe
 *observes* it — two lenses and an orchestrator all reasoned wrongly from source
 about the same option until a probe settled it in one run. Mechanical stays first
 for existence claims (a grep answers "is this symbol there?" outright), but "what
-does this code *do*?" goes to a probe before it goes to a skeptic.
+does this code *do*?" goes to a probe before it goes to a skeptic. Two claim
+shapes are **experiment claims by construction** — the "when in doubt, judgment"
+tiebreak never applies to them on an owned checkout:
+
+- **Test-guard claims** ("this test doesn't guard X", "this assertion can't
+  fail") — the mutation is mechanical, the verdict binary. Nothing about a
+  test's protective value is settled by reading it.
+- **Example-truth claims** ("input X produces Y") inside a finding's evidence or
+  mechanism — settled by *running X*, and they often decide whether the finding
+  itself is right (field: "7.6 → 5 proves rounding" — the clamp alone already
+  gives 5, and deleting the rounding stayed green). The Phase 4 example check is
+  the render-time backstop; **this is where example truth gets settled**, before
+  the fix phase consumes the finding.
 
 - **Mechanical claims** — provable or refutable by one or two read-only commands
   whose output is unambiguous (`wc -l` against a stated size, a `grep` for whether a
@@ -1154,6 +1183,12 @@ Field-tested over multi-PR batches; three rules keep it lean and correct:
   queue sessions outlive skill releases; verifying "disk matches remote" proves
   nothing about what's in context. If the toolkit updated mid-queue, finish the
   batch and restart before the next one.
+
+One more findings-only cue: **preflight findings carrying `verifiable` are the
+fix phase's "do it now" items.** The field documents *how* to settle the item —
+when the fixer has the access and the check is read-only, running it and
+reporting the result beats handing it back (the backlog-loop rule "prefer doing
+the thing over filing about it" is this field's consumer).
 
 ## Publishing the review to GitHub (optional, PR mode)
 

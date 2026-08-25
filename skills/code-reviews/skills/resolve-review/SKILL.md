@@ -169,11 +169,12 @@ For each task, smallest blast radius first:
    reach a whole-repo check:** `review-report/` is git-ignored via
    `.git/info/exclude`, but formatters/linters that scan the filesystem (biome,
    prettier) still see it. Scope checks to the changed files where possible; when a
-   **whole-repo** check is unavoidable, **relocate the artifact first — required,
-   not optional**:
+   **whole-repo** check is unavoidable, run it through the shipped guard (the
+   move-aside/restore dance got hand-run four times in one batch — it's a script
+   now, trap-restored even when the check fails, exit code passed through):
 
    ```sh
-   mv review-report /tmp/review-report.$$ && <run the check>; mv /tmp/review-report.$$ review-report
+   <review-pr-skill-dir>/check-clean.sh bun run check
    ```
 
    Never "fix" the artifact, never count it as a failure, and never let it

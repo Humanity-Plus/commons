@@ -32,7 +32,15 @@ write file refs as `` `path/file.ts:4` ``.
    changes.
 2. For each, produce a concrete action item with a confidence level (`high` /
    `medium` / `low`) reflecting how strongly the diff implies it.
-3. Cite the source file for every item. Omit categories with no items.
+3. **Distinguish "a human must decide" from "someone should run this check."**
+   When an item is *verifiable* — a specific query, command, or dashboard would
+   settle it — say exactly how in a `verifiable` field (e.g.
+   `"npx convex env list --prod | grep STRIPE"` or `"check the alerts page for a
+   rule on session-store growth"`). The field documents *how*; executing it
+   against a live system remains a human action (or an explicitly asked-for one).
+   Items with no check that settles them (true judgment calls) simply omit the
+   field.
+4. Cite the source file for every item. Omit categories with no items.
 
 ## Output
 

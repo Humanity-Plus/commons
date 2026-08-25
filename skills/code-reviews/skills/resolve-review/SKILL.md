@@ -186,7 +186,13 @@ For each task, smallest blast radius first:
    the boundary), confirm the new test **fails**, restore the code, confirm it
    passes. A test that survives the mutation step is the deliverable; one that was
    never seen red is a `partial` at best. Record the mutation you used in the
-   ledger row. **Revert mutations safely:** undo the mutation by **inverse edit**
+   ledger row. **Mutate the right side: for a test guarding single-sourcing,
+   mutate the *consumer*, not the source.** Changing the shared value proves
+   nothing — both sides move together and the test stays green by construction;
+   point the consumer at a hardcoded copy instead, because *that divergence* is
+   the drift the test exists to catch. (Field: a consumer-side mutation exposed a
+   second gap — an existing "edge case" spec had seeded the very item it claimed
+   to test, so its boundary was unreachable.) **Revert mutations safely:** undo the mutation by **inverse edit**
    (or commit the fix first, then mutate freely) — never `git checkout --` /
    `git restore` a file that carries your **uncommitted fix**, because the
    file-level revert wipes the fix along with the mutation.

@@ -525,7 +525,11 @@ skip rules.
 diffs.** Any diff where triage found **one feature area** and the shard threshold
 isn't crossed gets the same medium-tier treatment regardless of file count (field:
 a 7-file, 227-line, one-area diff paid the full six-lens fan-out for two `[]`
-returns).
+returns). The light row allows **two** files for the same reason: a tiny
+cross-file move — cut a type from one file, paste it into another — is one
+file's worth of content, and gating light on "single file" sent a 9-line type
+move to the medium tier (field: the reviewer deviated to fewer agents and lost
+nothing).
 
 **The complete ladder — mechanical predicates, in order; the first row that
 matches wins** (no re-deriving the tier per run):
@@ -533,7 +537,7 @@ matches wins** (no re-deriving the tier per run):
 | Tier | Predicate (on triage's output + distinct changed lines) | Who reviews |
 |------|---------------------------------------------------------|-------------|
 | **trivial** | single hunk, < ~10 lines | the orchestrator itself, inline, with the concatenated checklist — zero lens spawns. **Zero spawns is not zero work**: trivial still owes real verification — is the changed surface deployed/referenced anywhere else (grep for dynamic references), does the commit/changelog type still fit, and Phase 3 discipline on any claim you make |
-| **light** | single file, < ~50 lines, no high-risk area | one generalist subagent, all lens definitions |
+| **light** | one or two files, < ~50 distinct lines, no high-risk area | one generalist subagent, all lens definitions |
 | **medium** | one feature area under the shard threshold — or single-file-small but high-risk | combined bugs+tests generalist (+ per area if several such areas), `conventions`, globals per their skip rules |
 | **full fan-out** | multi-area, under the shard threshold | every lens whole-diff |
 | **sharded** | over threshold AND ≥3 areas AND interfaces gate passes | risk-tiered per-area shards |
@@ -624,7 +628,12 @@ differently; normalization stays as backstop) — **and the empty-case rule: no
 findings means `[]`, still a raw JSON array, never prose** (the last
 return-contract leak: agents with nothing to report drift to a prose "no
 findings" or a fenced `[]`, because every example they've seen shows a populated
-array).
+array). Pair it with the other half of that rule: **`[]` is a valid and useful
+answer — never manufacture a finding to justify the spawn.** Every lens file
+already says this, but buried in bundled context it loses to end-position
+emphasis like everything else; restated as a closing line it produced correct
+clean empties in the field (preflight twice, bugs once) in a batch where each
+could easily have been padded.
 
 - `lenses/first-five.md` — the five common mistakes (bugs).
 - `lenses/conventions.md` — craft & tech-stack conformance vs the repo's own convention
@@ -1075,6 +1084,13 @@ contradiction between a lens's fetch and the stale Phase 0 measurement).
    Y" claim in evidence is a mechanical claim — verify it (a few lines of
    `node -e` on an owned checkout, or reasoning against the source) or **delete
    the example and keep the conclusion**.
+   **Counts, ordinals, and enumerations get the same treatment.** "The fifth
+   copy", "all three call sites", "CI runs typecheck" — these are mechanical
+   claims that a `grep -c` or a read of the named file settles, and anchor
+   normalization never touches them (field: both count-bearing findings in one
+   run were wrong — the "fifth copy" was the sixth, and the CI claim didn't
+   survive reading the workflow). Re-count, or strip the number and keep the
+   conclusion.
    **Reconcile the scorecard against the verified pool**: a scorecard status that a
    verified finding from *any* lens contradicts (Tests "pass" while a verified
    finding proves a file has no spec) gets downgraded, with the reconciliation

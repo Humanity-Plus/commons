@@ -14,12 +14,22 @@ plausible reinvention, vacuous tests, green-CI-wrong-behavior — and evolved th
 
 ```text
 /review-pr 482          lenses → skeptic verify → severity arbiter → report.html
-/review-fix             same pipeline, no HTML → fixes applied on your branch,
+/publish-review         the findings → ONE GitHub review (inline comments + body)
+/resolve-review         the findings → fixed code on your branch: scoped fixes,
                         every added test mutation-tested (seen red before trusted)
 /review-issues          non-blocking findings → grouped, deduped review-debt issues
-/publish-review         the findings → ONE GitHub review (inline comments + body)
+/review-fix             review-pr + resolve-review in one pass, no HTML — the
+                        fast pre-PR loop on a local branch
 /map-primitives         generate the primitives.yaml map the primitives lens reads
 ```
+
+**The recommended flow for a PR is the first three, in that order**: `/review-pr`
+to find, `/publish-review` to put the findings on the PR, `/resolve-review` to fix
+them. The resolve step is not a formality — it's where fixes are validated against
+the repo's own gates and every new test is mutation-tested, so skipping it (or
+hand-fixing from the comments) forfeits the toolkit's second verification layer.
+For a branch that isn't a PR yet, `/review-fix` runs the same find-then-fix loop
+in one pass.
 
 Nine lenses look at one diff independently — bugs (`first-five`), repo conventions
 with a Fowler-smell fallback (`conventions`), dependency audit (`warm`), test gaps

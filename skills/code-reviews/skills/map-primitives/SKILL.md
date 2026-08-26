@@ -44,7 +44,8 @@ source-of-truth modules in code.
    required before wiring primitives into PR review.
 4. The repo's agent instructions (AGENTS.md / CLAUDE.md) carry the standing
    rule: *extend the source-of-truth module, never re-declare primitive
-   values inline; update the map in the same PR that changes a primitive.*
+   values inline; update the map in the same PR that changes or introduces
+   a primitive.*
 
 **What this skill does NOT do by default:** consolidate the drift it finds.
 The doc PR documents reality, including the ugly parts, under *Known loose
@@ -168,7 +169,9 @@ primitives:
   - id: prd            # stable slug, referenced by review tooling
     area: data          # data | api | auth | workflows | agent-tools | ui | infra
     name: PRD
-    sources:            # source-of-truth files for shape + values
+    sources:            # source-of-truth files for the primitive's shape,
+                        # values, derived vocabulary, and the guards that
+                        # enforce it — not files that merely consume it
       - convex/sharedPrds.ts
       - convex/schema.ts
     invariants:
@@ -176,6 +179,19 @@ primitives:
       - Approval requires every section ready or n/a, at least one ready.
     relates_to: [product, requirement, feature]
 ```
+
+**The `sources` contract — this map's one load-bearing definition.** The
+review lens that consumes this file classifies anything primitive-shaped
+*outside* every `sources` list as an `adds` (highest risk), so what belongs in
+`sources` must match what the lens counts as primitive-shaped: the shape and
+values, yes, but also **derived vocabulary** (an option order or label list
+computed from the values) and **the guards that enforce the primitive** (a
+validator module, a test the docs cite as the enforcement, an import
+boundary). Files that merely *consume* the primitive stay out. A narrower list
+isn't a tidier map — it's a map that flags its own repo forever (field: four
+of five PRs in one run had their most important file map to zero primitives,
+each a guard or derived vocabulary the map's author didn't think of as
+"shape + values").
 
 Keep ids stable — downstream review recaps (Kent C. Dodds' `visual-recap`
 pattern) map changed file paths onto these ids via `sources`, classify each
@@ -194,7 +210,8 @@ hard-gates/requirements section:
 > docs/primitives.md. Before adding or typing a domain concept, check the map
 > and extend its source-of-truth module — never re-declare a primitive's
 > values inline in schema fields, mutation args, API schemas, or frontend
-> types. When a primitive changes, update the map in the same PR.
+> types. When a primitive changes — or a new one is introduced — update the
+> map in the same PR, or state in the PR why it stays unmapped.
 
 If an existing reference/architecture doc overlaps, add a pointer from it to
 the map ("authoritative domain map: …") rather than maintaining two.

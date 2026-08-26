@@ -68,9 +68,13 @@ run map-primitives"*.
      or option list duplicating a mapped primitive's values instead of
      importing its source module. This is the exact failure the map exists to
      prevent: `medium` at minimum, `high` when surfaces can now disagree.
-   - **Unmapped add** — an `adds` entry with the map untouched. The repo rule
-     is "update the map in the same PR"; the finding says exactly which
-     entries to add.
+   - **Unmapped add** — an `adds` entry with the map untouched. What an
+     `adds` obligates: either a map entry lands in the same PR, or the PR
+     states the omission deliberately — the finding says exactly which entries
+     to add, and it stands even when the repo's rule says only "when a
+     primitive *changes*" (introducing one is the higher-risk case of the same
+     rule, not an exemption from it). Only an explicit stated omission
+     downgrades it.
    - **Map contradiction** — the diff changes a primitive so a statement in
      the map becomes false, and the diff doesn't update the map.
    - **Invariant break** — the diff plausibly violates a listed invariant.

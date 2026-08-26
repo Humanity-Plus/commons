@@ -288,8 +288,9 @@ they're what turn a generic review into <em>your</em> review, and where great re
         recomputed in the UI.
     relates_to: [customer, invoice]</code></pre>
     <p><code>sources</code> is how changed file paths map onto primitives; a directory matches
-    everything under it. Keep ids stable, and update the map in the same PR that changes a
-    primitive.</p>
+    everything under it. List the primitive's shape, values, derived vocabulary, and the guards
+    that enforce it — not files that merely consume it. Keep ids stable, and update the map in
+    the same PR that changes or introduces a primitive.</p>
   </div>
 </div>
 

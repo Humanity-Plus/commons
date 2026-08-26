@@ -47,9 +47,10 @@
  *   generic Findings section). Plus, per lens:
  *   warm:        { warm:{worth,alive,rightSized,secure}, ecosystem, changeType, packageVerdict }
  *   zombies:     { zombiesLetter, partial }
- *   preflight:   { confidence, verifiable? }  // verifiable = the exact command/
- *                              // query/place that settles the item (vs. a pure
- *                              // human judgment call, which omits it)
+ *   preflight:   { confidence }
+ *   any lens:    { verifiable? }  // the exact command/query/place that settles
+ *                              // the finding (vs. a pure human judgment call,
+ *                              // which omits it)
  *   conventions: { rule }   // cited repo rule as one "path: gist" string
  * Optional skill-added fields (absent on the default small-PR path — the skill,
  * not the lenses, sets these):
@@ -849,6 +850,11 @@ function findingCard(m: Meta, f: Finding): string {
     ${
       f.suggestion
         ? `<div class="finding-fix"><div class="fix-tag">Fix</div><div class="md">${renderRich(f.suggestion, m)}</div></div>`
+        : ""
+    }${
+      f.verifiable
+        ? `
+    <div class="pf-verify"><span class="pf-verify-tag">verify</span><code>${esc(f.verifiable)}</code></div>`
         : ""
     }
   </article>`;

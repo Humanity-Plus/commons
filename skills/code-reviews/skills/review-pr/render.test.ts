@@ -275,6 +275,18 @@ test("preflight verifiable renders as an escaped verify line, absent otherwise",
   expect(without).not.toContain('class="pf-verify"');
 });
 
+test("verifiable on a non-preflight finding renders a verify line on its card", () => {
+  const html = page(
+    baseReport({
+      findings: [mkFinding({ verifiable: "npx convex run debug:getTableCounts --prod" })],
+    })
+  );
+  expect(html).toContain('class="pf-verify"');
+  expect(html).toContain("getTableCounts");
+  const without = page(baseReport({ findings: [mkFinding()] }));
+  expect(without).not.toContain('class="pf-verify"');
+});
+
 test("default path: none of the new sections/chips render when the fields are absent", () => {
   const html = page(baseReport({ findings: [mkFinding()] }));
   expect(html).not.toContain('id="more-findings"');

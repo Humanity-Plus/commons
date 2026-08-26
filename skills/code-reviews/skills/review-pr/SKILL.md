@@ -78,7 +78,15 @@ skill, not by the lenses. A few lenses **extend** this schema with documented ex
 (`warm`, `zombies`, `preflight`, and `conventions`' `rule`) — see each lens file and
 the `render.ts` header. **Extras are per-lens — never borrow another lens's**
 (field: a lens returned zombies' `partial: true` on a non-zombies finding; the
-orchestrator strips borrowed extras). The `conventions` lens is special like `triage`: it returns a
+orchestrator strips borrowed extras). **One extra is shared, not per-lens:
+`verifiable`** (string) — the exact read-only command, query, or place that would
+settle the finding (e.g. `npx convex run debug:getTableCounts --prod`). It began
+as preflight's extra, but any lens may set it when such a check exists — it's the
+single highest-leverage field a finding can carry (field: running one turned a
+speculative advisory into "your real journal entries are about to be deleted"),
+and its consumers (the fix phase's "do it now" cue, `resolve-review`'s advisory
+exception) act on it regardless of lens. Emit it whenever the claim is settleable
+by a concrete read-only check; omit it for pure judgment calls. The `conventions` lens is special like `triage`: it returns a
 two-key object `{ scorecard, findings }` rather than a bare array (see below).
 
 The **skill itself** (never the lenses) may add these optional fields downstream —
@@ -537,7 +545,7 @@ matches wins** (no re-deriving the tier per run):
 | Tier | Predicate (on triage's output + distinct changed lines) | Who reviews |
 |------|---------------------------------------------------------|-------------|
 | **trivial** | single hunk, < ~10 lines | the orchestrator itself, inline, with the concatenated checklist — zero lens spawns. **Zero spawns is not zero work**: trivial still owes real verification — is the changed surface deployed/referenced anywhere else (grep for dynamic references), does the commit/changelog type still fit, and Phase 3 discipline on any claim you make |
-| **light** | one or two files, < ~50 distinct lines, no high-risk area | one generalist subagent, all lens definitions |
+| **light** | one or two files, < ~50 distinct lines, no high-risk area — or a docs-only diff (every changed file is documentation), any file count | one generalist subagent, all lens definitions |
 | **medium** | one feature area under the shard threshold — or single-file-small but high-risk | combined bugs+tests generalist (+ per area if several such areas), `conventions`, globals per their skip rules |
 | **full fan-out** | multi-area, under the shard threshold | every lens whole-diff |
 | **sharded** | over threshold AND ≥3 areas AND interfaces gate passes | risk-tiered per-area shards |
@@ -562,7 +570,13 @@ each at its role's tier (`lens` — see "Review roles & model tiers"; check `REV
 for a `## Review roles` override first).
 **Hand each subagent the materials, not pointers to them.** Include **inline in the
 spawn prompt**: the diff text itself, the repository review context (delimited
-block), and — for `conventions` — the full convention-doc contents, plus the base
+block), and — for `conventions` — the full convention-doc contents. **The
+mechanism: read the material and paste its text into the prompt yourself.** The
+spawn prompt is a literal string — nothing shell-interpolates it, so
+`$(cat file.diff)` reaches the subagent as those thirteen characters, not the
+diff (field: three spawns wasted this way in one run). For context past the
+bundle threshold below, the bundle *path* is the sanctioned pointer — everything
+else goes in as text. Also include the base
 branch, head SHA, triage group names, the path to its lens file, and the path to
 `lenses/finding-style.md` (the shared educational article style for
 `evidence`/`suggestion`). Tell each subagent that where its lens file says "get the
@@ -1200,7 +1214,7 @@ Field-tested over multi-PR batches; three rules keep it lean and correct:
   nothing about what's in context. If the toolkit updated mid-queue, finish the
   batch and restart before the next one.
 
-One more findings-only cue: **preflight findings carrying `verifiable` are the
+One more findings-only cue: **findings carrying `verifiable` — any lens — are the
 fix phase's "do it now" items.** The field documents *how* to settle the item —
 when the fixer has the access and the check is read-only, running it and
 reporting the result beats handing it back (the backlog-loop rule "prefer doing

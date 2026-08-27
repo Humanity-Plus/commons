@@ -72,24 +72,5 @@ the Releasing section in `README.md`.
 
 ## Cloud-specific instructions
 
-### Environment
-
-- Bun is the package manager: `bun install`. The only dependency is the
-  changesets tooling; the repo content itself is markdown plus the review
-  toolkit's TypeScript renderers.
-
-### Running services
-
-- None. Nothing in this repo runs as a service.
-
-### Key commands (see root README for full list)
-
-- `bun run check-plugin-version` — verify every `plugin.json` matches
-  `package.json` (what CI runs).
-- `bunx changeset` — add a changeset to the current branch.
-- `bunx changeset status` — list pending changesets.
-
-### Caveats
-
-- The version PR CI quirk under Known Issues applies anywhere, not just in
-  cloud sessions.
+Running in a cloud environment? Environment bootstrap and key commands are in
+[docs/cloud.md](docs/cloud.md). Local agents can ignore that doc.

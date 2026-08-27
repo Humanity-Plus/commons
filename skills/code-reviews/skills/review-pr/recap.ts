@@ -84,9 +84,9 @@ function buildBlock(report: any, login = ""): string {
     "flowchart LR",
     ...nodes,
     ...edges,
-    "  classDef adds fill:#5c1f22,stroke:#e5484d,color:#ffd7d8",
-    "  classDef extends fill:#5a4212,stroke:#ffb224,color:#ffe8bd",
-    "  classDef composes fill:#14361f,stroke:#46a758,color:#d3f2dc",
+    "  classDef adds fill:#3f2026,stroke:#ff8589,color:#ffd7d8",
+    "  classDef extends fill:#3f351c,stroke:#f2c063,color:#ffe8bd",
+    "  classDef composes fill:#17352a,stroke:#5fd39a,color:#d3f2dc",
     "```",
   ].join("\n");
 

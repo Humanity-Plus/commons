@@ -209,30 +209,30 @@ export function validateReport(r: any): string[] {
 // ---------- constants ----------
 const SEV_ORDER: Sev[] = ["critical", "high", "medium", "low", "nitpick"];
 const SEV: Record<Sev, { label: string; color: string; dot: string }> = {
-  critical: { label: "Critical", color: "#e5484d", dot: "🔴" },
-  high: { label: "High", color: "#f76808", dot: "🟠" },
-  medium: { label: "Medium", color: "#ffb224", dot: "🟡" },
-  low: { label: "Low", color: "#3e63dd", dot: "🔵" },
+  critical: { label: "Critical", color: "#ff8589", dot: "🔴" },
+  high: { label: "High", color: "#ffa057", dot: "🟠" },
+  medium: { label: "Medium", color: "#f2c063", dot: "🟡" },
+  low: { label: "Low", color: "#6ea8fe", dot: "🔵" },
   nitpick: { label: "Nitpick", color: "#8b8d98", dot: "⚪" },
 };
-const RISK: Record<string, string> = { high: "#e5484d", medium: "#ffb224", low: "#46a758" };
+const RISK: Record<string, string> = { high: "#ff8589", medium: "#f2c063", low: "#5fd39a" };
 // System-change classification (primitives lens): adds > extends > composes.
 const CLASSIFICATION: Record<Classification, { label: string; color: string }> = {
-  adds: { label: "Adds", color: "#e5484d" },
-  extends: { label: "Extends", color: "#ffb224" },
-  composes: { label: "Composes", color: "#46a758" },
+  adds: { label: "Adds", color: "#ff8589" },
+  extends: { label: "Extends", color: "#f2c063" },
+  composes: { label: "Composes", color: "#5fd39a" },
 };
 const MARK: Record<Mark, { g: string; c: string }> = {
-  pass: { g: "✓", c: "#46a758" },
-  warn: { g: "!", c: "#ffb224" },
-  fail: { g: "✕", c: "#e5484d" },
+  pass: { g: "✓", c: "#5fd39a" },
+  warn: { g: "!", c: "#f2c063" },
+  fail: { g: "✕", c: "#ff8589" },
   unknown: { g: "?", c: "#8b8d98" },
 };
 const ZLET = ["Z", "O", "M", "B", "I", "E", "S"];
 const VERDICT: Record<string, { label: string; color: string }> = {
-  "request-changes": { label: "Request Changes", color: "#e5484d" },
-  comment: { label: "Comment", color: "#ffb224" },
-  approve: { label: "Approve", color: "#46a758" },
+  "request-changes": { label: "Request Changes", color: "#ff8589" },
+  comment: { label: "Comment", color: "#f2c063" },
+  approve: { label: "Approve", color: "#5fd39a" },
 };
 
 // ---------- helpers ----------
@@ -612,7 +612,7 @@ function donut(counts: Record<Sev, number>): string {
   const R = 52, C = 2 * Math.PI * R, cx = 70, cy = 70;
   if (total === 0) {
     return `<svg viewBox="0 0 140 140" class="donut" role="img" aria-label="No findings">
-      <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#2a2a33" stroke-width="16"/>
+      <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#24262f" stroke-width="16"/>
       <text x="${cx}" y="${cy - 2}" class="donut-num">0</text>
       <text x="${cx}" y="${cy + 16}" class="donut-lbl">findings</text></svg>`;
   }
@@ -630,7 +630,7 @@ function donut(counts: Record<Sev, number>): string {
     })
     .join("");
   return `<svg viewBox="0 0 140 140" class="donut" role="img" aria-label="Findings by severity">
-    <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#2a2a33" stroke-width="16"/>
+    <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#24262f" stroke-width="16"/>
     ${segs}
     <text x="${cx}" y="${cy - 2}" class="donut-num">${total}</text>
     <text x="${cx}" y="${cy + 16}" class="donut-lbl">findings</text></svg>`;
@@ -886,9 +886,9 @@ function findingsSection(m: Meta, findings: Finding[]): string {
 }
 
 const SCORE: Record<ScoreStatus, { g: string; c: string; label: string }> = {
-  pass: { g: "✓", c: "#46a758", label: "conforms" },
-  warn: { g: "!", c: "#ffb224", label: "minor issues" },
-  fail: { g: "✕", c: "#e5484d", label: "violations" },
+  pass: { g: "✓", c: "#5fd39a", label: "conforms" },
+  warn: { g: "!", c: "#f2c063", label: "minor issues" },
+  fail: { g: "✕", c: "#ff8589", label: "violations" },
   na: { g: "–", c: "#8b8d98", label: "not applicable" },
 };
 
@@ -1064,7 +1064,7 @@ function triageSection(m: Meta, triage: Report["triage"]): string {
     )
     .join("");
   const skipped = triage.skipped?.length
-    ? `<details class="tri-group"><summary><span class="tri-risk" style="background:#4a4a55">skip</span>
+    ? `<details class="tri-group"><summary><span class="tri-risk" style="background:#3a3d49">skip</span>
         <span class="tri-name">Auto-generated</span><span class="tri-count">${triage.skipped.length}</span></summary>
         <ul class="tri-files">${triage.skipped.map((s) => `<li><code>${esc(s)}</code></li>`).join("")}</ul></details>`
     : "";
@@ -1171,19 +1171,26 @@ function page(r: Report): string {
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Review — ${esc(m.title)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* "Midnight" visual language — shared with the toolkit guide
+     (skills/code-reviews/review-toolkit.html) so the toolkit feels like one product. */
   :root{
-    --bg:#0d0d12; --panel:#16161d; --panel2:#1c1c25; --border:#2a2a33;
-    --text:#e6e6ea; --muted:#9a9aa6; --accent:#6e56cf;
-    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --bg:#08090c; --panel:#101116; --panel2:#16171e; --border:#24262f; --border2:#31343f;
+    --text:#e2e3e9; --head:#f7f8fa; --muted:#9a9daa; --accent:#828fff; --accent2:#5e6ad2;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
     line-height:1.55;font-size:15px;-webkit-font-smoothing:antialiased}
+  body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:radial-gradient(60% 40% at 50% -5%,rgba(94,106,210,.16),transparent 70%),var(--bg)}
   a{color:inherit}
   .wrap{max-width:960px;margin:0 auto;padding:32px 24px 80px}
-  .ref{font-family:var(--mono);font-size:12.5px;color:#8ab4f8;text-decoration:none;white-space:nowrap}
+  .ref{font-family:var(--mono);font-size:12.5px;color:#7ec2ff;text-decoration:none;white-space:nowrap}
   .ref:hover{text-decoration:underline}
   code{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
   .empty{color:var(--muted);font-style:italic;padding:8px 0}
@@ -1191,13 +1198,13 @@ function page(r: Report): string {
   /* header */
   .top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;
     padding-bottom:24px;border-bottom:1px solid var(--border);margin-bottom:28px}
-  .top h1{margin:0 0 6px;font-size:22px;letter-spacing:-.01em}
+  .top h1{margin:0 0 6px;font-size:22px;letter-spacing:-.02em;color:var(--head)}
   .top .sub{color:var(--muted);font-size:13px}
-  .top .sub a{color:#8ab4f8;text-decoration:none}
+  .top .sub a{color:#7ec2ff;text-decoration:none}
   .meta-row{display:flex;gap:16px;margin-top:12px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
   .meta-row b{color:var(--text);font-weight:600}
-  .diffstat .add{color:#46a758}
-  .diffstat .del{color:#e5484d}
+  .diffstat .add{color:#5fd39a}
+  .diffstat .del{color:#ff8589}
   .verdict{display:flex;flex-direction:column;align-items:flex-end;gap:4px;
     padding:12px 18px;border-radius:12px;border:1px solid var(--vc);
     background:color-mix(in srgb,var(--vc) 12%,transparent);white-space:nowrap}
@@ -1207,8 +1214,11 @@ function page(r: Report): string {
   /* dashboard */
   .dash{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px}
   @media(max-width:720px){.dash{grid-template-columns:1fr}.top{flex-direction:column}}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:16px}
-  .card h2{margin:0 0 16px;font-size:15px;letter-spacing:.01em;display:flex;align-items:center;gap:10px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:20px 22px;margin-bottom:16px;transition:border-color .15s}
+  .card:hover{border-color:var(--border2)}
+  .card h2{margin:0 0 16px;font-size:15px;letter-spacing:.01em;display:flex;align-items:center;
+    gap:10px;color:var(--head)}
   .section-tag{font-size:11px;font-weight:500;color:var(--muted);background:var(--panel2);
     padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.05em}
   .summary-card{grid-column:1/-1}
@@ -1243,8 +1253,9 @@ function page(r: Report): string {
   .chip{font-size:11px;padding:2px 9px;border-radius:20px;background:var(--panel2);
     color:var(--muted);white-space:nowrap;border:1px solid var(--border)}
   .chip[style*="--cc"]{color:var(--cc);border-color:color-mix(in srgb,var(--cc) 40%,transparent)}
-  .chip-ok{color:#46a758;border-color:#2c5c38}
-  .finding-title{margin:13px 0 12px;font-size:16.5px;font-weight:700;line-height:1.35;letter-spacing:-.01em}
+  .chip-ok{color:#5fd39a;border-color:#2f5c45}
+  .finding-title{margin:13px 0 12px;font-size:16.5px;font-weight:700;line-height:1.35;
+    letter-spacing:-.01em;color:var(--head)}
   .finding-evidence{margin:0 0 14px}
   .finding-fix{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:13px 15px;margin-top:14px}
   .fix-tag{color:var(--accent);font-weight:700;font-size:11px;text-transform:uppercase;
@@ -1252,23 +1263,23 @@ function page(r: Report): string {
   /* cited rule (conventions lens) */
   .finding-rule{display:flex;align-items:baseline;gap:8px;margin:0 0 12px;font-size:12.5px;color:var(--muted)}
   .finding-rule .rule-tag{flex:none;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
-    color:#ffca7a;background:color-mix(in srgb,#ffb224 14%,var(--panel2));
-    border:1px solid color-mix(in srgb,#ffb224 32%,var(--border));border-radius:20px;padding:1px 8px}
-  .finding-rule code{color:#d3c7ff}
+    color:#f7d494;background:color-mix(in srgb,#f2c063 14%,var(--panel2));
+    border:1px solid color-mix(in srgb,#f2c063 32%,var(--border));border-radius:20px;padding:1px 8px}
+  .finding-rule code{color:#bcc3ff}
   /* arbiter regrade note */
   .finding-regrade{display:flex;align-items:baseline;gap:8px;margin:0 0 12px;font-size:12.5px;color:var(--muted)}
   .finding-regrade .regrade-tag{flex:none;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
-    color:#a9c8ff;background:color-mix(in srgb,#8ab4f8 14%,var(--panel2));
-    border:1px solid color-mix(in srgb,#8ab4f8 32%,var(--border));border-radius:20px;padding:1px 8px}
+    color:#a5d3ff;background:color-mix(in srgb,#7ec2ff 14%,var(--panel2));
+    border:1px solid color-mix(in srgb,#7ec2ff 32%,var(--border));border-radius:20px;padding:1px 8px}
   /* grouped finding (arbiter swarm-collapse): every occurrence listed */
   .loc-list{list-style:none;margin:0 0 12px;padding:9px 13px;display:grid;gap:4px;
     background:var(--panel2);border:1px solid var(--border);border-radius:8px}
   .loc-list li{font-size:12.5px}
   .loc-list .loc-note{color:var(--muted);margin-left:8px}
-  .chip-group{color:#d3c7ff;border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
-  .chip-src{color:#a9c8ff;border-color:color-mix(in srgb,#8ab4f8 40%,transparent)}
-  a.chip-tracked{color:#7ee0a0;border-color:color-mix(in srgb,#46a758 40%,transparent);text-decoration:none}
-  a.chip-tracked:hover{border-color:#46a758}
+  .chip-group{color:#bcc3ff;border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+  .chip-src{color:#a5d3ff;border-color:color-mix(in srgb,#7ec2ff 40%,transparent)}
+  a.chip-tracked{color:#8ce8b8;border-color:color-mix(in srgb,#5fd39a 40%,transparent);text-decoration:none}
+  a.chip-tracked:hover{border-color:#5fd39a}
   /* folded "More findings" section */
   .fold-details summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;
     font-size:15px;font-weight:700;letter-spacing:.01em}
@@ -1287,7 +1298,7 @@ function page(r: Report): string {
     font-weight:700;margin-bottom:7px}
   .holi-list{list-style:none;margin:0;padding:0;display:grid;gap:5px}
   .holi-list li{font-size:13px}
-  .holi-list a{color:#8ab4f8;text-decoration:none}
+  .holi-list a{color:#7ec2ff;text-decoration:none}
   .holi-list a:hover{text-decoration:underline}
 
   /* conventions / stack scorecard */
@@ -1326,10 +1337,10 @@ function page(r: Report): string {
   .zarea{color:var(--text)}
   .zc{color:var(--muted)}
   .zc-on{background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--text);font-weight:700}
-  .zc-partial{background:color-mix(in srgb,#ffb224 22%,transparent)}
+  .zc-partial{background:color-mix(in srgb,#f2c063 22%,transparent)}
   .matrix-key{font-size:12px;color:var(--muted);margin:0 0 4px}
   .zc-partial-key{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;
-    background:color-mix(in srgb,#ffb224 40%,transparent)}
+    background:color-mix(in srgb,#f2c063 40%,transparent)}
   .test-group{margin-top:16px}
   .test-group h3,.pf-group h3,.tri-group{font-size:13px}
   .test-group h3{color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px}
@@ -1337,7 +1348,7 @@ function page(r: Report): string {
   .zbadge{flex:none;width:26px;height:26px;border-radius:7px;background:var(--panel2);
     display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-family:var(--mono)}
   .test-title{font-weight:600;font-size:14px}
-  .partial-tag{font-size:10px;background:#5a4212;color:#ffb224;padding:1px 7px;border-radius:20px;margin-left:6px}
+  .partial-tag{font-size:10px;background:#3f351c;color:#f2c063;padding:1px 7px;border-radius:20px;margin-left:6px}
   .test-fix{color:var(--muted);font-size:13px;margin:2px 0}
   .test-fix.md p{margin:0}
   .test-fix.md .md-pre{margin:6px 0 0}
@@ -1353,22 +1364,22 @@ function page(r: Report): string {
   .checklist label{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;cursor:pointer}
   .checklist input:checked + .pf-main .pf-title{text-decoration:line-through;color:var(--muted)}
   .pf-conf{font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:1px 7px;border-radius:20px;font-weight:700}
-  .pf-high{background:#5c1f22;color:#ff9ea0}.pf-medium{background:#5a4212;color:#ffb224}.pf-low{background:#1f3a5c;color:#8ab4f8}
+  .pf-high{background:#3f2026;color:#ffb0b3}.pf-medium{background:#3f351c;color:#f2c063}.pf-low{background:#1e3350;color:#7ec2ff}
   .pf-title{font-weight:600;font-size:14px}
   .pf-note{color:var(--muted);font-size:12.5px}
   .pf-verify{display:flex;align-items:baseline;gap:8px;margin-top:4px}
   .pf-verify-tag{flex:none;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
-    color:#7ee0a0;background:color-mix(in srgb,#46a758 14%,var(--panel2));
-    border:1px solid color-mix(in srgb,#46a758 32%,var(--border));border-radius:20px;padding:1px 8px}
-  .pf-verify code{font-size:11.5px;color:#d6d6df}
+    color:#8ce8b8;background:color-mix(in srgb,#5fd39a 14%,var(--panel2));
+    border:1px solid color-mix(in srgb,#5fd39a 32%,var(--border));border-radius:20px;padding:1px 8px}
+  .pf-verify code{font-size:11.5px;color:#d5d7e0}
   .pf-note.md p{margin:0}
   .pf-note.md .md-pre{margin:6px 0 0}
 
   /* system change (primitives lens) */
   .sc-pill{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
-    color:#0d0d12;background:var(--pc);border-radius:20px;padding:2px 9px;flex:none}
+    color:#08090c;background:var(--pc);border-radius:20px;padding:2px 9px;flex:none}
   .sc-overall{font-size:11px}
-  .sc-stale{color:#ff9ea0;border-color:color-mix(in srgb,#e5484d 40%,transparent)}
+  .sc-stale{color:#ffb0b3;border-color:color-mix(in srgb,#ff8589 40%,transparent)}
   .sc-row{border:1px solid var(--border);border-left:4px solid var(--pc);border-radius:0 10px 10px 0;
     background:var(--panel2);padding:11px 14px;margin-bottom:8px}
   .sc-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -1376,17 +1387,17 @@ function page(r: Report): string {
   .sc-files{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
   .sc-note{color:var(--muted);font-size:12.5px;margin-top:4px}
   .sc-invs{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:3px}
-  .sc-inv{font-size:12.5px;color:#ffca7a}
+  .sc-inv{font-size:12.5px;color:#f7d494}
   .sc-added{margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)}
   .sc-added-head{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
-    color:#ff9ea0;margin-bottom:8px}
+    color:#ffb0b3;margin-bottom:8px}
 
   /* triage */
   .tri-group{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:4px 14px;margin-bottom:8px}
   .tri-group summary{cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 0;list-style:none}
   .tri-group summary::-webkit-details-marker{display:none}
   .tri-risk{font-size:10px;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:20px;
-    color:#0d0d12;font-weight:700}
+    color:#08090c;font-weight:700}
   .tri-name{font-weight:600;flex:1}
   .tri-count{color:var(--muted);font-size:12px}
   .tri-reason{color:var(--muted);font-size:13px;margin:2px 0 8px}
@@ -1394,8 +1405,8 @@ function page(r: Report): string {
   .tri-files li{display:flex;gap:9px;align-items:center;font-size:13px}
   .status{font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:1px 7px;border-radius:5px;
     font-weight:700;flex:none}
-  .status-added{background:#14361f;color:#5ec26f}.status-modified{background:#3a2f12;color:#ffb224}
-  .status-deleted{background:#3a1416;color:#ff8a8c}
+  .status-added{background:#17352a;color:#5fd39a}.status-modified{background:#3a301a;color:#f2c063}
+  .status-deleted{background:#3a1c1e;color:#ffa6a9}
 
   /* section heading badges */
   .head-count{font-size:12px;font-weight:600;color:var(--muted);background:var(--panel2);
@@ -1416,7 +1427,7 @@ function page(r: Report): string {
     border:1px solid var(--border);border-radius:20px;padding:1px 6px;text-transform:uppercase;letter-spacing:.05em;margin-left:4px}
   .comp-desc{color:var(--muted);font-size:12px}
   .comp-sevs{display:flex;gap:4px;align-items:center}
-  .mini-sev{font-size:11px;font-weight:700;color:#0d0d12;background:var(--c);border-radius:6px;
+  .mini-sev{font-size:11px;font-weight:700;color:#08090c;background:var(--c);border-radius:6px;
     min-width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;padding:0 4px;
     font-variant-numeric:tabular-nums}
   .comp-none{font-size:11px;color:var(--muted);font-style:italic}
@@ -1430,9 +1441,9 @@ function page(r: Report): string {
   .lens-chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;padding:2px 9px;border-radius:20px;
     border:1px solid var(--border);background:var(--panel2)}
   .lens-dot{width:7px;height:7px;border-radius:50%;flex:none}
-  .lens-on{color:var(--text)}.lens-on .lens-dot{background:#46a758}
-  .lens-off{color:var(--muted)}.lens-off .lens-dot{background:#4a4a55}
-  .lens-off{text-decoration:line-through;text-decoration-color:#4a4a55}
+  .lens-on{color:var(--text)}.lens-on .lens-dot{background:#5fd39a}
+  .lens-off{color:var(--muted)}.lens-off .lens-dot{background:#3a3d49}
+  .lens-off{text-decoration:line-through;text-decoration-color:#3a3d49}
 
   /* markdown-rendered content — tuned to read like a short article */
   .md{font-size:14px;line-height:1.65;color:var(--text)}
@@ -1450,26 +1461,26 @@ function page(r: Report): string {
   .md .md-list li{margin:4px 0}
   .md strong{color:#fff;font-weight:700}
   .md em{color:var(--text);font-style:italic}
-  .md a{color:#8ab4f8;text-decoration:none}.md a:hover{text-decoration:underline}
+  .md a{color:#7ec2ff;text-decoration:none}.md a:hover{text-decoration:underline}
   /* inline code — tinted lavender so it reads as "code" */
-  .md code.md-code{font-family:var(--mono);font-size:12px;font-weight:600;color:#d3c7ff;
+  .md code.md-code{font-family:var(--mono);font-size:12px;font-weight:600;color:#bcc3ff;
     background:color-mix(in srgb,var(--accent) 15%,var(--panel2));
     border:1px solid color-mix(in srgb,var(--accent) 32%,var(--border));padding:1px 6px;border-radius:5px;white-space:nowrap}
   /* file & file:line references — blue, monospace, with the line number emphasised */
-  .md .md-file{font-family:var(--mono);font-size:12px;font-weight:600;color:#8ab4f8;
-    text-decoration:none;white-space:nowrap;border-bottom:1px dotted color-mix(in srgb,#8ab4f8 45%,transparent)}
-  a.md-file:hover{color:#a9c8ff;border-bottom-style:solid}
-  .md .md-file .ln{color:#ffca7a;font-weight:700}
-  .md-pre{background:#0b0b0f;border:1px solid var(--border);border-radius:8px;padding:12px 14px;
+  .md .md-file{font-family:var(--mono);font-size:12px;font-weight:600;color:#7ec2ff;
+    text-decoration:none;white-space:nowrap;border-bottom:1px dotted color-mix(in srgb,#7ec2ff 45%,transparent)}
+  a.md-file:hover{color:#a5d3ff;border-bottom-style:solid}
+  .md .md-file .ln{color:#f7d494;font-weight:700}
+  .md-pre{background:#0b0c10;border:1px solid var(--border);border-radius:8px;padding:12px 14px;
     overflow-x:auto;margin:0 0 14px;position:relative}
-  .md-pre code{background:none;border:none;padding:0;color:#d6d6df;font-size:12px;line-height:1.55;white-space:pre;font-weight:400}
+  .md-pre code{background:none;border:none;padding:0;color:#d5d7e0;font-size:12px;line-height:1.55;white-space:pre;font-weight:400}
   .md-pre[data-lang]::before{content:attr(data-lang);position:absolute;top:0;right:0;font-family:var(--mono);
     font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
     background:var(--panel2);border-bottom-left-radius:8px;border:1px solid var(--border);border-top:none;border-right:none;padding:2px 8px}
   .md-diff code .dl{display:block}
-  .md-diff .diff-add{background:color-mix(in srgb,#46a758 16%,transparent);color:#9be3a8}
-  .md-diff .diff-del{background:color-mix(in srgb,#e5484d 16%,transparent);color:#ff9ea0}
-  .md-diff .diff-hunk{color:#8ab4f8}
+  .md-diff .diff-add{background:color-mix(in srgb,#5fd39a 16%,transparent);color:#a3e8c0}
+  .md-diff .diff-del{background:color-mix(in srgb,#ff8589 16%,transparent);color:#ffb0b3}
+  .md-diff .diff-hunk{color:#7ec2ff}
   /* markdown tables — a compact visualization primitive */
   .md-table{width:100%;border-collapse:collapse;font-size:12.5px;margin:0 0 14px;border:1px solid var(--border);border-radius:8px;overflow:hidden}
   .md-table th,.md-table td{padding:7px 11px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
@@ -1494,7 +1505,7 @@ function page(r: Report): string {
   .md svg{max-width:100%;height:auto;display:block}
   .md kbd{font-family:var(--mono);font-size:11px;background:var(--panel2);border:1px solid var(--border);
     border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--text)}
-  .md mark{background:color-mix(in srgb,#ffb224 30%,transparent);color:inherit;border-radius:3px;padding:0 3px}
+  .md mark{background:color-mix(in srgb,#f2c063 30%,transparent);color:inherit;border-radius:3px;padding:0 3px}
 
   /* ---- reusable component classes for author HTML (class="…") ---- */
   /* Callout / admonition boxes: <div class="callout note|warn|danger|ok"> */
@@ -1502,10 +1513,10 @@ function page(r: Report): string {
     border-radius:0 10px 10px 0;background:var(--panel2)}
   .md .callout > :last-child{margin-bottom:0}
   .md .callout .callout-title{font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px;display:flex;align-items:center;gap:7px}
-  .md .callout.note{border-left-color:#8ab4f8}.md .callout.note .callout-title{color:#8ab4f8}
-  .md .callout.warn{border-left-color:#ffb224}.md .callout.warn .callout-title{color:#ffb224}
-  .md .callout.danger{border-left-color:#e5484d}.md .callout.danger .callout-title{color:#ff9ea0}
-  .md .callout.ok{border-left-color:#46a758}.md .callout.ok .callout-title{color:#7ee0a0}
+  .md .callout.note{border-left-color:#7ec2ff}.md .callout.note .callout-title{color:#7ec2ff}
+  .md .callout.warn{border-left-color:#f2c063}.md .callout.warn .callout-title{color:#f2c063}
+  .md .callout.danger{border-left-color:#ff8589}.md .callout.danger .callout-title{color:#ffb0b3}
+  .md .callout.ok{border-left-color:#5fd39a}.md .callout.ok .callout-title{color:#8ce8b8}
   /* Side-by-side / grid layout: <div class="cols"> or class="cols cols-3" */
   .md .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0 0 16px;align-items:start}
   .md .cols-3{grid-template-columns:repeat(3,1fr)}
@@ -1517,10 +1528,10 @@ function page(r: Report): string {
   /* Inline status badges/pills: <span class="badge red|green|amber|blue"> */
   .md .badge{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:700;text-transform:uppercase;
     letter-spacing:.04em;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:var(--panel2);color:var(--muted);white-space:nowrap}
-  .md .badge.red{color:#ff9ea0;border-color:color-mix(in srgb,#e5484d 45%,transparent);background:color-mix(in srgb,#e5484d 14%,transparent)}
-  .md .badge.green{color:#7ee0a0;border-color:color-mix(in srgb,#46a758 45%,transparent);background:color-mix(in srgb,#46a758 14%,transparent)}
-  .md .badge.amber{color:#ffca7a;border-color:color-mix(in srgb,#ffb224 45%,transparent);background:color-mix(in srgb,#ffb224 14%,transparent)}
-  .md .badge.blue{color:#a9c8ff;border-color:color-mix(in srgb,#8ab4f8 45%,transparent);background:color-mix(in srgb,#8ab4f8 14%,transparent)}
+  .md .badge.red{color:#ffb0b3;border-color:color-mix(in srgb,#ff8589 45%,transparent);background:color-mix(in srgb,#ff8589 14%,transparent)}
+  .md .badge.green{color:#8ce8b8;border-color:color-mix(in srgb,#5fd39a 45%,transparent);background:color-mix(in srgb,#5fd39a 14%,transparent)}
+  .md .badge.amber{color:#f7d494;border-color:color-mix(in srgb,#f2c063 45%,transparent);background:color-mix(in srgb,#f2c063 14%,transparent)}
+  .md .badge.blue{color:#a5d3ff;border-color:color-mix(in srgb,#7ec2ff 45%,transparent);background:color-mix(in srgb,#7ec2ff 14%,transparent)}
   /* Figure/diagram wrapper: <figure class="diagram">…svg…<figcaption>…</figure> */
   .md .diagram{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:16px}
 

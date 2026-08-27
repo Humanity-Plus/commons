@@ -135,11 +135,11 @@ next time (e.g. *"lean on the SDK's types to catch a typo'd method before it shi
 ```html
 <figure class="diagram">
 <svg viewBox="0 0 480 70" xmlns="http://www.w3.org/2000/svg" font-size="12">
-  <rect x="6" y="20" width="150" height="30" rx="6" fill="#1b1d24" stroke="#8ab4f8"/>
-  <text x="81" y="39" text-anchor="middle" fill="#c9d3e6">request</text>
-  <line x1="158" y1="35" x2="212" y2="35" stroke="#8a94a6" stroke-width="1.5"/>
-  <rect x="316" y="20" width="150" height="30" rx="6" fill="#2a1416" stroke="#e5484d"/>
-  <text x="391" y="39" text-anchor="middle" fill="#ff9ea0" font-weight="700">TypeError</text>
+  <rect x="6" y="20" width="150" height="30" rx="6" fill="#16171e" stroke="#7ec2ff"/>
+  <text x="81" y="39" text-anchor="middle" fill="#d5d7e0">request</text>
+  <line x1="158" y1="35" x2="212" y2="35" stroke="#9a9daa" stroke-width="1.5"/>
+  <rect x="316" y="20" width="150" height="30" rx="6" fill="#3a1c1e" stroke="#ff8589"/>
+  <text x="391" y="39" text-anchor="middle" fill="#ffb0b3" font-weight="700">TypeError</text>
 </svg>
 <figcaption>Every request funnels through the one bad call.</figcaption>
 </figure>

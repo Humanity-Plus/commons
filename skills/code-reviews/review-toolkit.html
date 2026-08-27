@@ -2,124 +2,173 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Review Toolkit: setup &amp; guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* Same visual language as the review report (render.ts) so the toolkit feels like one product. */
+  /* "Midnight" precision-dark design: near-black indigo-tinted surfaces, hairline
+     borders, quiet top glow, crisp medium-weight type. */
   :root{
-    --bg:#0d0d12; --panel:#16161d; --panel2:#1c1c25; --border:#2a2a33;
-    --text:#e6e6ea; --muted:#9a9aa6; --accent:#6e56cf;
-    --red:#e5484d; --amber:#ffb224; --green:#46a758; --blue:#8ab4f8;
-    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --bg:#08090c; --panel:#101116; --panel2:#16171e; --border:#24262f; --border2:#31343f;
+    --text:#e2e3e9; --head:#f7f8fa; --muted:#9a9daa; --accent:#828fff; --accent2:#5e6ad2;
+    --red:#ff8589; --amber:#f2c063; --green:#5fd39a; --blue:#7ec2ff;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   }
   *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
   body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
-    line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:880px;margin:0 auto;padding:40px 24px 90px}
-  a{color:var(--blue);text-decoration:none}
-  a:hover{text-decoration:underline}
-  code{font-family:var(--mono);font-size:12.5px;font-weight:600;color:#d3c7ff;
-    background:color-mix(in srgb,var(--accent) 15%,var(--panel2));
-    border:1px solid color-mix(in srgb,var(--accent) 32%,var(--border));
-    padding:1px 6px;border-radius:5px;white-space:nowrap}
-  pre{background:#0b0b0f;border:1px solid var(--border);border-radius:8px;
-    padding:13px 16px;overflow-x:auto;margin:0 0 16px;position:relative}
-  pre code{background:none;border:none;padding:0;color:#d6d6df;font-weight:400;
-    font-size:12.5px;line-height:1.6;white-space:pre}
-  pre .c{color:var(--muted)} /* comment */
-  pre .p{color:#7ee0a0}      /* prompt / command name */
+    line-height:1.65;font-size:15px;-webkit-font-smoothing:antialiased}
+  body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:radial-gradient(60% 40% at 50% -5%,rgba(94,106,210,.16),transparent 70%),var(--bg)}
+  .wrap{max-width:880px;margin:0 auto;padding:52px 24px 130px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline;text-underline-offset:3px}
+  b,strong{color:var(--head);font-weight:600}
+  code{font-family:var(--mono);font-size:12.5px;font-weight:500;color:#bcc3ff;
+    background:rgba(94,106,210,.13);border:1px solid rgba(94,106,210,.3);
+    padding:1px 6px;border-radius:6px;white-space:nowrap}
+  pre{background:#0b0c10;border:1px solid var(--border);border-radius:10px;
+    padding:14px 17px;overflow-x:auto;margin:0 0 16px}
+  /* Copyable command blocks: wrapped in .pre-wrap so the button stays put when the pre scrolls. */
+  .pre-wrap{position:relative;margin:0 0 12px}
+  .pre-wrap pre{margin:0;padding-right:96px}
+  .copy-btn{position:absolute;top:8px;right:8px;display:inline-flex;align-items:center;gap:5px;
+    font-family:var(--mono);font-size:11px;font-weight:600;color:var(--muted);
+    background:var(--panel2);border:1px solid var(--border);border-radius:7px;
+    padding:4px 9px;cursor:pointer;transition:color .15s,border-color .15s}
+  .copy-btn:hover{color:var(--head);border-color:var(--border2)}
+  .copy-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .copy-btn.copied{color:var(--green);border-color:rgba(95,211,154,.4)}
+  .copy-btn svg{width:12px;height:12px;flex:none}
+  pre code{background:none;border:none;padding:0;color:#d5d7e0;font-weight:400;
+    font-size:12.5px;line-height:1.7;white-space:pre}
+  pre .c{color:#71747f}
+  pre .p{color:var(--green)}
 
-  header.top{padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:30px}
-  .kicker{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);margin-bottom:8px}
-  h1{margin:0 0 8px;font-size:28px;letter-spacing:-.02em}
+  header.top{padding-bottom:30px;border-bottom:1px solid var(--border);margin-bottom:36px}
+  .kicker{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.14em;color:var(--muted);margin-bottom:14px}
+  .kicker::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 10px var(--accent)}
+  h1{margin:0 0 12px;font-size:38px;font-weight:700;letter-spacing:-.035em;line-height:1.08;
+    color:var(--head)}
   .lede{color:var(--muted);font-size:15.5px;max-width:640px;margin:0}
+  .lede b{color:var(--text)}
 
-  nav.toc{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 0}
-  nav.toc a{font-size:12px;padding:3px 11px;border-radius:20px;border:1px solid var(--border);
-    background:var(--panel);color:var(--muted)}
-  nav.toc a:hover{color:var(--text);border-color:var(--accent);text-decoration:none}
+  nav.toc{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 0}
+  nav.toc a{font-size:12.5px;font-weight:500;padding:5px 13px;border-radius:8px;
+    border:1px solid var(--border);background:var(--panel);color:var(--muted);
+    transition:color .15s,border-color .15s,background .15s}
+  nav.toc a:hover{color:var(--head);border-color:var(--border2);background:var(--panel2);
+    text-decoration:none}
 
-  h2{font-size:18px;letter-spacing:-.01em;margin:44px 0 6px;display:flex;align-items:center;gap:10px}
-  h2 .n{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:700}
-  .sub{color:var(--muted);font-size:13.5px;margin:0 0 18px}
-  h3{font-size:14px;margin:22px 0 8px}
+  h2{font-size:24px;font-weight:600;letter-spacing:-.02em;margin:88px 0 8px;color:var(--head);
+    display:flex;align-items:center;gap:14px}
+  h2 .n{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--accent);
+    border:1px solid rgba(94,106,210,.45);background:rgba(94,106,210,.12);
+    border-radius:9px;padding:5px 12px;flex:none}
+  .sub{color:var(--muted);font-size:13.5px;margin:0 0 20px;max-width:680px}
+  h3{font-size:17px;font-weight:600;letter-spacing:-.01em;margin:32px 0 10px;color:var(--head)}
+  .dim{color:var(--muted);font-weight:400}
 
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:14px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:20px 22px;margin-bottom:14px;transition:border-color .15s}
+  .card:hover{border-color:var(--border2)}
   .card > :first-child{margin-top:0}
   .card > :last-child{margin-bottom:0}
+  .card h3{margin-top:0}
 
-  table{width:100%;border-collapse:collapse;font-size:13px;margin:0 0 16px;
-    border:1px solid var(--border);border-radius:8px;overflow:hidden}
-  th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
+  .table-scroll{overflow-x:auto;margin:0 0 16px}
+  .table-scroll table{margin:0}
+  table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;margin:0 0 16px;
+    border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--panel)}
+  th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
   th{background:var(--panel2);color:var(--muted);font-weight:600;font-size:11px;
-    text-transform:uppercase;letter-spacing:.04em}
+    text-transform:uppercase;letter-spacing:.07em}
   tr:last-child td{border-bottom:none}
   td .hint{display:block;color:var(--muted);font-size:12px;margin-top:2px}
 
-  /* pipeline diagram */
-  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:6px 0 18px}
-  .flow-step{flex:1;min-width:120px;background:var(--panel2);border:1px solid var(--border);
-    border-radius:10px;padding:12px 14px;position:relative;margin-right:26px}
+  /* Never wraps (a wrapped row leaves a dangling arrow): scrolls sideways when tight,
+     goes vertical below 680px. */
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:nowrap;overflow-x:auto;
+    margin:6px 0 20px;padding-bottom:4px}
+  .flow-step{flex:1;min-width:130px;background:var(--panel);border:1px solid var(--border);
+    border-radius:10px;padding:13px 15px;position:relative;margin-right:28px}
   .flow-step:last-child{margin-right:0}
-  .flow-step::after{content:"→";position:absolute;right:-21px;top:50%;transform:translateY(-50%);
-    color:var(--accent);font-size:16px;font-weight:700}
+  .flow-step::after{content:"→";position:absolute;right:-23px;top:50%;transform:translateY(-50%);
+    color:var(--accent2);font-size:16px;font-weight:700}
   .flow-step:last-child::after{content:none}
-  .flow-cmd{font-family:var(--mono);font-size:12.5px;font-weight:700;color:#7ee0a0}
-  .flow-phase{font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;
-    letter-spacing:.06em;color:var(--accent);margin-bottom:4px}
+  .flow-cmd{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--green)}
+  .flow-phase{font-family:var(--mono);font-size:10px;font-weight:600;text-transform:uppercase;
+    letter-spacing:.08em;color:var(--accent);margin-bottom:4px}
   .flow-desc{font-size:12px;color:var(--muted);margin-top:3px}
-  @media(max-width:680px){.flow{flex-direction:column}.flow-step{margin:0 0 24px}
-    .flow-step::after{content:"↓";right:auto;left:50%;top:auto;bottom:-22px;transform:translateX(-50%)}}
+  @media(max-width:680px){.flow{flex-direction:column;overflow-x:visible}.flow-step{margin:0 0 26px}
+    .flow-step::after{content:"↓";right:auto;left:50%;top:auto;bottom:-24px;transform:translateX(-50%)}}
 
-  /* command cards, colored left border, square left corners (straight color bar) */
+  .c-reviewpr{--cc:var(--blue)} .c-reviewfix{--cc:var(--green)} .c-resolve{--cc:var(--amber)}
+  .c-publish{--cc:#b9a8ff} .c-issues{--cc:var(--red)}
+  /* Colored edge is a real border with square corners on that side — a straight bar. */
   .cmd{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--cc,var(--accent));
     border-radius:0 12px 12px 0;padding:18px 22px;margin-bottom:14px}
   .cmd-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
-  .cmd-name{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--cc,var(--accent))}
-  .cmd-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
-    padding:2px 9px;border-radius:20px;background:var(--panel2);border:1px solid var(--border);color:var(--muted)}
-  .cmd-tag.writes{color:#ff9ea0;border-color:color-mix(in srgb,var(--red) 45%,transparent);
-    background:color-mix(in srgb,var(--red) 12%,transparent)}
-  .cmd-tag.readonly{color:#7ee0a0;border-color:color-mix(in srgb,var(--green) 45%,transparent);
-    background:color-mix(in srgb,var(--green) 12%,transparent)}
+  h3.cmd-name{margin:0;font-family:var(--mono);font-size:15px;font-weight:700;
+    letter-spacing:0;color:var(--cc,var(--accent))}
+  .cmd-tag{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
+    padding:2px 9px;border-radius:6px;background:var(--panel2);border:1px solid var(--border);
+    color:var(--muted)}
+  .cmd-tag.writes{color:var(--red);border-color:rgba(255,133,137,.35);background:rgba(255,133,137,.08)}
+  .cmd-tag.readonly{color:var(--green);border-color:rgba(95,211,154,.35);background:rgba(95,211,154,.08)}
   .cmd p{margin:6px 0}
-  .cmd .args{margin:10px 0 0;padding:0;list-style:none;display:grid;gap:5px}
-  .cmd .args li{font-size:13px;color:var(--muted);display:flex;gap:10px;align-items:baseline}
+  .cmd .args{margin:12px 0 0;padding:0;list-style:none;display:grid;gap:6px;
+    grid-template-columns:minmax(0,1fr)}
+  .cmd .args li{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;
+    gap:2px 10px;align-items:baseline;min-width:0}
   .cmd .args code{flex:none}
 
-  /* scenario cards */
-  .scenario{background:var(--panel);border:1px solid var(--border);border-radius:14px;
+  .scenario{background:var(--panel);border:1px solid var(--border);border-radius:12px;
     padding:20px 22px;margin-bottom:16px}
-  .scenario h3{margin:0 0 4px;font-size:15px}
-  .scenario .who{font-size:12px;color:var(--muted);font-style:italic;margin:0 0 12px}
+  .scenario h3{margin:0 0 4px;font-size:17px}
+  .scenario .who{font-size:12px;color:var(--muted);margin:0 0 12px}
   .scenario ol{margin:0;padding-left:22px;display:grid;gap:8px;font-size:13.5px}
-  .scenario ol li::marker{color:var(--accent);font-weight:700}
-  .scenario .outcome{margin-top:12px;padding:10px 14px;border:1px solid var(--border);
-    border-left:3px solid var(--green);border-radius:0 8px 8px 0;
-    background:color-mix(in srgb,var(--green) 6%,var(--panel2));font-size:13px;color:var(--muted)}
-  .scenario .outcome b{color:#7ee0a0}
+  .scenario ol li::marker{color:var(--accent);font-weight:600}
+  .scenario .outcome{margin-top:14px;padding:11px 15px;border:1px solid rgba(95,211,154,.28);
+    border-radius:10px;background:rgba(95,211,154,.06);font-size:13px;color:var(--muted)}
+  .scenario .outcome b{color:var(--green)}
 
-  /* callouts, same convention: straight colored bar on the left */
-  .callout{margin:0 0 16px;padding:12px 16px;border:1px solid var(--border);border-left-width:4px;
-    border-radius:0 10px 10px 0;background:var(--panel2);font-size:13.5px}
-  .callout .t{font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;margin:0 0 5px}
-  .callout.note{border-left-color:var(--blue)}.callout.note .t{color:var(--blue)}
-  .callout.warn{border-left-color:var(--amber)}.callout.warn .t{color:var(--amber)}
-  .callout.danger{border-left-color:var(--red)}.callout.danger .t{color:#ff9ea0}
+  .callout{margin:0 0 16px;padding:13px 17px;border:1px solid var(--border);border-radius:10px;
+    background:var(--panel2);font-size:13.5px}
+  .callout .t{font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 6px}
+  .callout.note{border-color:rgba(126,194,255,.3)}.callout.note .t{color:var(--blue)}
+  .callout.warn{border-color:rgba(242,192,99,.32)}.callout.warn .t{color:var(--amber)}
+  .callout.danger{border-color:rgba(255,133,137,.36)}.callout.danger .t{color:var(--red)}
   .callout p{margin:0 0 8px}.callout p:last-child{margin-bottom:0}
 
-  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0 0 16px;align-items:start}
-  .cols-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:0 0 16px;align-items:start}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0 0 16px}
+  .cols-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:0 0 16px}
+  .cols>*,.cols-3>*{min-width:0}
   @media(max-width:720px){.cols,.cols-3{grid-template-columns:1fr}}
+  /* Code-heavy pairs stack full-width, content directly on the background — no card chrome. */
+  .cols.stacked{grid-template-columns:1fr;gap:44px;margin-bottom:32px}
+  .cols.stacked>.card,.cols.stacked>.card:hover{background:transparent;border:none;
+    border-radius:0;padding:0}
 
-  .level{font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;
-    letter-spacing:.06em;color:var(--accent);margin:0 0 6px}
+  .level{font-family:var(--mono);font-size:12px;font-weight:600;text-transform:uppercase;
+    letter-spacing:.08em;color:var(--accent);margin:0 0 8px}
 
-  footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--border);
-    color:var(--muted);font-size:12px;display:flex;gap:14px;flex-wrap:wrap}
-  .brand{font-weight:700;color:var(--text);background:var(--panel2);border:1px solid var(--border);
-    border-radius:6px;padding:2px 8px}
+  footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--border);
+    color:var(--muted);font-size:12px;display:flex;gap:14px;flex-wrap:wrap;align-items:baseline}
+  .brand{font-weight:600;color:var(--head);background:var(--panel2);border:1px solid var(--border);
+    border-radius:7px;padding:2px 9px}
+
+  /* Narrow screens: let chips wrap in prose/args, but never break a pill inside a
+     table — those cells keep whole pills and the table scrolls instead. */
+  @media(max-width:760px){code{white-space:normal;overflow-wrap:anywhere}
+    .cmd .args code{flex:0 1 auto}
+    td code,th code{white-space:nowrap;overflow-wrap:normal}}
 </style></head>
-<body><div class="wrap">
+<body>
+<div class="wrap">
 
 <header class="top">
   <div class="kicker">AI review toolkit</div>
@@ -129,7 +178,7 @@
   to GitHub. Works in <b>Claude Code</b>, <b>Cursor</b>, and any agent
   <a href="https://skills.sh">skills.sh</a> supports. Part of the
   <a href="https://github.com/Humanity-Plus/commons">Humanity Plus Commons</a>, MIT-licensed.</p>
-  <nav class="toc">
+  <nav class="toc" aria-label="On this page">
     <a href="#install">Install</a>
     <a href="#pieces">What you get</a>
     <a href="#configure">Configure</a>
@@ -146,25 +195,25 @@
 <p class="sub">Two ways in, two philosophies, <b>pick one</b>. Installing both leaves you with every
 review skill twice.</p>
 
-<div class="cols">
+<div class="cols stacked">
   <div class="card">
-    <h3>Option 1: skills CLI <span style="color:var(--muted);font-weight:400">(any agent, editable files)</span></h3>
+    <h3>Option 1: skills CLI <span class="dim">(any agent, editable files)</span></h3>
     <p>Works with Claude Code, Cursor, Codex, and most other coding agents. The CLI lists the
     skills; you pick which ones and which agents.</p>
-<pre><code>npx skills add Humanity-Plus/commons -g</code></pre>
-<pre><code>npx skills add Humanity-Plus/commons --list <span class="c"># see every skill first</span>
-npx skills add Humanity-Plus/commons \
-  --skill review-pr -g                      <span class="c"># take one specific skill</span>
-npx skills update                           <span class="c"># pull the latest later</span></code></pre>
+<pre class="copyable"><code>npx skills add Humanity-Plus/commons -g</code></pre>
+<pre class="copyable"><code>npx skills add Humanity-Plus/commons --list <span class="c"># see every skill first</span></code></pre>
+<pre class="copyable"><code>npx skills add Humanity-Plus/commons \
+  --skill review-pr -g <span class="c"># take one specific skill</span></code></pre>
+<pre class="copyable"><code>npx skills update <span class="c"># pull the latest later</span></code></pre>
     <p>The skills land as ordinary files you own and can edit; nothing updates behind
     your back.</p>
   </div>
   <div class="card">
-    <h3>Option 2: Claude Code plugin <span style="color:var(--muted);font-weight:400">(managed bundle)</span></h3>
+    <h3>Option 2: Claude Code plugin <span class="dim">(managed bundle)</span></h3>
     <p>Claude Code only. Installs the whole toolkit as one plugin from this repo's
     marketplace.</p>
-<pre><code>claude plugin marketplace add Humanity-Plus/commons
-claude plugin install review-toolkit@humanity-plus</code></pre>
+<pre class="copyable"><code>claude plugin marketplace add Humanity-Plus/commons</code></pre>
+<pre class="copyable"><code>claude plugin install review-toolkit@humanity-plus</code></pre>
     <p>Or inside a session: <code>/plugin marketplace add Humanity-Plus/commons</code> then
     <code>/plugin install review-toolkit@humanity-plus</code>.</p>
     <p>Plugin skills are <b>namespaced</b>: invoke them as <code>/review-toolkit:review-pr</code>,
@@ -194,7 +243,7 @@ bootstraps the configuration. In Claude Code every skill is also invocable direc
 command, <code>/review-pr</code>, <code>/review-fix</code>, … with the CLI install, or namespaced
 (<code>/review-toolkit:review-pr</code>) with the plugin.</p>
 
-<table>
+<div class="table-scroll"><table>
   <thead><tr><th>Skill</th><th>Role</th><th>What it is</th></tr></thead>
   <tbody>
     <tr><td><code>review-pr</code></td><td>core</td><td>The reviewer. Runs independent lenses as parallel subagents (optionally sharded by feature area on large diffs, with a <b>seams</b> lens for cross-area contracts), verifies findings with a skeptic pass, calibrates severities with an <b>arbiter</b>, and renders the HTML report. Report-only, never edits code.</td></tr>
@@ -204,7 +253,7 @@ command, <code>/review-pr</code>, <code>/review-fix</code>, … with the CLI ins
     <tr><td><code>review-issues</code></td><td>workflow</td><td>File non-blocking findings (readability, naming, soft conventions) as grouped, deduped <code>review-debt</code> GitHub issues for a scheduled fixer.</td></tr>
     <tr><td><code>map-primitives</code></td><td>setup</td><td>The mapper. Bootstraps or refreshes <code>docs/primitives.md</code> + <code>primitives.yaml</code>, the machine-readable map of your system's building blocks that the review's <b>primitives</b> lens consumes, and reports drift (the same concept re-declared in multiple shapes).</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <p>How the pieces chain together:</p>
 <div class="flow">
@@ -222,7 +271,7 @@ command, <code>/review-pr</code>, <code>/review-fix</code>, … with the CLI ins
 <p class="sub">The toolkit works out of the box, but three repo-owned files are its real configuration,
 they're what turn a generic review into <em>your</em> review, and where great results come from.</p>
 
-<table>
+<div class="table-scroll"><table>
   <thead><tr><th>File</th><th>Feeds</th><th>What goes in it</th></tr></thead>
   <tbody>
     <tr>
@@ -254,9 +303,9 @@ they're what turn a generic review into <em>your</em> review, and where great re
       failure of agent-written code. Bootstrap it with the <code>map-primitives</code> skill.</td>
     </tr>
   </tbody>
-</table>
+</table></div>
 
-<div class="cols">
+<div class="cols stacked">
   <div class="card">
     <h3>REVIEW.md, the shape that works</h3>
     <p>The lenses look for these headings specifically:</p>
@@ -346,7 +395,7 @@ they're what turn a generic review into <em>your</em> review, and where great re
 </div>
 
 <h3>Lenses</h3>
-<table>
+<div class="table-scroll"><table>
   <thead><tr><th>Lens</th><th>Question it answers</th><th>When</th></tr></thead>
   <tbody>
     <tr><td><code>triage</code></td><td>What changed, grouped by feature area and risk?</td><td>always first</td></tr>
@@ -359,7 +408,7 @@ they're what turn a generic review into <em>your</em> review, and where great re
     <tr><td><code>seams</code></td><td>Do the sides of every contract the diff crosses still fit together?</td><td>when triage finds interfaces</td></tr>
     <tr><td><code>primitives</code></td><td>What did the change do to the system's primitives (composes / extends / adds), and did it invent shapes outside the map?</td><td>repo has <code>primitives.yaml</code></td></tr>
   </tbody>
-</table>
+</table></div>
 
 <div class="cols">
   <div class="card">
@@ -379,7 +428,7 @@ they're what turn a generic review into <em>your</em> review, and where great re
 
 <div class="cols">
   <div class="card">
-    <h3>Holistic comparison <span style="color:var(--muted);font-weight:400">(optional)</span></h3>
+    <h3>Holistic comparison <span class="dim">(optional)</span></h3>
     <p>Pass <code>holistic</code> to also run a whole-diff generalist in parallel with Phase 2.
     Overlap stats land in a <b>Holistic comparison</b> card, holistic-only findings flag gaps in
     the lens decomposition. Off by default; an eval harness, not part of the everyday loop.</p>
@@ -398,8 +447,8 @@ they're what turn a generic review into <em>your</em> review, and where great re
 <p class="sub">Type <code>/</code> in the chat and pick the skill; anything you type after it becomes the argument.
 In agents without slash invocation, ask for the skill by name ("use review-pr on PR 482").</p>
 
-<article class="cmd" style="--cc:#8ab4f8">
-  <div class="cmd-head"><span class="cmd-name">/review-pr</span>
+<article class="cmd c-reviewpr">
+  <div class="cmd-head"><h3 class="cmd-name">/review-pr</h3>
     <span class="cmd-tag readonly">read-only</span></div>
   <p>The full review. Produces <code>review-report/findings.json</code> (source of truth) and
   <code>review-report/report.html</code>, verdict, severity donut, risk heatmap, conventions
@@ -421,8 +470,8 @@ In agents without slash invocation, ask for the skill by name ("use review-pr on
   </ul>
 </article>
 
-<article class="cmd" style="--cc:#7ee0a0">
-  <div class="cmd-head"><span class="cmd-name">/review-fix</span>
+<article class="cmd c-reviewfix">
+  <div class="cmd-head"><h3 class="cmd-name">/review-fix</h3>
     <span class="cmd-tag writes">writes code</span></div>
   <p>The fast local loop, and the command to point agents at. Runs the same full review in
   <b>findings-only mode</b> (pipeline through arbiter, no HTML, no browser), then immediately
@@ -434,8 +483,8 @@ In agents without slash invocation, ask for the skill by name ("use review-pr on
   </ul>
 </article>
 
-<article class="cmd" style="--cc:#ffca7a">
-  <div class="cmd-head"><span class="cmd-name">/resolve-review</span>
+<article class="cmd c-resolve">
+  <div class="cmd-head"><h3 class="cmd-name">/resolve-review</h3>
     <span class="cmd-tag writes">writes code</span></div>
   <p>The second half, run separately: consume an existing <code>review-report/findings.json</code>
   (from a prior <code>/review-pr</code>), fix the selected findings, validate each fix with the repo's
@@ -449,8 +498,8 @@ In agents without slash invocation, ask for the skill by name ("use review-pr on
   </ul>
 </article>
 
-<article class="cmd" style="--cc:#d3c7ff">
-  <div class="cmd-head"><span class="cmd-name">/publish-review</span>
+<article class="cmd c-publish">
+  <div class="cmd-head"><h3 class="cmd-name">/publish-review</h3>
     <span class="cmd-tag">posts to GitHub</span></div>
   <p>Turn a previous PR-mode review into <em>one real GitHub review</em>: findings anchored in the diff
   become inline <code>file:line</code> comments, everything else folds into the review body. Always
@@ -463,8 +512,8 @@ In agents without slash invocation, ask for the skill by name ("use review-pr on
   </ul>
 </article>
 
-<article class="cmd" style="--cc:#ff9ea0">
-  <div class="cmd-head"><span class="cmd-name">/review-issues</span>
+<article class="cmd c-issues">
+  <div class="cmd-head"><h3 class="cmd-name">/review-issues</h3>
     <span class="cmd-tag">posts to GitHub</span></div>
   <p>The review-debt lane. Files the review's <em>non-blocking</em> findings (low/nitpick,
   readability, naming, soft conventions) as GitHub issues so they get fixed later instead of
@@ -544,7 +593,7 @@ In agents without slash invocation, ask for the skill by name ("use review-pr on
     <li>Happy with it? Run <code>/publish-review gist</code>, after a dry-run and your confirmation,
         the findings land on the PR as inline comments plus a summary review, with a link to the full report.</li>
   </ol>
-  <div class="outcome"><b>Outcome:</b> a thorough, evidence-based review posted as one GitHub review, 
+  <div class="outcome"><b>Outcome:</b> a thorough, evidence-based review posted as one GitHub review,
   not a wall of bot comments. The review stays report-only; nothing on the PR branch is executed or edited.</div>
 </article>
 
@@ -656,4 +705,57 @@ In agents without slash invocation, ask for the skill by name ("use review-pr on
   guide lives at <code>skills/code-reviews/review-toolkit.html</code></span>
 </footer>
 
-</div></body></html>
+</div>
+<script>
+  // Copy buttons for command blocks. Copies the command only — inline comments
+  // (.c spans) and trailing whitespace are stripped.
+  (function(){
+    var icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+      + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + '<rect x="9" y="9" width="12" height="12" rx="2"/>'
+      + '<path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+    document.querySelectorAll('pre.copyable').forEach(function(pre){
+      var wrap = document.createElement('div');
+      wrap.className = 'pre-wrap';
+      pre.parentNode.insertBefore(wrap, pre);
+      wrap.appendChild(pre);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'copy-btn';
+      btn.setAttribute('aria-label', 'Copy command');
+      btn.innerHTML = icon + '<span>Copy</span>';
+      btn.addEventListener('click', function(){
+        var code = pre.querySelector('code').cloneNode(true);
+        code.querySelectorAll('.c').forEach(function(c){ c.remove(); });
+        var text = code.textContent.split('\n')
+          .map(function(l){ return l.replace(/\s+$/, ''); })
+          .filter(function(l){ return l.length; })
+          .join('\n');
+        var done = function(){
+          btn.classList.add('copied');
+          btn.querySelector('span').textContent = 'Copied';
+          clearTimeout(btn._t);
+          btn._t = setTimeout(function(){
+            btn.classList.remove('copied');
+            btn.querySelector('span').textContent = 'Copy';
+          }, 1600);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, function(){ fallback(); });
+        } else { fallback(); }
+        function fallback(){
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand('copy'); done(); } catch(e) {}
+          ta.remove();
+        }
+      });
+      wrap.appendChild(btn);
+    });
+  })();
+</script>
+</body></html>

@@ -159,7 +159,9 @@ Versioning is unified through
 two can't drift (CI checks this on every PR).
 
 - A PR that changes a skill or plugin includes a changeset (`bunx changeset`)
-  with human-readable release notes.
+  with human-readable release notes. CI fails a PR that changes skill content
+  without one; use `bunx changeset --empty` for a change that shouldn't appear
+  in release notes.
 - On every push to `main`, the release workflow maintains a
   "chore: version plugins" PR that accumulates pending changesets.
 - Merging that PR is the release: the version bumps everywhere, `CHANGELOG.md`

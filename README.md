@@ -31,7 +31,11 @@ npx skills add Humanity-Plus/commons -g                 # install globally, not 
 ```
 
 Skills are installed as ordinary files you own and can edit. Nothing updates behind
-your back, pull our latest changes when you want them with `npx skills update`.
+your back — pull our latest changes when you want them with `npx skills update`
+(add `-g` if you installed globally). This lane tracks the `main` branch directly,
+so an update gives you every merged change; the
+[releases page](https://github.com/Humanity-Plus/commons/releases) tells you
+what shipped when.
 
 ### Option 2: Claude Code plugins (managed bundles)
 
@@ -52,8 +56,20 @@ claude plugin install code-publish@humanity-plus
 (Inside a session: `/plugin marketplace add Humanity-Plus/commons`, then
 `/plugin install <name>@humanity-plus`.) Plugin skills are namespaced, invoke
 them as `/review-toolkit:review-pr`, `/code-publish:create-pr`, and so on.
-Update later with `claude plugin marketplace update humanity-plus`. The design
-systems skills are CLI-only for now.
+The design systems skills are CLI-only for now.
+
+Plugins are versioned: installed plugins stay on their version until we cut a
+release (a version bump plus notes on the
+[releases page](https://github.com/Humanity-Plus/commons/releases)). To pick up
+new releases, run:
+
+```bash
+claude plugin marketplace update humanity-plus
+```
+
+Or enable auto-update for the `humanity-plus` marketplace in `/plugin` →
+marketplace settings (it's off by default for third-party marketplaces), and
+Claude Code checks for new versions itself shortly after each session starts.
 
 > **Installing review skills with the CLI? Use `-g` (global).** Review skills
 > installed into a project you then review other people's PRs in can be swapped
@@ -133,6 +149,22 @@ words.
 **[naming-tokens](skills/design-systems/naming-tokens/SKILL.md)**
 Names and structures design tokens across primitive, semantic, and component layers
 so names stay clear, stable, and maintainable as the system grows.
+
+## Releasing (maintainers)
+
+Versioning is unified through
+[changesets](https://github.com/changesets/changesets): the `version` in
+`package.json` is the repo's release version, and
+`scripts/sync-plugin-version.mjs` stamps it into every plugin manifest so the
+two can't drift (CI checks this on every PR).
+
+- A PR that changes a skill or plugin includes a changeset (`bunx changeset`)
+  with human-readable release notes.
+- On every push to `main`, the release workflow maintains a
+  "chore: version plugins" PR that accumulates pending changesets.
+- Merging that PR is the release: the version bumps everywhere, `CHANGELOG.md`
+  updates, and a GitHub Release is tagged. Plugin users receive changes at that
+  moment; skills CLI users track `main` and get each change as it merges.
 
 ## License
 

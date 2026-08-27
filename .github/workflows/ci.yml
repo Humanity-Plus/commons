@@ -19,3 +19,33 @@ jobs:
 
       - name: Check plugin versions match package.json
         run: bun run check-plugin-version
+
+  changeset:
+    name: Changeset present for skill changes
+    # The version PR ("chore: version plugins") consumes changesets by design.
+    if: github.head_ref != 'changeset-release/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require a changeset when skill content changes
+        env:
+          BASE: ${{ github.base_ref }}
+        run: |
+          git fetch origin "$BASE" --quiet
+          changed=$(git diff --name-only "origin/$BASE"...HEAD)
+          skill_changes=$(echo "$changed" | grep '^skills/' | grep -v '/.claude-plugin/plugin.json$' || true)
+          if [ -z "$skill_changes" ]; then
+            echo "No skill content changed; no changeset required."
+            exit 0
+          fi
+          changesets=$(echo "$changed" | grep '^\.changeset/.*\.md$' || true)
+          if [ -z "$changesets" ]; then
+            echo "::error::This PR changes skill content but has no changeset. Run \`bunx changeset\` and commit the result — or \`bunx changeset --empty\` if the change shouldn't appear in release notes."
+            exit 1
+          fi
+          echo "Changeset found:"
+          echo "$changesets"

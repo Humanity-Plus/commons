@@ -26,6 +26,11 @@
  *                        private-repo alternative to --gist: who can read the
  *                        report is whoever can read that Pages site (on GitHub
  *                        Enterprise Cloud, Pages can be org-members-only).
+ *                        Same leak gate as --gist: when the reviewed repo isn't
+ *                        PUBLIC and the Pages site IS public, this refuses —
+ *                        override only with an explicit --force-pages.
+ *   --force-pages        Host on a public Pages site even though the reviewed
+ *                        repo is private/internal. Same gravity as --force-gist.
  *   --recap              Append review-report/system-recap.md (the primitives
  *                        recap block) to the review body — the recap channel for
  *                        PRs whose description you don't own.
@@ -482,13 +487,45 @@ export function pagesReportName(repo: string, pr: string, headSha?: string): str
 // GitHub Enterprise Cloud that can be org members only). Uses the contents API
 // via stdin so report size never hits argv limits; pushing to the pages repo's
 // default branch is what triggers its deploy workflow.
-async function hostOnPagesRepo(pagesRepo: string, reportPath: string, name: string): Promise<string> {
-  const htmlUrl = await gh(["api", `repos/${pagesRepo}/pages`, "-q", ".html_url"]).catch(() => "");
-  if (!htmlUrl)
+// --pages needs the same leak gate as --gist: a PRIVATE/INTERNAL repo's review
+// content must not land on a Pages site the world can read. pagesPublic is the
+// Pages API's `public` flag (false = access-controlled Pages). Unknown
+// visibility refuses, never assumes — parity with gistGuardError.
+export function pagesGuardError(
+  repoVisibility: string,
+  pagesPublic: boolean,
+  pagesRepo: string,
+  force: boolean
+): string | null {
+  const vis = String(repoVisibility || "").toUpperCase();
+  if (vis === "PUBLIC" || !pagesPublic || force) return null;
+  return (
+    `--pages refused: this repo's visibility is ${vis || "UNKNOWN"} but ${pagesRepo}'s Pages site is ` +
+    `PUBLIC — hosting the report there would expose review content (code excerpts, file paths) ` +
+    `outside the repo's access controls. Point --pages at a repo with access-controlled Pages ` +
+    `(GitHub Enterprise Cloud), or override deliberately with --force-pages.`
+  );
+}
+
+async function hostOnPagesRepo(
+  pagesRepo: string,
+  reportPath: string,
+  name: string,
+  reviewedRepoVisibility: string,
+  force: boolean
+): Promise<string> {
+  const pagesJson = await gh(["api", `repos/${pagesRepo}/pages`]).catch(() => "");
+  if (!pagesJson)
     throw new Error(
       `--pages: ${pagesRepo} has no GitHub Pages site configured (repos/${pagesRepo}/pages returned nothing). ` +
         `Set up Pages on that repo first, or use --report-url with an already-hosted copy.`
     );
+  const pages = JSON.parse(pagesJson) as { html_url?: string; public?: boolean };
+  const htmlUrl = pages.html_url ?? "";
+  if (!htmlUrl) throw new Error(`--pages: repos/${pagesRepo}/pages has no html_url — is the site built?`);
+  // Absent `public` counts as public: refuse on missing data, never assume safety.
+  const guard = pagesGuardError(reviewedRepoVisibility, pages.public !== false, pagesRepo, force);
+  if (guard) throw new Error(guard);
   const content = Buffer.from(await Bun.file(reportPath).arrayBuffer()).toString("base64");
   // The contents API needs the existing blob sha to overwrite (republish of the
   // same PR+head); absent for a first publish.
@@ -509,7 +546,14 @@ if (import.meta.main) {
   let findingsPath = "";
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--dry-run" || a === "--body-only" || a === "--gist" || a === "--force-gist" || a === "--recap")
+    if (
+      a === "--dry-run" ||
+      a === "--body-only" ||
+      a === "--gist" ||
+      a === "--force-gist" ||
+      a === "--recap" ||
+      a === "--force-pages"
+    )
       opts[a.slice(2)] = true;
     else if (a.startsWith("--")) opts[a.slice(2)] = argv[++i] ?? "";
     else findingsPath = a;
@@ -569,7 +613,16 @@ if (import.meta.main) {
       process.exit(1);
     }
     const reportPath = (opts["report"] as string) || join(dirname(findingsPath), "report.html");
-    reportUrl = await hostOnPagesRepo(pagesRepo, reportPath, pagesReportName(repo, pr, report.meta.headSha));
+    const visibility = await gh(["repo", "view", repo, "--json", "visibility", "-q", ".visibility"]).catch(
+      () => ""
+    );
+    reportUrl = await hostOnPagesRepo(
+      pagesRepo,
+      reportPath,
+      pagesReportName(repo, pr, report.meta.headSha),
+      visibility,
+      !!opts["force-pages"]
+    );
     console.log(`✓ report committed to ${pagesRepo}: ${reportUrl}`);
     console.log(`  (the link goes live when that repo's Pages deploy finishes — usually under a minute)`);
   }

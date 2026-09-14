@@ -1,7 +1,7 @@
 // Tests for the GitHub-publishing pipeline: diff anchoring, GFM degradation,
 // and review-payload assembly. Run: bun test  (from this directory)
 import { test, expect } from "bun:test";
-import { parseDiffAnchors, toGfm, buildReview, resolveEvent, checkPrMismatch, gistGuardError, reviewFooter, fmtStamp, pagesReportName } from "./publish.ts";
+import { parseDiffAnchors, toGfm, buildReview, resolveEvent, checkPrMismatch, gistGuardError, reviewFooter, fmtStamp, pagesReportName, pagesGuardError } from "./publish.ts";
 
 // ---- --gist visibility guard (round 19: the private-source leak vector) ----
 test("gistGuardError refuses non-public repos unless forced", () => {
@@ -297,6 +297,15 @@ test("fmtStamp: ISO → DD.MM.YYYY - HH:MM (UTC); unparseable stays raw", () => 
   expect(fmtStamp("2026-09-14T10:39:12.048Z")).toBe("14.09.2026 - 10:39");
   expect(fmtStamp("2026-01-02T03:04:05Z")).toBe("02.01.2026 - 03:04"); // zero-padded
   expect(fmtStamp("not-a-date")).toBe("not-a-date");
+});
+
+test("pagesGuardError: refuses private-repo content on a public Pages site", () => {
+  // private repo + public pages = the leak --gist refuses; same gate here
+  expect(pagesGuardError("PRIVATE", true, "acme/shares", false)).toContain("--force-pages");
+  expect(pagesGuardError("", true, "acme/shares", false)).toContain("UNKNOWN"); // lookup failed → refuse
+  expect(pagesGuardError("INTERNAL", true, "acme/shares", true)).toBeNull(); // explicit override
+  expect(pagesGuardError("PRIVATE", false, "acme/shares", false)).toBeNull(); // access-controlled Pages
+  expect(pagesGuardError("PUBLIC", true, "acme/shares", false)).toBeNull(); // nothing to leak
 });
 
 test("pagesReportName: deterministic, slug-safe, sha optional", () => {

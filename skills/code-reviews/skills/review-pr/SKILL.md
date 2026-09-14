@@ -1298,9 +1298,13 @@ bun run <this-skill-dir>/publish.ts review-report/findings.json [--dry-run] \
   `*.html` files to GitHub Pages) via the contents API and links the resulting
   Pages URL from the review. Who can read the report = who can read that Pages
   site, so the org controls visibility (GitHub Enterprise Cloud supports
-  org-members-only Pages). The link goes live when the pages repo's deploy
-  finishes — publish.ts says so. Pushing into the pages repo is a visible
-  action: name the repo and the file when confirming the dry run.
+  org-members-only Pages). It carries the **same leak gate as `--gist`**: when
+  the reviewed repo isn't PUBLIC and the target's Pages site *is* public,
+  publish.ts refuses (`--force-pages` is the only override) — pointing a
+  private repo's review at a world-readable Pages site is the gist leak with
+  extra steps. The link goes live when the pages repo's deploy finishes —
+  publish.ts says so. Pushing into the pages repo is a visible action: name
+  the repo and the file when confirming the dry run.
 - `--recap` appends `review-report/system-recap.md` to the review body — the
   recap channel for PRs whose description you don't own (see step 6 above).
 - `--min-severity` keeps low/nitpick findings out of inline comments (they still

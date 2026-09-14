@@ -67,9 +67,11 @@ new releases, run:
 claude plugin marketplace update humanity-plus
 ```
 
-Or enable auto-update for the `humanity-plus` marketplace in `/plugin` →
-marketplace settings (it's off by default for third-party marketplaces), and
-Claude Code checks for new versions itself shortly after each session starts.
+Or just wait: Claude Code refreshes marketplaces — third-party ones like this
+included — in the background once per session by default, so new releases
+arrive on their own. The manual command exists for picking up a release
+mid-session (it is skipped only in restricted setups, e.g.
+`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`).
 
 > **Installing review skills with the CLI? Use `-g` (global).** Review skills
 > installed into a project you then review other people's PRs in can be swapped

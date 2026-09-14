@@ -48,7 +48,9 @@ severity arbiter before it reaches you.
   findings with the enabling line quoted.
 - **Trust follows ownership.** Your PRs (including your automation's) get baseline
   checks, fix-verification, and materialized-merge gates; anyone else's checkout is
-  never executed, built, or installed.
+  never executed, built, or installed — unless the repo's own `REVIEW.md` deliberately
+  widens execution trust to write-access collaborators (`## Trust`, for teams
+  reviewing each other's PRs; forks never qualify).
 - **Cost scales with the diff.** A one-line change is reviewed inline; a 4,000-line
   multi-area PR shards by feature area with per-area risk tiers — the tier ladder is
   a table of mechanical predicates, not judgment.

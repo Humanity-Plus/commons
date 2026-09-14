@@ -83,3 +83,17 @@ callbacks; avoid unchecked `as` casts outside a validation boundary.
 
 - arbiter: strongest
 - verify: fast
+
+## Trust
+
+<!--
+  Optional, and a real security decision: `execution: collaborators` lets the
+  review skill EXECUTE this repo's PRs on reviewers' machines (baseline checks,
+  experiments, merged-tree gates) when the PR author has write access here and
+  the head branch lives in this repo — never forks. For teams reviewing each
+  other's PRs in a private org. The skill reads this from the base branch only,
+  so a PR can't grant itself trust. Delete this section to keep the default:
+  execution only on your own PRs.
+-->
+
+execution: collaborators

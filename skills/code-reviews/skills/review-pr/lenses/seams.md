@@ -76,6 +76,17 @@ comparison — both sides of the contract, side by side.
    the server/client boundary, redaction/sanitization the runtime performs) or a
    library contract? Those seams won't be in triage's map — you derive them from
    the diff.
+1b. **Grants and memberships are seams with many verifiers.** When the diff
+   migrates, bridges, or backfills authorization data (roles, grants,
+   memberships, permissions), the consumers that matter are the code paths
+   that make **access decisions** from that data — and there are usually
+   several. Trace the produced rows through **every effective authorization
+   consumer**: grep for every reader of the table/collection the grant lands
+   in, in the diff *and* the unchanged tree — not only the new resolver the
+   diff adds. A grant the writer produces but some checker never honors is a
+   top-severity seam finding (field: a migration bridge produced grants that
+   the legacy endpoints' membership-based authorization path never honored;
+   the lens saw the bridge's provenance but traced only the new resolver).
 2. For each seam, read **both sides**. Use `grep` to find every consumer of a changed
    export/type/route/event — the diff shows the producer; the blast radius lives in
    the repo.

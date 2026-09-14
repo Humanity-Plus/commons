@@ -40,10 +40,21 @@ You may also be given a **repository review context** (trusted repo facts) and a
      lens's claimed severity and scope, not a broader chain you constructed.
    - **weakened** — real but less severe than claimed (e.g. only an unlikely edge
      case, or a descendant PR in the stack reworks it). Suggest a lower severity and
-     note why (e.g. `reworked downstream in #108`).
+     note why (e.g. `reworked downstream in #108`). **Weakened also covers
+     reframing**: when the claimed *mechanism* is wrong but the quoted evidence
+     still establishes a smaller defect — the "privilege hole" turns out guarded,
+     yet the doc comment still overpromises what the guard allows — rewrite the
+     claim to the defect that survives and lower the severity accordingly. Don't
+     refute it (field: a skeptic correctly rejected a finding's security framing
+     and wrongly discarded the surviving documentation mismatch with it — a
+     competing reviewer then caught what the pipeline had already seen). The
+     novel-claim quote rule applies to a reframe like any other verdict.
    - **refuted** — the claim is wrong (the method exists, the input is validated
-     upstream, the path is guarded), the review context puts it **out of scope** (e.g.
-     a missing migration in a greenfield repo with no prod DB), or a descendant PR
+     upstream, the path is guarded) **and no lesser defect survives in the
+     finding's quoted evidence** — before returning refuted, ask the reframe
+     question above; refuting the framing is not refuting the evidence. Also
+     refuted: the review context puts it **out of scope** (e.g. a missing
+     migration in a greenfield repo with no prod DB), or a descendant PR
      **reverts** the code entirely. This finding should be dropped.
    - **Novel claims need quotes in BOTH directions.** If your refutation or
      weakening rests on a mechanism **not present in the finding** ("the caller

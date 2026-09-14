@@ -21,14 +21,23 @@ The user may pass options when invoking the skill (e.g. `/publish-review <option
 
 - **`gist`** → also host `review-report/report.html` as a secret gist and link it
   from the review (viewable via htmlpreview.github.io; secret gists are
-  public-by-URL, so skip for sensitive repos).
+  public-by-URL, so `publish.ts` refuses this on non-public repos).
+- **`pages <owner/name>`** → host the report by committing it into a
+  Pages-publishing repo and link its Pages URL from the review (`--pages`). The
+  private-repo path: point it at a repo whose workflow deploys root `*.html` to
+  GitHub Pages, with Pages visibility controlling who can read it (on GitHub
+  Enterprise Cloud, org members only).
 - A **URL** → link that as the full HTML report instead (`--report-url`).
 - A **severity** (e.g. `medium`) → only findings at/above it become inline comments
   (`--min-severity`); the rest fold into the review body.
 - **`body-only`** → one summary comment, no inline comments.
-- **`recap`** → also upsert the system-recap block into the PR description
-  (`bun run <skill-dir>/recap.ts review-report/findings.json --pr <n>`; requires the
-  review to have a `systemChange` section from the primitives lens).
+- **`recap`** → put the system-recap block on the PR (requires the review to have
+  a `systemChange` section from the primitives lens). **Which channel depends on
+  ownership**: on your own PR, upsert it into the description
+  (`bun run <skill-dir>/recap.ts review-report/findings.json --pr <n>`); on
+  someone else's PR — whose description you must not edit — pass `--recap` to
+  `publish.ts` so the block rides the review body instead. Never ask about the
+  description upsert on a PR you don't own.
 - **Nothing** → post inline comments for all anchorable findings, no report link.
 
 ## What to do

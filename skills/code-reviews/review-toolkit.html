@@ -506,7 +506,12 @@ In agents without slash invocation, ask for the skill by name ("use review-pr on
   dry-runs first and shows you exactly what will be posted, nothing goes out without your confirmation.</p>
   <ul class="args">
     <li><code>/publish-review</code> inline comments for all anchorable findings</li>
-    <li><code>/publish-review gist</code> also host the HTML report as a secret gist and link it</li>
+    <li><code>/publish-review gist</code> also host the HTML report as a secret gist and link it
+        (public repos only — the tool refuses when the repo isn't public)</li>
+    <li><code>/publish-review pages owner/name</code> host the report via a Pages-publishing repo
+        instead — the private-repo path (access-controlled Pages on Enterprise)</li>
+    <li><code>/publish-review recap</code> put the system-recap block on the PR: into the
+        description on your own PR, into the review body on anyone else's</li>
     <li><code>/publish-review medium</code> only medium+ inline; the rest in the body</li>
     <li><code>/publish-review body-only</code> one summary comment, no inline comments</li>
   </ul>
@@ -594,7 +599,9 @@ In agents without slash invocation, ask for the skill by name ("use review-pr on
         the findings land on the PR as inline comments plus a summary review, with a link to the full report.</li>
   </ol>
   <div class="outcome"><b>Outcome:</b> a thorough, evidence-based review posted as one GitHub review,
-  not a wall of bot comments. The review stays report-only; nothing on the PR branch is executed or edited.</div>
+  not a wall of bot comments. The review stays report-only; nothing on the PR branch is executed or edited
+  (unless the repo's <code>REVIEW.md</code> <code>## Trust</code> section deliberately opts collaborator
+  PRs into execution — a disposable worktree, hooks off, no installs).</div>
 </article>
 
 <article class="scenario">

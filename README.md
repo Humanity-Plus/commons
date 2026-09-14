@@ -67,11 +67,31 @@ new releases, run:
 claude plugin marketplace update humanity-plus
 ```
 
-Or just wait: Claude Code refreshes marketplaces — third-party ones like this
-included — in the background once per session by default, so new releases
-arrive on their own. The manual command exists for picking up a release
-mid-session (it is skipped only in restricted setups, e.g.
-`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`).
+That manual command is the default update path. True auto-update for a
+third-party marketplace like this one needs the marketplace pre-approved in
+**managed settings** (Team and Enterprise plans):
+
+```json
+{
+  "enabledPlugins": {
+    "code-publish@humanity-plus": true,
+    "review-toolkit@humanity-plus": true
+  },
+  "extraKnownMarketplaces": {
+    "humanity-plus": {
+      "autoUpdate": true,
+      "source": { "source": "github", "repo": "Humanity-Plus/commons" }
+    }
+  }
+}
+```
+
+With that in place, **CLI** sessions pick up new releases on their own shortly
+after they start. Field-verified caveat: the **desktop app doesn't run the
+background marketplace refresh** even with `autoUpdate` configured — there,
+run the update command yourself, or open a CLI session first and let it fetch
+the release. On plans without managed settings, the manual command is the only
+update path.
 
 > **Installing review skills with the CLI? Use `-g` (global).** Review skills
 > installed into a project you then review other people's PRs in can be swapped

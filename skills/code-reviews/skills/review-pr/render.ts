@@ -1315,6 +1315,19 @@ function page(r: Report): string {
 
   /* dependency table */
   .deptable,.zmatrix{width:100%;border-collapse:collapse;font-size:13px}
+  /* Fixed layout: otherwise unbreakable Notes content (40-char SHAs, long
+     command strings in inline code) sets the column width and pushes the table
+     past the card, crushing Package to one word per line. */
+  .deptable{table-layout:fixed}
+  .deptable th:first-child{width:19%}
+  .deptable th:nth-child(6){width:10%}
+  .dep-name,.dep-note{overflow-wrap:anywhere}
+  /* Inline code is nowrap elsewhere (short refs in wide columns); in the narrow
+     Notes cell a long SHA or command chip must wrap or it blows out the table.
+     Embedded markdown tables likewise: fixed layout so min-content width of a
+     cell can't exceed the column. */
+  td.dep-note code.md-code{white-space:normal}
+  .dep-note .md-table,.dep-note table{table-layout:fixed}
   .deptable th,.deptable td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
   .deptable th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
   .deptable td:nth-child(2),.deptable td:nth-child(3),.deptable td:nth-child(4),.deptable td:nth-child(5),

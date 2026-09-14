@@ -2,10 +2,11 @@
 name: create-pr
 description: >
   Use when asked to open, create, file, submit, or ship a pull request / PR
-  for the current branch or a finished change — or to write or improve a PR
-  title or description. Produces an outcome-led title in the repo's own
-  convention and a problem-first description a reviewer can understand
-  without reconstructing the motivation from the diff.
+  for the current branch or a finished change — or to write, improve, or
+  retrofit a PR title or description, including rewriting an existing PR's
+  title and body to this standard. Produces an outcome-led title in the
+  repo's own convention and a problem-first description a reviewer can
+  understand without reconstructing the motivation from the diff.
 ---
 
 # Create PR
@@ -80,7 +81,19 @@ Structure, in this order:
 4. **Notes for the reviewer** *(only when needed)* — risky spots, follow-ups
    deferred with the user's agreement, migration steps, breaking changes.
    Screenshots or a short video for anything visual.
-5. **Attribution** — which model and harness produced the change, e.g.
+5. **System change block** *(only when the repo has a primitives map)* — if the
+   base branch has a `primitives.yaml` under `docs/` and the review toolkit's
+   `review-pr` skill is installed, include its system-recap block: build a
+   minimal findings JSON (`{"meta":{"headSha":"<sha>"},"verdict":{},
+   "systemChange":{...}}`) by classifying the diff's touched primitives against
+   the map's `sources` (composes / extends / adds, per the map's own key), then
+   `bun run <review-pr-skill-dir>/recap.ts <that file>` and paste the emitted
+   block into the body. The block is wrapped in HTML-comment markers, so a
+   later `/review-pr` recap refreshes it **in place** — putting it here at
+   creation is what makes the retroactive "want me to upsert the recap?" dance
+   unnecessary. Skip silently when there's no map or no toolkit; don't
+   hand-roll the block.
+6. **Attribution** — which model and harness produced the change, e.g.
    *"Written by Claude Fable 5 via Claude Code."*
 
 The bar: a reader who knows the codebase but not this task should understand
@@ -109,3 +122,23 @@ confirm *how*.
 - After filing, report the PR URL. Continue into monitoring/babysitting the
   PR (checks, review comments, rebases) **only if the user asked for that** —
   it is a separate job.
+
+## 5. Retrofit an existing PR
+
+When asked to bring an **existing** PR's title and body up to this standard
+("rewrite this PR description", "fix up PR #42's title"):
+
+1. **Own PRs only** — yours or your automation's under your account. Editing
+   someone else's PR description is off-limits; offer them the rewritten text
+   in chat instead.
+2. Read the PR (`gh pr view <n> --json title,body,commits`), its full diff,
+   and any linked issues — then apply sections 2 and 3 exactly as if filing
+   fresh. The Problem section usually hides in the linked issue or the first
+   commit message; dig it out rather than paraphrasing the old body.
+3. **Preserve what other tools maintain**: the system-recap block between its
+   `<!-- system-recap:start/end -->` markers, attribution footers, and any
+   HTML-comment markers you don't recognize — rewrite around them, never
+   through them.
+4. Show the before/after title and body and **confirm before `gh pr edit`** —
+   editing a filed PR is a visible action, and in squash-merge repos the title
+   you're changing is the future commit subject.

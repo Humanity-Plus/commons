@@ -241,6 +241,14 @@ For each task, smallest blast radius first:
    fixed finding's issue silently open: that's the debt lane double-counting.
 4. Show `git diff --stat` so the scope of edits is visible. **Do not commit** unless
    explicitly asked; if asked, follow the host's git-safety rules.
+5. **State what the review covered vs what exists now.** The findings are
+   evidence about `meta.headSha`; after your fixes the head has moved. Name
+   both SHAs in the report, and when the fixes materially changed security- or
+   authorization-relevant code, recommend a fresh `/review-pr` run explicitly —
+   a review of the pre-fix head is not evidence about the post-fix tree, and
+   silence here reads as coverage (field: substantial authorization fixes
+   landed after a review; reviewed SHA and head were materially different
+   code, and nothing said so).
 
 ## Status vocabulary (use these exact words in the report)
 

@@ -67,9 +67,31 @@ new releases, run:
 claude plugin marketplace update humanity-plus
 ```
 
-Or enable auto-update for the `humanity-plus` marketplace in `/plugin` →
-marketplace settings (it's off by default for third-party marketplaces), and
-Claude Code checks for new versions itself shortly after each session starts.
+That manual command is the default update path. True auto-update for a
+third-party marketplace like this one needs the marketplace pre-approved in
+**managed settings** (Team and Enterprise plans):
+
+```json
+{
+  "enabledPlugins": {
+    "code-publish@humanity-plus": true,
+    "review-toolkit@humanity-plus": true
+  },
+  "extraKnownMarketplaces": {
+    "humanity-plus": {
+      "autoUpdate": true,
+      "source": { "source": "github", "repo": "Humanity-Plus/commons" }
+    }
+  }
+}
+```
+
+With that in place, **CLI** sessions pick up new releases on their own shortly
+after they start. Field-verified caveat: the **desktop app doesn't run the
+background marketplace refresh** even with `autoUpdate` configured — there,
+run the update command yourself, or open a CLI session first and let it fetch
+the release. On plans without managed settings, the manual command is the only
+update path.
 
 > **Installing review skills with the CLI? Use `-g` (global).** Review skills
 > installed into a project you then review other people's PRs in can be swapped

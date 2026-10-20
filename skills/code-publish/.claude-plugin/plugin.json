@@ -6,11 +6,11 @@
     "name": "Humanity Plus",
     "url": "https://humanityplus.solutions"
   },
+  "icon": "./.claude-plugin/icon.png",
   "homepage": "https://www.humanityplus.solutions/commons/plugins",
   "documentationUrl": "https://www.humanityplus.solutions/commons/plugins#publish-setup",
   "supportUrl": "https://github.com/Humanity-Plus/commons/issues",
-  "privacyPolicyUrl": "https://github.com/Humanity-Plus/commons/blob/main/skills/code-publish/README.md#what-it-runs-and-sends",
-  "termsOfServiceUrl": "https://github.com/Humanity-Plus/commons/blob/main/LICENSE",
+  "privacyPolicyUrl": "https://www.humanityplus.solutions/commons/plugins/privacy",
   "repository": "https://github.com/Humanity-Plus/commons",
   "license": "MIT"
 }

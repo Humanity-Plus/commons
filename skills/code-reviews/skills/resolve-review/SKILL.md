@@ -68,6 +68,10 @@ working tree, so the boundary moves:
    if there are unrelated uncommitted changes, warn that fixes will mix with them
    (offer to stash or branch); don't silently proceed on a messy tree.
 2. **Load findings.** Read `review-report/findings.json` (or use the in-session set).
+   **Check the file describes this checkout first:** when its `meta.headSha` isn't
+   `git rev-parse HEAD`, the code has moved since the review and its anchors may
+   point at changed lines. Stop and ask whether to re-run the review or proceed
+   anyway, rather than planning edits against code the findings never saw.
    Keep each finding's `id`, `lens`, `severity`, `category`, `file`, `line`, `title`,
    `evidence`, `suggestion`, `verified`, and (conventions) `rule` — plus the optional
    skill-added fields when present:

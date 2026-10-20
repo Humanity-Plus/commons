@@ -450,8 +450,9 @@ you had to); the defaults above apply.
      PR's prose into this report if a live agent fails to overwrite it. Not
      conditional on anything; a same-PR re-run starts clean too.
    - **Archive a mismatched findings file**: if `review-report/findings.json`
-     exists and its `meta` doesn't match the current target (different
-     `prNumber` / `headSha` / branch), move it aside —
+     exists and either its `meta.headSha` isn't the checked-out `HEAD` or its
+     `prNumber` / branch isn't the current target, move it aside (a matching PR
+     number alone isn't enough: new commits make the old findings stale) —
      `mv review-report/findings.json review-report/findings-pr<N>.json` (N from
      its own `meta.prNumber`, or the branch name). A leftover findings file from
      another PR blocks writes and could feed a later `/resolve-review` wrong

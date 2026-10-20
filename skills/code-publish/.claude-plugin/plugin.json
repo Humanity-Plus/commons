@@ -1,7 +1,7 @@
 {
   "name": "humanity-plus-publish",
   "description": "Skills for shipping work to GitHub: clear prose deliverables, outcome-led PRs with problem-first descriptions, and attribution headers that keep agent-authored comments distinguishable from the account owner's own words.",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "author": {
     "name": "Humanity Plus",
     "url": "https://humanityplus.solutions"

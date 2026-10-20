@@ -1,5 +1,11 @@
 # humanity-plus-commons
 
+## 0.3.4
+
+### Patch Changes
+
+- [#34](https://github.com/Humanity-Plus/commons/pull/34) [`955add9`](https://github.com/Humanity-Plus/commons/commit/955add9dca87c300b620bf1b9c3d5ec87444de44) Thanks [@Paalt](https://github.com/Paalt)! - Rewrapped one sentence in the `primitives` lens so the plugin directory's security scan stops reading a line that began with `set;` as the shell builtin that dumps the environment. Lens behavior is unchanged.
+
 ## 0.3.3
 
 ### Patch Changes

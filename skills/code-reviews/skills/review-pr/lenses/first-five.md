@@ -36,8 +36,8 @@ only genuine risks — verify each one before reporting it.
 ## Steps
 
 1. Get the diff: `git diff <base>...HEAD` and `git diff --name-status <base>...HEAD`.
-2. Read enough of each changed file to evaluate it against the five checks. Skip
-   auto-generated files.
+2. Read each changed file closely enough to judge it on all five checks; leave
+   generated files out.
    - **When the diff consumes shared internal infrastructure** (a shared component,
      helper, or adapter that already has consumers elsewhere in the repo), `grep` for
      the existing consumers and compare usage. A guard, prop, or helper the siblings

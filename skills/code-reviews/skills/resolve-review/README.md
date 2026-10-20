@@ -47,7 +47,7 @@ npx skills add Humanity-Plus/commons --skill resolve-review --skill review-fix -
 
 Or run `npx skills add Humanity-Plus/commons` without `--skill` to pick from the whole
 toolkit interactively; Claude Code users can instead install the whole toolkit as the
-`review-toolkit` plugin (see the repo README) — pick one lane, not both. Install
+`humanity-plus-review` plugin (see the repo README) — pick one lane, not both. Install
 `review-fix` alongside for the one-pass loop (review with no HTML, then fix, report
 to chat). See `../../review-toolkit.html` for the full guide.
 

@@ -213,11 +213,11 @@ review skill twice.</p>
     <p>Claude Code only. Installs the whole toolkit as one plugin from this repo's
     marketplace.</p>
 <pre class="copyable"><code>claude plugin marketplace add Humanity-Plus/commons</code></pre>
-<pre class="copyable"><code>claude plugin install review-toolkit@humanity-plus</code></pre>
+<pre class="copyable"><code>claude plugin install humanity-plus-review@humanity-plus</code></pre>
     <p>Or inside a session: <code>/plugin marketplace add Humanity-Plus/commons</code> then
-    <code>/plugin install review-toolkit@humanity-plus</code>.</p>
-    <p>Plugin skills are <b>namespaced</b>: invoke them as <code>/review-toolkit:review-pr</code>,
-    <code>/review-toolkit:review-fix</code>, … Update later with
+    <code>/plugin install humanity-plus-review@humanity-plus</code>.</p>
+    <p>Plugin skills are <b>namespaced</b>: invoke them as <code>/humanity-plus-review:review-pr</code>,
+    <code>/humanity-plus-review:review-fix</code>, … Update later with
     <code>claude plugin marketplace update humanity-plus</code>.</p>
   </div>
 </div>
@@ -241,7 +241,7 @@ review skill twice.</p>
 <p class="sub">Six skills. Two carry the core know-how, three chain them into everyday workflows, one
 bootstraps the configuration. In Claude Code every skill is also invocable directly as a slash
 command, <code>/review-pr</code>, <code>/review-fix</code>, … with the CLI install, or namespaced
-(<code>/review-toolkit:review-pr</code>) with the plugin.</p>
+(<code>/humanity-plus-review:review-pr</code>) with the plugin.</p>
 
 <div class="table-scroll"><table>
   <thead><tr><th>Skill</th><th>Role</th><th>What it is</th></tr></thead>
@@ -666,7 +666,7 @@ In agents without slash invocation, ask for the skill by name ("use review-pr on
     <h3>Claude Code</h3>
     <p>Skills → <code>~/.claude/skills/</code> (CLI install) or a managed plugin (plugin install)</p>
     <p>Every skill is also a slash command: type <code>/review-pr 482</code> (CLI install) or
-    <code>/review-toolkit:review-pr 482</code> (plugin) and the skill receives <code>482</code> as
+    <code>/humanity-plus-review:review-pr 482</code> (plugin) and the skill receives <code>482</code> as
     its argument. Optionally install the pre-PR hook for a hard gate.</p>
   </div>
 </div>
@@ -676,7 +676,7 @@ In agents without slash invocation, ask for the skill by name ("use review-pr on
   <p>The workflow skills are thin, the logic lives in <code>review-pr</code> and
   <code>resolve-review</code>. If the agent says one of those isn't available, the fix is always
   the same: reinstall (<code>npx skills add Humanity-Plus/commons -g</code>, or reinstall the
-  <code>review-toolkit</code> plugin) and restart the app.</p>
+  <code>humanity-plus-review</code> plugin) and restart the app.</p>
 </div>
 
 <h2 id="tips"><span class="n">09</span> Tips &amp; safety</h2>

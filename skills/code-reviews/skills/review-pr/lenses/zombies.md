@@ -22,13 +22,13 @@ Keep suggestions concrete and tied to real values, and write file refs as
 
 ## ZOMBIES categories (these are your `category` values)
 
-- **Z**ero — absence of inputs, empty states.
-- **O**ne — single input, happy path.
-- **M**any — multiple inputs, ordering, pagination, concurrency.
-- **B**oundaries — limits, off-by-one, min/max, timing edges.
-- **I**nterface — public API contract, return types, status codes, redirects.
-- **E**xceptions — invalid input, failures, expired/missing state, auth failures.
-- **S**imple scenarios — everyday paths real users follow.
+- **Z**ero — nothing there: no input, empty collections, empty states.
+- **O**ne — a single item on the happy path.
+- **M**any — several items, order, paging, parallel access.
+- **B**oundaries — limits and edges: off-by-one, min/max, timeouts.
+- **I**nterface — the public contract: return types, status codes, redirects.
+- **E**xceptions — bad input, errors, expired or missing state, rejected auth.
+- **S**imple scenarios — the everyday paths real users take.
 
 ## Steps
 
@@ -39,8 +39,8 @@ Keep suggestions concrete and tied to real values, and write file refs as
    Your job is the *content* of what's untested — report only gaps where you can
    name the **specific dangerous behavior** left unexercised (the branch, the
    boundary, the failure path), whether or not a spec file exists.
-2. For each ZOMBIES category, decide whether a test would catch a real bug or
-   document real behavior. Cross-reference existing tests — do not suggest behavior
+2. For each ZOMBIES category, ask whether a test there would fail on a plausible
+   defect or pin down behavior users rely on. Cross-reference existing tests — do not suggest behavior
    already covered.
    - **"Covered" only counts if the coverage is true.** For any existing test that
      **mocks a third-party contract** (an SDK response, an API payload, a library

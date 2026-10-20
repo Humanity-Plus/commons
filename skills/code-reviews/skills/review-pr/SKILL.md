@@ -1477,8 +1477,8 @@ severity and what to drop — it does not expand the set of files under review.
 
 - **Verify before flagging.** Use `grep`/`find`/`ls` to confirm a problem is real.
   Less is more — a short report of real issues beats a long list of maybes.
-- **Skip auto-generated files** (lockfiles, compiled assets, generated types) for
-  review, but DO note them in triage's skip section.
+- **Skip generated files** (lockfiles, build artifacts, generated types) in
+  review, but DO list them in triage's skip section.
 - **Never fabricate facts.** If a lens can't verify something, it says so (`?` marks
   in WARM; omit the finding elsewhere).
 - **Anchor to the head SHA** so `file:line` become stable permalinks.

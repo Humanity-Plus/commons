@@ -1,5 +1,30 @@
 # humanity-plus-commons
 
+## 0.3.0
+
+### Minor Changes
+
+- [#24](https://github.com/Humanity-Plus/commons/pull/24) [`3d80f7f`](https://github.com/Humanity-Plus/commons/commit/3d80f7fff32f94f4e866e82da6a9ea91cf1101cc) Thanks [@Paalt](https://github.com/Paalt)! - **The plugins are renamed for the Claude directory:** `review-toolkit` is now `humanity-plus-review` and `code-publish` is now `humanity-plus-publish`. The old names stop resolving once you update the marketplace, so if you installed either plugin, swap it for the new name:
+
+  ```bash
+  claude plugin uninstall review-toolkit@humanity-plus
+  claude plugin install humanity-plus-review@humanity-plus
+  ```
+
+  Do the same for `code-publish@humanity-plus` → `humanity-plus-publish@humanity-plus`, and add `--scope project` (or `local`) to the uninstall if you installed there. If your settings list the plugins under `enabledPlugins`, rename those keys rather than adding new ones. Slash commands move with the plugin, for example `/humanity-plus-review:review-pr`. The skills CLI lane is unchanged.
+
+  Each bundle README now has a one-step install line, says the skills are built for Claude Code, and lists everything the skills run and send. A few lens instructions in `review-pr` (triage, preflight, first-five, zombies) are reworded without changing what they check.
+
+### Patch Changes
+
+- [#26](https://github.com/Humanity-Plus/commons/pull/26) [`6250553`](https://github.com/Humanity-Plus/commons/commit/625055301690abdce9b22cc7c2d452effc392a8a) Thanks [@Paalt](https://github.com/Paalt)! - **`review-pr` and `resolve-review` fixes, from a CodeRabbit review of a repo that vendored the skills:**
+
+  - A `findings.json` from an earlier commit no longer survives new commits on the same PR. `reset-workspace.sh` keeps it only when it describes the checked-out commit, and `resolve-review` stops and asks before editing from findings about different code ([#19](https://github.com/Humanity-Plus/commons/issues/19)).
+  - Finding text can no longer close the report's own containers to render a spoofed verdict outside its card ([#20](https://github.com/Humanity-Plus/commons/issues/20)).
+  - Copying `REVIEW.example.md` no longer opts you into running colleagues' PRs: the `execution: collaborators` line ships commented out ([#21](https://github.com/Humanity-Plus/commons/issues/21)). If you copied the template before this release, check your `REVIEW.md`'s `## Trust` section.
+  - `check-clean.sh` no longer runs the check when it can't move `review-report/` aside ([#22](https://github.com/Humanity-Plus/commons/issues/22)).
+  - `SKILL.md` gives one rule for when the `seams` lens runs: whenever triage finds interfaces between areas ([#23](https://github.com/Humanity-Plus/commons/issues/23)).
+
 ## 0.2.0
 
 ### Minor Changes

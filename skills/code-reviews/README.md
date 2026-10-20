@@ -100,12 +100,17 @@ you every skill twice.
 
 ## Setup that pays off
 
+The [setup guide](https://www.humanityplus.solutions/commons/plugins#review-setup) walks through each step.
+
 1. Commit a **`REVIEW.md`** at your repo root — [`REVIEW.example.md`](skills/review-pr/REVIEW.example.md)
    is the skeleton, [`REVIEW.worked-example.md`](skills/review-pr/REVIEW.worked-example.md)
    shows what a mature one looks like after months of real reviews.
-2. Run **`/map-primitives`** once to generate `primitives.yaml` — the primitives
+2. Write your conventions down in **`docs/conventions/`**, one short file per
+   topic — the conventions lens cites them rule by rule, and reports nothing it
+   can't cite.
+3. Run **`/map-primitives`** once to generate `primitives.yaml` — the primitives
    lens then flags every PR that invents a shape your system already has.
-3. Optional: the [pre-PR hook](hooks/README.md) blocks `gh pr create` until a fresh
+4. Optional: the [pre-PR hook](hooks/README.md) blocks `gh pr create` until a fresh
    review exists — the harness enforces it, so agents can't skip it.
 
 ## Guide & internals

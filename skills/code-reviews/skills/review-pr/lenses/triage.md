@@ -36,21 +36,21 @@ accurate and complete.
    and another consumes, events emitted by one and consumed by another. One entry per
    seam, naming the areas on each side. Return an empty array if the groups genuinely
    don't touch (rare).
-6. Separate auto-generated files (lockfiles, compiled assets, generated types) into
-   a skip set — do not assign them risk.
+6. Put generated output (lockfiles, build artifacts, generated types) in a skip
+   set — it gets no risk rating.
 
 ## Risk heuristics
 
 **Always `high`** if the group touches:
-- authentication or authorization
-- code that mutates user data, payments, or billing
-- permissions or access control
-- sensitive data (passwords, tokens, PII)
+- sign-in, sessions, or authorization checks
+- writes to user data, payments, or billing
+- who may see or change what (permissions, roles)
+- secrets or personal data (passwords, tokens, PII)
 
-**Bump up one tier** if the group includes:
-- complex conditionals or branching logic
-- interactions with external services or APIs
-- 100+ lines of generated/boilerplate code
+**Raise one level** if the group includes:
+- dense conditionals or many branches
+- calls to external services or APIs
+- 100+ lines of generated or boilerplate code
 
 ## Output
 

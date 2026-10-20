@@ -13,14 +13,16 @@ They share one philosophy: **disclose who wrote it, and make what was written
 easy to read.** Attribution and clarity are complements — the opposite of
 skills that try to make agent output pass as human.
 
+Built for Claude Code: `create-pr` and `github-comment-attribution` run `git` and
+`gh` in your local checkout. `write-clearly` works anywhere.
+
 ## Install
 
 As a Claude Code plugin (managed bundle, skills namespaced as
-`/code-publish:create-pr` etc.):
+`/humanity-plus-publish:create-pr` etc.):
 
 ```bash
-claude plugin marketplace add Humanity-Plus/commons
-claude plugin install code-publish@humanity-plus
+claude plugin install humanity-plus-publish --marketplace Humanity-Plus/commons
 ```
 
 Or as editable files via the skills CLI (any agent):
@@ -30,3 +32,14 @@ npx skills add Humanity-Plus/commons --skill write-clearly --skill create-pr --s
 ```
 
 Pick one lane — installing both gives you every skill twice.
+
+## What it runs and sends
+
+- **On your machine:** `git` and `gh` to read the branch, its diff, and the repo's
+  PR history; `bun` only for the optional system-recap block, which `create-pr`
+  adds when the review toolkit and a primitives map are present.
+- **To GitHub, through your `gh` login, only when you ask:** pull requests,
+  comments, issues, and replies. `create-pr` updates an existing PR on the same
+  branch instead of opening a duplicate, and rewrites an existing PR's title and
+  body only after showing you the change and getting your confirmation.
+- **Nowhere else.** No telemetry and no other servers.

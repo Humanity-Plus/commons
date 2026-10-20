@@ -7,6 +7,9 @@ primitives-map generator. Built for the failure modes of **agent-written code** 
 plausible reinvention, vacuous tests, green-CI-wrong-behavior — and evolved through
 23 field-feedback rounds on production repos before going public.
 
+Built for Claude Code: the skills run `git`, `gh`, and `bun` against your local
+checkout, so use them where Claude has a terminal and your repository.
+
 > *"Both #148 and #112 would have shipped without fixing their stated bug, and both
 > had green CI."* — a batch run's verdict, three PRs in
 
@@ -60,8 +63,39 @@ severity arbiter before it reaches you.
 
 ## Install
 
-See the [repo README](../../README.md): `npx skills add Humanity-Plus/commons`
-(editable files, any agent) or the Claude Code plugin (managed bundle). Pick one.
+As a Claude Code plugin (managed bundle, skills namespaced as
+`/humanity-plus-review:review-pr` etc.):
+
+```bash
+claude plugin install humanity-plus-review --marketplace Humanity-Plus/commons
+```
+
+Or as editable files for any agent with the skills CLI, as the
+[repo README](../../README.md) describes. Pick one lane — installing both gives
+you every skill twice.
+
+## What it runs and sends
+
+- **On your machine:** `git` and `gh` to read the diff and PR, check out the PR
+  branch with git hooks disabled, fetch the base, and create scratch worktrees;
+  `bun` to render the HTML report and run the publish and recap scripts; and the
+  dependency lens's package-registry lookups and `npm audit`-style advisory queries. On your own branches it also runs
+  the repo's tests and checks; it never executes, builds, or installs anyone else's
+  checkout unless the repo's `REVIEW.md` opts in.
+- **To GitHub, through your `gh` login:** the review and its comments
+  (`publish-review`, after a dry run you confirm); review-debt issues, plus their
+  label if the repo doesn't have it yet (`review-issues`); closing the review-debt
+  issues a fix paid off (`resolve-review`, which edits your working tree and commits
+  only when you ask); and, only when you ask, a system-recap block in the
+  description of your own PR (`recap.ts --pr`).
+- **Report hosting, only when you pass the flag:** `--gist` uploads `report.html` as
+  a secret gist, which anyone with the link can open, and links it through the
+  third-party viewer htmlpreview.github.io. `--pages <owner/name>` commits it to that
+  repository so its GitHub Pages site serves it. Neither will put a non-public
+  repository's report where anyone can read it unless you pass `--force-gist` or
+  `--force-pages`.
+- **When you open the report:** `report.html` loads its fonts from Google Fonts.
+- **Nowhere else.** No telemetry and no other servers.
 
 ## Setup that pays off
 
@@ -83,9 +117,10 @@ See the [repo README](../../README.md): `npx skills add Humanity-Plus/commons`
 
 ## Credits
 
-The lens method is adapted from the [unlearn.dev skill library](https://github.com/unlearndev/skills).
+The lens method draws on the [unlearn.dev](https://unlearn.dev) course; the wording
+here is our own.
 The primitives lens and the visual recap follow [Kent C. Dodds](https://github.com/kentcdodds/kcd-skills)'
 primitives/visual-recap patterns. The conventions lens's smell baseline is Fowler's
 *Refactoring* (ch. 3). The spec-discovery ladder and smell-catalog framing take
-cues from [mattpocock/skills](https://github.com/mattpocock/skills). MIT, like the
-rest of the Commons.
+cues from [mattpocock/skills](https://github.com/mattpocock/skills). The toolkit is
+MIT-licensed, like the rest of the Commons.

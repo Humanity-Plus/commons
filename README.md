@@ -46,16 +46,16 @@ claude plugin marketplace add Humanity-Plus/commons
 ```
 
 ```bash
-claude plugin install review-toolkit@humanity-plus
+claude plugin install humanity-plus-review@humanity-plus
 ```
 
 ```bash
-claude plugin install code-publish@humanity-plus
+claude plugin install humanity-plus-publish@humanity-plus
 ```
 
 (Inside a session: `/plugin marketplace add Humanity-Plus/commons`, then
 `/plugin install <name>@humanity-plus`.) Plugin skills are namespaced, invoke
-them as `/review-toolkit:review-pr`, `/code-publish:create-pr`, and so on.
+them as `/humanity-plus-review:review-pr`, `/humanity-plus-publish:create-pr`, and so on.
 The design systems skills are CLI-only for now.
 
 Plugins are versioned: installed plugins stay on their version until we cut a
@@ -74,8 +74,8 @@ third-party marketplace like this one needs the marketplace pre-approved in
 ```json
 {
   "enabledPlugins": {
-    "code-publish@humanity-plus": true,
-    "review-toolkit@humanity-plus": true
+    "humanity-plus-publish@humanity-plus": true,
+    "humanity-plus-review@humanity-plus": true
   },
   "extraKnownMarketplaces": {
     "humanity-plus": {
@@ -149,7 +149,7 @@ until a fresh review has run against the code being PR'd.
 Three skills for the moment work leaves your machine and lands on GitHub. They
 share one philosophy: **disclose who wrote it, and make what was written easy to
 read** — the opposite of skills that try to make agent output pass as human.
-Also installable as the `code-publish` plugin
+Also installable as the `humanity-plus-publish` plugin
 ([bundle README](skills/code-publish/README.md)).
 
 **[write-clearly](skills/code-publish/skills/write-clearly/SKILL.md)**

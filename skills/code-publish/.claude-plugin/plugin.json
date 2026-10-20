@@ -1,10 +1,10 @@
 {
-  "name": "code-publish",
+  "name": "humanity-plus-publish",
   "description": "Skills for shipping work to GitHub: clear prose deliverables, outcome-led PRs with problem-first descriptions, and attribution headers that keep agent-authored comments distinguishable from the account owner's own words.",
   "version": "0.2.0",
   "author": {
     "name": "Humanity Plus",
-    "url": "https://github.com/Humanity-Plus"
+    "url": "https://humanityplus.solutions"
   },
   "homepage": "https://github.com/Humanity-Plus/commons",
   "repository": "https://github.com/Humanity-Plus/commons",

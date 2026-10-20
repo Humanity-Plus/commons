@@ -11,14 +11,14 @@ description: >
   conventions lens checks the diff against the repo's own convention docs / AGENTS.md
   and grades tech-stack conformance. Use this when you have been asked to review a PR,
   want a thorough pre-merge review of the current branch, or want an HTML review
-  report. Adapted from the unlearn.dev skill library.
+  report. The lens method draws on the unlearn.dev course.
 ---
 
 # Review PR
 
 A thorough, multi-lens code review that ends in an HTML report. Each **lens** is
-one independent perspective on the same diff. The lenses are adapted from the
-unlearn.dev skills; this skill's job is to run them, normalize their output into
+one independent perspective on the same diff. The lens method draws on the
+unlearn.dev course; this skill's job is to run the lenses, normalize their output into
 one finding schema, verify the findings, and render the report.
 
 ## Inputs → Outputs
@@ -349,7 +349,7 @@ you had to); the defaults above apply.
 4. Record file/insertion/deletion counts (`git diff --shortstat <base>...HEAD`).
    Also compute **total changed lines** (insertions + deletions) — this drives the
    adaptive-sharding decision after triage. The final comparison against the shard
-   threshold excludes files triage marks as auto-generated/skipped, so treat this
+   threshold excludes files triage marks as generated/skipped, so treat this
    number as provisional until Phase 1 returns.
 5. **Load the repository review context** (see "Repository review context" below) if
    the repo defines one. This is trusted, repo-owner-authored guidance that tells the
@@ -1473,12 +1473,12 @@ there"). If GitHub isn't the host or `gh` is unavailable, skip and say so in
 Keep the diff you review scoped to **this** PR (`<base>...HEAD`); the stack only informs
 severity and what to drop — it does not expand the set of files under review.
 
-## Rules (inherited from the unlearn lenses)
+## Rules (shared by every lens)
 
 - **Verify before flagging.** Use `grep`/`find`/`ls` to confirm a problem is real.
   Less is more — a short report of real issues beats a long list of maybes.
-- **Skip auto-generated files** (lockfiles, compiled assets, generated types) for
-  review, but DO note them in triage's skip section.
+- **Skip generated files** (lockfiles, build artifacts, generated types) in
+  review, but DO list them in triage's skip section.
 - **Never fabricate facts.** If a lens can't verify something, it says so (`?` marks
   in WARM; omit the finding elsewhere).
 - **Anchor to the head SHA** so `file:line` become stable permalinks.

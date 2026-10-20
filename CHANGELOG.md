@@ -1,5 +1,11 @@
 # humanity-plus-commons
 
+## 0.3.1
+
+### Patch Changes
+
+- [#27](https://github.com/Humanity-Plus/commons/pull/27) [`945391e`](https://github.com/Humanity-Plus/commons/commit/945391e8765bc7b552600d6f87794edbd66a6333) Thanks [@Paalt](https://github.com/Paalt)! - Three lens definitions reworded in 0.3.0 had quietly narrowed what they check; they're restored to full breadth in our own phrasing. `zombies` Boundaries covers time edges again (expiry at the boundary, clock rollover, DST — not only timeouts), Many covers concurrency again (async interleaving and ordering races — not only parallel access), and `triage`'s always-high rule covers any authentication (API keys and service-to-service auth included — not only user sign-in and sessions).
+
 ## 0.3.0
 
 ### Minor Changes

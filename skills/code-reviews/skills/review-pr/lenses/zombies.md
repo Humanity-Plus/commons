@@ -24,8 +24,10 @@ Keep suggestions concrete and tied to real values, and write file refs as
 
 - **Z**ero — nothing there: no input, empty collections, empty states.
 - **O**ne — a single item on the happy path.
-- **M**any — several items, order, paging, parallel access.
-- **B**oundaries — limits and edges: off-by-one, min/max, timeouts.
+- **M**any — several items, order, paging, and concurrency (parallel access,
+  async interleaving, ordering races).
+- **B**oundaries — limits and edges: off-by-one, min/max, and time edges
+  (timeouts, expiry exactly at the boundary, clock rollover, DST).
 - **I**nterface — the public contract: return types, status codes, redirects.
 - **E**xceptions — bad input, errors, expired or missing state, rejected auth.
 - **S**imple scenarios — the everyday paths real users take.

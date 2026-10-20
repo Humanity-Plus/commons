@@ -42,7 +42,8 @@ accurate and complete.
 ## Risk heuristics
 
 **Always `high`** if the group touches:
-- sign-in, sessions, or authorization checks
+- any authentication (user sign-in, sessions, API keys, service-to-service
+  auth) or authorization check
 - writes to user data, payments, or billing
 - who may see or change what (permissions, roles)
 - secrets or personal data (passwords, tokens, PII)

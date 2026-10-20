@@ -5,7 +5,8 @@
 #
 # Usage:  reset-workspace.sh [<current-target>]
 #         <current-target> = the PR number, branch name, or head SHA this run
-#         reviews; used to decide whether an existing findings.json is stale.
+#         reviews. An existing findings.json is kept only when it describes the
+#         checked-out HEAD and matches this target; anything else is stale.
 #
 # Actions, in order:
 #   1. rm -rf review-report/lenses          (per-run intermediates, never reused)
@@ -28,20 +29,21 @@ if [[ -f "$f" ]]; then
     sha="$(jq -r '.meta.headSha // empty' "$f" 2>/dev/null || true)"
     head="$(jq -r '.meta.head // empty' "$f" 2>/dev/null || true)"
   fi
+  current="$(git rev-parse HEAD 2>/dev/null || true)"
   match=0
-  if [[ -n "$target" ]]; then
+  if [[ -n "$target" && -n "$sha" && "$current" == "$sha"* ]]; then
     for v in "$pr" "$sha" "$head"; do
       [[ -n "$v" && ( "$v" == "$target" || "$sha" == "$target"* ) ]] && match=1
     done
   fi
   if [[ $match -eq 1 ]]; then
-    echo "✓ findings.json matches current target — left in place"
+    echo "✓ findings.json matches current target and HEAD — left in place"
   else
     label="${pr:+pr$pr}"
     label="${label:-${head//\//-}}"
     label="${label:-old}"
     mv "$f" "review-report/findings-${label}.json"
-    echo "✓ archived stale findings.json → findings-${label}.json (it described: pr=${pr:-?} head=${head:-?})"
+    echo "✓ archived stale findings.json → findings-${label}.json (it described: pr=${pr:-?} head=${head:-?} sha=${sha:0:7})"
   fi
 fi
 

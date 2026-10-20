@@ -20,8 +20,12 @@ fi
 
 moved=""
 if [[ -d review-report ]]; then
-  moved="$(mktemp -d)/review-report"
-  mv review-report "$moved"
+  tmp="$(mktemp -d)" || exit 2
+  moved="$tmp/review-report"
+  if ! mv review-report "$moved"; then
+    echo "check-clean: could not move review-report/ aside, so the check did not run" >&2
+    exit 2
+  fi
 fi
 
 restore() {

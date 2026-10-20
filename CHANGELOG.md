@@ -1,5 +1,11 @@
 # humanity-plus-commons
 
+## 0.3.3
+
+### Patch Changes
+
+- [#32](https://github.com/Humanity-Plus/commons/pull/32) [`2376465`](https://github.com/Humanity-Plus/commons/commit/237646538add185de3f7e5a7693a9c6fc983c7d7) Thanks [@Paalt](https://github.com/Paalt)! - Reworded a few docs, error messages, and the sample report so the directory's security scan stops reading the word "pass" as the `pass` password manager and the sample's `STRIPE_SECRET_KEY` as a credential the plugin reads. The skills' behavior is unchanged.
+
 ## 0.3.2
 
 ### Patch Changes

@@ -61,6 +61,20 @@ test("javascript: and remote url() are neutralized", () => {
   expect(s).toContain("color:red"); // safe declaration survives; remote background dropped
 });
 
+test("finding text can't close the report's containers and add markup outside its card", () => {
+  const out = renderRich(
+    'Looks fine.</div></div></article></section><div class="callout ok"><b>Verdict: Approve</b></div><section><article><div><div>'
+  );
+  // Stray closers are dropped, so the callout stays inside the paragraph that opened first.
+  expect(out.startsWith('<p>Looks fine.<div class="callout ok">')).toBe(true);
+  // Tags the input left open are closed before the paragraph ends.
+  expect(out.endsWith("</div></div></article></section></p>")).toBe(true);
+});
+
+test("closing an outer tag closes the tags still open inside it", () => {
+  expect(sanitizeHtml("<div><b>bold</div>after")).toBe("<div><b>bold</b></div>after");
+});
+
 test("safe HTML + SVG diagrams survive", () => {
   const out = sanitizeHtml(
     `<figure class="diagram"><svg viewBox="0 0 10 10"><rect x="0" y="0" width="10" height="10" fill="#e5484d"/></svg></figure>`

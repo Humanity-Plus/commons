@@ -370,6 +370,9 @@ function sanitizeHtml(input: string): string {
     .replace(/<\?[\s\S]*?\?>/g, "");
   const out: string[] = [];
   const dropStack: string[] = [];
+  // Tags this input opened. A closing tag may only close one of these, so finding
+  // text can't close the report's own containers and add markup outside its card.
+  const open: { name: string; tag: string }[] = [];
   const re = /<\/?([a-zA-Z][\w:-]*)((?:[^>"']|"[^"]*"|'[^']*')*?)\/?>/g;
   let last = 0;
   let m: RegExpExecArray | null;
@@ -391,12 +394,16 @@ function sanitizeHtml(input: string): string {
     }
     if (!OK_TAGS.has(name)) continue; // unknown tag: drop tag, keep inner text
     if (isClose) {
-      out.push(`</${m[1]}>`);
+      const at = open.map((t) => t.name).lastIndexOf(name);
+      if (at === -1) continue;
+      while (open.length > at) out.push(`</${open.pop()!.tag}>`);
       continue;
     }
     out.push(`<${m[1]}${sanitizeAttrs(m[2] || "", name)}${selfClose ? " />" : ">"}`);
+    if (!selfClose) open.push({ name, tag: m[1] });
   }
   if (!dropStack.length) out.push(esc(s.slice(last)));
+  while (open.length) out.push(`</${open.pop()!.tag}>`);
   return out.join("");
 }
 

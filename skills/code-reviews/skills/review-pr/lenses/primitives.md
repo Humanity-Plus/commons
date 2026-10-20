@@ -45,8 +45,8 @@ run map-primitives"*.
 
 1. **Map changed paths → primitives** via each primitive's `sources`. A source
    entry that is a directory matches every path under it. Collect the touched
-   set; paths matching no primitive are simply outside the map (not a finding
-   by themselves).
+   primitives; paths matching no primitive are simply outside the map (not a
+   finding by themselves).
 2. **Classify each touched primitive** — one word, Kent C. Dodds' scale:
    - `composes` — the diff *uses* the primitive (imports its
      constants/validators/components/tools) without changing any declaration

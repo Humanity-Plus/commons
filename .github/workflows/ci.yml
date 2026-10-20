@@ -23,6 +23,20 @@ jobs:
       - name: Check plugin names match across manifests and docs
         run: bun run check-plugin-names
 
+  skill-tests:
+    name: Skill tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Run review-pr tests
+        working-directory: skills/code-reviews/skills/review-pr
+        run: bun test
+
   changeset:
     name: Changeset present for skill changes
     # The version PR ("chore: version plugins") consumes changesets by design.

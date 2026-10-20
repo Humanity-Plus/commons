@@ -6,7 +6,11 @@
     "name": "Humanity Plus",
     "url": "https://humanityplus.solutions"
   },
-  "homepage": "https://github.com/Humanity-Plus/commons",
+  "icon": "./.claude-plugin/icon.png",
+  "homepage": "https://www.humanityplus.solutions/commons/plugins",
+  "documentationUrl": "https://www.humanityplus.solutions/commons/plugins#publish-setup",
+  "supportUrl": "https://github.com/Humanity-Plus/commons/issues",
+  "privacyPolicyUrl": "https://www.humanityplus.solutions/commons/plugins/privacy",
   "repository": "https://github.com/Humanity-Plus/commons",
   "license": "MIT"
 }

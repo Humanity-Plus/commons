@@ -33,6 +33,13 @@ npx skills add Humanity-Plus/commons --skill write-clearly --skill create-pr --s
 
 Pick one lane — installing both gives you every skill twice.
 
+## Setup
+
+The skills read your repo as they work, so setup is short: sign in with
+`gh auth login`, write what a PR must satisfy into `AGENTS.md`, `CLAUDE.md`, or
+`CONTRIBUTING.md`, and make attribution a rule in your agent instructions. The
+[setup guide](https://www.humanityplus.solutions/commons/plugins#publish-setup) has the details.
+
 ## What it runs and sends
 
 - **On your machine:** `git` and `gh` to read the branch, its diff, and the repo's

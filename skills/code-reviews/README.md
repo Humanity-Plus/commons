@@ -95,7 +95,8 @@ you every skill twice.
   repository's report where anyone can read it unless you pass `--force-gist` or
   `--force-pages`.
 - **When you open the report:** `report.html` loads its fonts from Google Fonts.
-- **Nowhere else.** No telemetry and no other servers.
+- **Nowhere else.** No telemetry and no other servers, and no token or key is ever
+  read: GitHub access goes through your existing `gh` login.
 
 ## Setup that pays off
 

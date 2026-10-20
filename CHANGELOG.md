@@ -1,5 +1,13 @@
 # humanity-plus-commons
 
+## 0.3.2
+
+### Patch Changes
+
+- [#29](https://github.com/Humanity-Plus/commons/pull/29) [`1347b5f`](https://github.com/Humanity-Plus/commons/commit/1347b5fe48182137ef750d5c9034e2eff9af4b28) Thanks [@Paalt](https://github.com/Paalt)! - Both plugins now ship an icon: the Humanity Plus leaf. The review toolkit guide links to Bun's install page instead of showing a download-and-run command, and both READMEs state that the skills never read a token or key.
+
+- [#31](https://github.com/Humanity-Plus/commons/pull/31) [`7e31583`](https://github.com/Humanity-Plus/commons/commit/7e31583671192d532c020e7bac6e8449be92ec0a) Thanks [@Paalt](https://github.com/Paalt)! - `humanity-plus-publish` gets its own icon, the Humanity Plus leaf with a publish badge, so the two plugins are easy to tell apart in the directory.
+
 ## 0.3.1
 
 ### Patch Changes

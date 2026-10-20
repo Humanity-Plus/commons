@@ -35,5 +35,11 @@ Pick one lane — installing both gives you every skill twice.
 
 ## What it runs and sends
 
-Pull requests, comments, issues, and replies go to GitHub through your `gh` login,
-and only when you ask for one. No telemetry and no other servers.
+- **On your machine:** `git` and `gh` to read the branch, its diff, and the repo's
+  PR history; `bun` only for the optional system-recap block, which `create-pr`
+  adds when the review toolkit and a primitives map are present.
+- **To GitHub, through your `gh` login, only when you ask:** pull requests,
+  comments, issues, and replies. `create-pr` updates an existing PR on the same
+  branch instead of opening a duplicate, and rewrites an existing PR's title and
+  body only after showing you the change and getting your confirmation.
+- **Nowhere else.** No telemetry and no other servers.

@@ -76,18 +76,24 @@ you every skill twice.
 
 ## What it runs and sends
 
-- **On your machine:** `git` and `gh` to read the diff and PR, `bun` to render the
-  HTML report and run the publish script, and the dependency lens's package-registry
-  lookups and `npm audit`-style advisory queries. On your own branches it also runs
+- **On your machine:** `git` and `gh` to read the diff and PR, check out the PR
+  branch with git hooks disabled, fetch the base, and create scratch worktrees;
+  `bun` to render the HTML report and run the publish and recap scripts; and the
+  dependency lens's package-registry lookups and `npm audit`-style advisory queries. On your own branches it also runs
   the repo's tests and checks; it never executes, builds, or installs anyone else's
   checkout unless the repo's `REVIEW.md` opts in.
 - **To GitHub, through your `gh` login:** the review and its comments
-  (`publish-review`, after a dry run you confirm), review-debt issues
-  (`review-issues`), and closing the review-debt issues a fix paid off
-  (`resolve-review`, which edits your working tree and commits only when you ask).
-  With `--gist`, `report.html` is uploaded as a secret gist, which anyone with the
-  link can open, so the publish script refuses it for repositories that aren't
-  public unless you pass `--force-gist`.
+  (`publish-review`, after a dry run you confirm); review-debt issues, plus their
+  label if the repo doesn't have it yet (`review-issues`); closing the review-debt
+  issues a fix paid off (`resolve-review`, which edits your working tree and commits
+  only when you ask); and, only when you ask, a system-recap block in the
+  description of your own PR (`recap.ts --pr`).
+- **Report hosting, only when you pass the flag:** `--gist` uploads `report.html` as
+  a secret gist, which anyone with the link can open, and links it through the
+  third-party viewer htmlpreview.github.io. `--pages <owner/name>` commits it to that
+  repository so its GitHub Pages site serves it. Neither will put a non-public
+  repository's report where anyone can read it unless you pass `--force-gist` or
+  `--force-pages`.
 - **When you open the report:** `report.html` loads its fonts from Google Fonts.
 - **Nowhere else.** No telemetry and no other servers.
 

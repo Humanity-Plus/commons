@@ -21,7 +21,7 @@ report with visualizations, code snippets, and `file:line` permalinks.
 | **primitives** | What did the change do to the system's primitives (composes / extends / adds, per Kent C. Dodds' scale), and did it invent shapes outside the repo's `primitives.yaml` map? | needs a primitives map |
 
 Two more subagent passes are not lenses but part of the pipeline: **verify** (a
-skeptic pass per finding) and the **arbiter** (Phase 3.5 — regrades severity
+skeptic check per finding) and the **arbiter** (Phase 3.5 — regrades severity
 relative to the whole report, groups repeated defect classes into one finding with
 a `locations` list, and folds findings beyond the report budget into a collapsed
 section instead of dropping them).
@@ -75,7 +75,7 @@ skill may add optional fields downstream (`area`, `locations`, `regradeNote`,
 produce the same report structure as before.
 
 The **`holistic` flag** exists to measure whether the specialized lenses miss
-cross-cutting issues a single full-context pass catches: it runs one whole-diff
+cross-cutting issues a single full-context reviewer catches: it runs one whole-diff
 generalist reviewer in parallel with the lenses, verifies its findings under
 identical rules, and reports `lenses-only / both / holistic-only` overlap counts in
 a "Holistic comparison" card — holistic-only findings indicate gaps in the lens
@@ -236,12 +236,12 @@ hands to every finding-producing lens; it lists the shipped components (`callout
 Repo-specific facts the lenses can't infer from a diff — *auth isn't wired yet, no
 prod environment so migrations are moot, we stack PRs with Graphite, these paths are
 generated* — belong in a committed context file instead of being re-typed each run.
-The skill reads it and threads it into every lens, the verify pass, and the verdict.
+The skill reads it and threads it into every lens, the verify step, and the verdict.
 
 Create **`REVIEW.md` in the repo root** (the one canonical location); copy
 `REVIEW.example.md` as a starting point, and see `REVIEW.worked-example.md` — a
 sanitized version of the file from one of our production apps — for what a mature
-one looks like. You can also pass a path (`/review-pr 482 context=docs/review.md`)
+one looks like. You can also give a path (`/review-pr 482 context=docs/review.md`)
 or just describe the context inline in the request.
 
 `REVIEW.md` is deliberately the same file **Anthropic's Claude Code Review** reads
@@ -283,7 +283,7 @@ feature branch, and/or child PRs based on this one), so detection is **GitHub-na
 in PR mode it's one or two `gh` calls that run unconditionally and no-op when there's no
 stack (the common single-PR case). A stacking CLI (`gt`/`sl`), when present, adds the
 full local stack and is what enables this in local mode. When a stack exists, the verify
-pass **refutes or downgrades** findings undone downstream and records what it consulted
+step **refutes or downgrades** findings undone downstream and records what it consulted
 in *Scope & limitations*; the review itself stays scoped to this PR's diff. See
 `SKILL.md`.
 

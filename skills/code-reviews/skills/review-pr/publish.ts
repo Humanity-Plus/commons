@@ -159,7 +159,7 @@ export function gistGuardError(visibility: string, force: boolean): string | nul
     `public-by-URL — hosting the report would expose review content (code excerpts, file ` +
     `paths) outside the repo's access controls. Use --pages <owner/name> with a ` +
     `Pages-publishing repo whose visibility you control, host the report yourself and ` +
-    `pass --report-url, or override deliberately with --force-gist.`
+    `use --report-url, or override deliberately with --force-gist.`
   );
 }
 
@@ -574,11 +574,11 @@ if (import.meta.main) {
   const pr = String(opts["pr"] ?? report.meta.prNumber ?? "");
   // Untrusted-input hygiene (same posture as SKILL.md Phase 0): strict shapes only.
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) {
-    console.error(`No valid repo slug (got "${repo}") — pass --repo owner/name or use PR-mode findings.`);
+    console.error(`No valid repo slug (got "${repo}") — use --repo owner/name or PR-mode findings.`);
     process.exit(1);
   }
   if (!/^\d+$/.test(pr)) {
-    console.error(`No valid PR number (got "${pr}") — pass --pr N or use PR-mode findings.`);
+    console.error(`No valid PR number (got "${pr}") — use --pr N or PR-mode findings.`);
     process.exit(1);
   }
   const mismatch = checkPrMismatch(report.meta.prNumber, opts["pr"] as string | undefined);

@@ -314,9 +314,9 @@
       "confidence": "high",
       "file": "src/pay/stripe.ts",
       "line": 4,
-      "title": "Set STRIPE_SECRET_KEY in production",
-      "evidence": "stripe.ts:4 reads process.env.STRIPE_SECRET_KEY; the app will fail to boot without it.",
-      "suggestion": "Add `STRIPE_SECRET_KEY` to the production secret store before deploy.",
+      "title": "Set PAYMENTS_WEBHOOK_URL in production",
+      "evidence": "stripe.ts:4 reads process.env.PAYMENTS_WEBHOOK_URL; the app will fail to boot without it.",
+      "suggestion": "Add `PAYMENTS_WEBHOOK_URL` to the production environment before deploy.",
       "featureArea": "Payments",
       "source": "lenses"
     },
@@ -396,7 +396,7 @@
         {
           "file": "src/util/fmt.ts",
           "line": 21,
-          "note": "pass an empty object default instead of dereferencing"
+          "note": "use an empty object default instead of dereferencing"
         }
       ],
       "regradeNote": "Grouped by the arbiter: 4 findings of the same missing-null-check class collapsed into one; severity set once for the class."
@@ -425,7 +425,7 @@
       "file": "src/pay/charge.ts",
       "line": 91,
       "title": "Capture retry can double-charge when the first attempt actually succeeded",
-      "evidence": "The retry loop re-calls capture on timeout — but a timeout does not mean the first capture failed; Stripe may have processed it. No idempotency key is passed, so a retried capture can charge twice.\n\nNo single lens owns this: it spans error handling, external calls, and operational behavior, which is why only the full-context pass surfaced it.",
+      "evidence": "The retry loop re-calls capture on timeout — but a timeout does not mean the first capture failed; Stripe may have processed it. No idempotency key is passed, so a retried capture can charge twice.\n\nNo single lens owns this: it spans error handling, external calls, and operational behavior, which is why only the full-context reviewer surfaced it.",
       "suggestion": "Pass an idempotency key on capture and treat a timeout as unknown-outcome rather than failure.",
       "featureArea": "Payments",
       "verified": true,

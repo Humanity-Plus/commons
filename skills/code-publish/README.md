@@ -42,4 +42,5 @@ Pick one lane — installing both gives you every skill twice.
   comments, issues, and replies. `create-pr` updates an existing PR on the same
   branch instead of opening a duplicate, and rewrites an existing PR's title and
   body only after showing you the change and getting your confirmation.
-- **Nowhere else.** No telemetry and no other servers.
+- **Nowhere else.** No telemetry and no other servers, and no token or key is ever
+  read: GitHub access goes through your existing `gh` login.

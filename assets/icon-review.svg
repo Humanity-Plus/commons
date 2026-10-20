@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="1024" height="1024">
-  <!-- Source of both plugins' .claude-plugin/icon.png (rendered at 1024 px; the
-       directory accepts only PNG or JPEG). The leaf is the humanityplus.solutions
+  <!-- Source of skills/code-reviews/.claude-plugin/icon.png (rendered at 1024 px;
+       the directory accepts only PNG or JPEG). The leaf is the humanityplus.solutions
        wordmark leaf in the site footer's colours: clay on forest deep. -->
   <rect width="32" height="32" fill="#15281e"/>
   <g transform="translate(16 16) scale(0.66) translate(-15 -15.5)" fill="none" stroke="#c57b4e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">

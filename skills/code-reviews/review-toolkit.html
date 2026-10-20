@@ -246,7 +246,7 @@ command, <code>/review-pr</code>, <code>/review-fix</code>, … with the CLI ins
 <div class="table-scroll"><table>
   <thead><tr><th>Skill</th><th>Role</th><th>What it is</th></tr></thead>
   <tbody>
-    <tr><td><code>review-pr</code></td><td>core</td><td>The reviewer. Runs independent lenses as parallel subagents (optionally sharded by feature area on large diffs, with a <b>seams</b> lens for cross-area contracts), verifies findings with a skeptic pass, calibrates severities with an <b>arbiter</b>, and renders the HTML report. Report-only, never edits code.</td></tr>
+    <tr><td><code>review-pr</code></td><td>core</td><td>The reviewer. Runs independent lenses as parallel subagents (optionally sharded by feature area on large diffs, plus a <b>seams</b> lens that traces the contracts between feature areas), verifies findings with a skeptic pass, calibrates severities with an <b>arbiter</b>, and renders the HTML report. Report-only, never edits code.</td></tr>
     <tr><td><code>resolve-review</code></td><td>core</td><td>The fixer. Turns a findings file into an ordered fix plan, applies one scoped edit per finding on <em>your own</em> branch (every site in a grouped finding's <code>locations</code> list), validates with the repo's existing checks, and reports fixed / partial / skipped / failed.</td></tr>
     <tr><td><code>review-fix</code></td><td>workflow</td><td>Review + fix in one pass, results in chat (no HTML). The agent-friendly loop.</td></tr>
     <tr><td><code>publish-review</code></td><td>workflow</td><td>Post a previous review to the GitHub PR as one real review.</td></tr>
@@ -375,7 +375,7 @@ they're what turn a generic review into <em>your</em> review, and where great re
   <div class="flow-step">
     <div class="flow-phase">Phase 2</div>
     <div class="flow-cmd">lenses</div>
-    <div class="flow-desc">parallel subagents; sharded + seams on large diffs; optional holistic</div>
+    <div class="flow-desc">parallel subagents; seams where areas share contracts; sharded on large diffs; optional holistic</div>
   </div>
   <div class="flow-step">
     <div class="flow-phase">Phase 3</div>
@@ -591,7 +591,7 @@ In agents without slash invocation, ask for the skill by name ("use review-pr on
   <ol>
     <li>Run <code>/review-pr 482</code> (or paste the PR URL).</li>
     <li>The skill fetches the PR with <code>gh</code>, runs the lenses as parallel subagents
-        (sharding + seams on large diffs), a skeptic pass verifies every finding, and the arbiter
+        (sharded on large diffs, with seams wherever feature areas share contracts), a skeptic pass verifies every finding, and the arbiter
         calibrates the report.</li>
     <li>Open <code>review-report/report.html</code>: verdict up top, risk heatmap by feature area,
         findings written like short teaching articles with diffs and diagrams.</li>

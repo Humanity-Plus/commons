@@ -830,11 +830,12 @@ Spawn **one additional whole-diff subagent** (the `seams` role — default `stro
 tier) for triage's `interfaces` entry:
 `lenses/seams.md`, whose only job is cross-area contract review (producer/consumer
 mismatches, type drift across the seam, ordering/lifecycle assumptions one area
-makes that another violates). It runs only in sharded mode — on the whole-diff path
-the regular lenses already see both sides of every seam.
+makes that another violates). As on the whole-diff path, it runs whenever
+triage's `interfaces` is non-empty; on sharded runs it always runs, since slicing
+the diff by area puts a seam's two sides in different shards.
 
 Record the decision in `meta.sharding` — `{ "sharded": true|false, "threshold": N,
-"areas": [names] }` — and add a `seams` entry to `meta.lenses` on sharded runs. The
+"areas": [names] }` — and add a `seams` entry to `meta.lenses` whenever it ran. The
 renderer surfaces sharded runs on the "Scope & limitations" card automatically.
 
 #### Holistic branch (only with the `holistic` arg — an eval harness)
@@ -1165,7 +1166,7 @@ contradiction between a lens's fetch and the stale Phase 0 measurement).
    `meta.lenses` with one entry per lens (`{ name, status: "ran" | "skipped", note? }`)
    so the report can show which lenses ran and why any were skipped (e.g. `warm`
    skipped: no dependency change; `conventions` skipped: no convention docs;
-   `intent` skipped: no spec source found — note what was searched). On sharded runs include a `seams` entry and set
+   `intent` skipped: no spec source found — note what was searched). Include a `seams` entry whenever it ran, and on sharded runs set
    `meta.sharding` (`{ sharded, threshold, areas }`); on `holistic` runs set
    `meta.holistic` with the overlap stats from step 1. Carry the run's `limitations`
    here too — the renderer surfaces them as a visible "Scope & limitations" card, so

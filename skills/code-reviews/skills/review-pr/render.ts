@@ -1082,7 +1082,7 @@ const ALL_LENSES = ["triage", "first-five", "conventions", "intent", "warm", "zo
 
 // A visible strip of which lenses ran vs. were skipped. Uses meta.lenses when the
 // orchestrator provides it; otherwise infers "ran" from findings present.
-// Conditional passes (seams in sharded mode, arbiter, holistic) only get a chip when
+// Conditional passes (seams, arbiter, holistic) only get a chip when
 // meta.lenses names them — the default small-PR strip is unchanged.
 function lensesStrip(r: Report): string {
   const provided: Array<{ name: string; status: string; note?: string }> = Array.isArray(r.meta?.lenses)

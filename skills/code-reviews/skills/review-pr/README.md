@@ -19,6 +19,7 @@ report with visualizations, code snippets, and `file:line` permalinks.
 | **intent** | Does the diff match what the change claims to do (PR body, linked issues, spec files)? | when a spec source exists |
 | **seams** | Do the sides of every contract the diff crosses still fit together (area↔area, app↔platform, app↔library)? | when triage finds interfaces |
 | **primitives** | What did the change do to the system's primitives (composes / extends / adds, per Kent C. Dodds' scale), and did it invent shapes outside the repo's `primitives.yaml` map? | needs a primitives map |
+| **blast-radius** | What does the change reach beyond the diff — other readers of the same bytes, the library at its pinned version, the path production actually runs, timing, rollback — and what is the one **safety fact** it is safe because of, proven how far? | medium tier and up |
 
 Two more subagent passes are not lenses but part of the pipeline: **verify** (a
 skeptic check per finding) and the **arbiter** (Phase 3.5 — regrades severity
@@ -39,7 +40,8 @@ Phase 1   triage                     [1 subagent; inline under ~150 distinct lin
              AND ≥3 feature areas → Phase 2 shards by triage's map
 Phase 2   first-five, conventions,   [parallel subagents] → Finding[] each
           warm, zombies, preflight,                         (+ conventions scorecard,
-          intent, primitives                                   primitives systemChange)
+          intent, primitives,                                  primitives systemChange,
+          blast-radius                                         blast-radius safety fact)
           ├─ tiered by triage: light (1 file <~50 lines) → medium (single feature
           │  area under the shard threshold: combined bugs+tests generalist +
           │  conventions + globals) → full fan-out (multi-area) → sharded
@@ -48,14 +50,15 @@ Phase 2   first-five, conventions,   [parallel subagents] → Finding[] each
           │  medium-risk areas one combined bugs+tests generalist each; low-risk
           │  areas share one pass; conventions shards by doc scope;
           │  + seams lens (whole-diff, cross-area contracts only);
-          │  intent / preflight / warm stay whole-diff (inherently global)
+          │  intent / preflight / warm / blast-radius stay whole-diff (inherently global)
           ├─ large / findings-only runs: compaction — full findings to disk,
           │  compact indexes in context
           └─ `holistic` arg: + one whole-diff generalist in parallel,
              findings tagged source: lenses|holistic for overlap stats
 Phase 3   verify — contradiction scan first, then per-claim triage:
           mechanical (orchestrator greps) · experiment (owned checkouts only,
-          orchestrator runs the probe) · documentation (vendor doc, quoted) ·
+          orchestrator runs the probe — the blast-radius safety fact's too) ·
+          documentation (vendor doc, quoted) ·
           judgment [1 subagent each, fast tier]; suggestions checked for
           fix-correctness; verifiers may shrink claims, never grow them —
           escalations re-enter as new findings with the enabling line quoted
@@ -184,7 +187,7 @@ tracked debt), labeled `review-debt`, ready for a scheduled fixer like the
 fixed pre-PR by `/review-fix`; debt flows through the tracker.
 
 **Model selection is role-based, not hardcoded:** every subagent fills a role
-(triage, lens, seams, verify, arbiter, holistic) mapped to a capability tier
+(triage, lens, seams, blast-radius, verify, arbiter, holistic) mapped to a capability tier
 (`fast` / `balanced` / `strongest`) that resolves against whatever models the host
 tool offers — so nothing goes stale when models churn. Defaults live in `SKILL.md`
 ("Review roles & model tiers"); a repo can override them in a `## Review roles`
@@ -220,6 +223,15 @@ section of `REVIEW.md` (see `REVIEW.example.md`).
 - When the `conventions` lens runs, a **Conventions & stack conformance** card shows a
   per-area ✓/⚠/✗ scorecard (Convex, React, TypeScript, Tests, …), and a dedicated
   **Conventions** section lists the craft findings with the repo rule each one cites.
+- When the `blast-radius` lens runs (medium tier and up), a **Blast radius** card
+  leads the report: the one **safety fact** the change rests on, how far up the
+  evidence ladder it got (asserted → documented → traced → command-settled →
+  observed; the same names as `verifiedBy`), the probe that settles it, the risks
+  the lens **cleared** with how it checked, its open risks linked to their
+  finding cards, and the cheapest check to run before merge. On your own
+  checkout the orchestrator runs the probe, so the fact arrives proven or
+  contradicted rather than argued; `publish.ts` puts the same line at the top of
+  the GitHub review body, and `resolve-review` re-runs the probe after its fixes.
 - When the `primitives` lens runs (repo has a `primitives.yaml` map — bootstrap
   one with the `map-primitives` skill), a **System
   change** card classifies every touched primitive (composes / extends / adds),

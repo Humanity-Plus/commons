@@ -34,12 +34,13 @@ hand-fixing from the comments) forfeits the toolkit's second verification layer.
 For a branch that isn't a PR yet, `/review-fix` runs the same find-then-fix loop
 in one pass.
 
-Nine lenses look at one diff independently — bugs (`first-five`), repo conventions
+Ten lenses look at one diff independently — bugs (`first-five`), repo conventions
 with a Fowler-smell fallback (`conventions`), dependency audit (`warm`), test gaps
 (`zombies`), deploy checklist (`preflight`), claim-vs-diff (`intent`), contract
 tracing across area/platform/library boundaries (`seams`), system-shape
-classification against a primitives map (`primitives`), and a feature-area triage
-that plans the run. Every finding then survives an adversarial verify pass
+classification against a primitives map (`primitives`), the change's reach beyond
+the diff and the one safety fact it rests on (`blast-radius`), and a feature-area
+triage that plans the run. Every finding then survives an adversarial verify pass
 (mechanical command checks first, skeptic subagents for judgment calls) and a
 severity arbiter before it reaches you.
 
@@ -128,5 +129,10 @@ here is our own.
 The primitives lens and the visual recap follow [Kent C. Dodds](https://github.com/kentcdodds/kcd-skills)'
 primitives/visual-recap patterns. The conventions lens's smell baseline is Fowler's
 *Refactoring* (ch. 3). The spec-discovery ladder and smell-catalog framing take
-cues from [mattpocock/skills](https://github.com/mattpocock/skills). The toolkit is
+cues from [mattpocock/skills](https://github.com/mattpocock/skills). The
+blast-radius lens — one load-bearing safety fact, an evidence ladder climbed by
+proof rather than argument, cleared risks as output — adapts the `blast-radius`
+skill in Lauren Tan's ([poteto](https://github.com/poteto)) MIT-licensed
+[pstack](https://github.com/cursor/plugins/tree/main/pstack), in our own
+phrasing and wired to this toolkit's trust model. The toolkit is
 MIT-licensed, like the rest of the Commons.

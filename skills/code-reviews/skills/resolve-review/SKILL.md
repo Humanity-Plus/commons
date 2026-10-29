@@ -211,6 +211,16 @@ For each task, smallest blast radius first:
    than you found it.
 4. Re-read the fixed code and confirm the finding no longer applies (a light self-check;
    a full re-review is the user re-running `/review-pr`).
+5. **Re-run the blast-radius probe after the fixes land.** When `findings.json`
+   carries `blastRadius.safetyFact.probe`, the review named the one assumption
+   the change is safe because of and the command that settles it. Fixes move
+   code, so the assumption gets re-checked, not inherited: run the probe once
+   more on the fixed tree and report the outcome in the ledger (`safety fact:
+   still holds` / `now contradicted` with the output). If the review left it
+   `unproven` (untrusted checkout at review time), this is the first run — the
+   branch is yours now, so the trust that blocked the review no longer applies.
+   The `preMerge` line is the same kind of item: run it when you can, hand it
+   back when you can't.
 
 ### Phase 4 — Report
 

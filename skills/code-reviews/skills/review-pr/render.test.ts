@@ -471,3 +471,78 @@ test("no blastRadius section means no card and no likelihood chip", () => {
   expect(html).not.toContain("Blast radius");
   expect(html).not.toContain('class="chip chip-like"');
 });
+
+// ---- interrogate branch: per-seat ledger card and the run that proves a finding ----
+const igFinding = {
+  id: "interrogate-b-1",
+  lens: "interrogate",
+  severity: "high",
+  category: "State and time",
+  source: "interrogate",
+  file: "src/pay/charge.ts",
+  line: 44,
+  title: "A second capture after a timeout charges the order twice",
+  evidence: "e",
+  suggestion: "s",
+  featureArea: "Payments",
+  repro: "bun test src/pay/charge.test.ts -t 'capture retry charges once'",
+  patch: "diff --git a/src/pay/charge.test.ts b/src/pay/charge.test.ts\n+test('capture retry charges once', …)",
+  observed: "Expected length: 1\nReceived length: 2",
+  expected: "one charge recorded across the retry",
+};
+const igReport = {
+  meta: {
+    title: "t",
+    interrogate: {
+      adversaries: [
+        { seat: "A", runner: "agent", brief: "Inputs and boundaries", findings: 1, kept: 0, dropped: 1, droppedWhy: "rerun passed" },
+        { seat: "B", runner: "codex exec", brief: "State and time", findings: 2, kept: 1, dropped: 1, droppedWhy: "style, not a run" },
+      ],
+      interrogateOnly: 1,
+      both: 0,
+    },
+  },
+  verdict: { decision: "request-changes", confidence: "high", summary: "ok" },
+  triage: { groups: [], skipped: [] },
+  findings: [igFinding],
+};
+
+test("interrogation card renders the per-seat ledger, runner families, and interrogate-only links", () => {
+  const html = page(igReport as any);
+  expect(html).toContain("Interrogation");
+  expect(html).toContain("2 seats · 2 runner families");
+  expect(html).toContain("codex exec");
+  expect(html).toContain("State and time");
+  expect(html).toContain("rerun passed");
+  expect(html).toContain('href="#f-interrogate-b-1"');
+  expect(html).toContain('class="chip chip-src">interrogate');
+});
+
+test("an interrogate finding's card carries repro, observed, expected, and the patch", () => {
+  const html = page(igReport as any);
+  expect(html).toContain("capture retry charges once");
+  expect(html).toContain("Received length: 2");
+  expect(html).toContain("one charge recorded across the retry");
+  expect(html).toContain("repro patch");
+});
+
+test("interrogation content is escaped; a seat list without runners counts one family of none", () => {
+  const hostile = JSON.parse(JSON.stringify(igReport));
+  hostile.findings[0].repro = `<script>alert(1)</script>`;
+  hostile.findings[0].observed = `<img src=x onerror=alert(2)>`;
+  hostile.meta.interrogate.adversaries[0].droppedWhy = `<b onclick=x>why</b>`;
+  const html = page(hostile as any);
+  expect(html).not.toContain("<script>alert(1)");
+  expect(html).not.toContain("<img src=x");
+  expect(html).not.toContain("<b onclick");
+  expect(html).toContain("why");
+  const bare = JSON.parse(JSON.stringify(igReport));
+  bare.meta.interrogate = { adversaries: [] };
+  expect(page(bare as any)).toContain("No adversary seats recorded");
+});
+
+test("default path: no interrogation card and no repro block when the fields are absent", () => {
+  const html = page(baseReport({ findings: [mkFinding()] }));
+  expect(html).not.toContain("Interrogation");
+  expect(html).not.toContain('class="repro"');
+});

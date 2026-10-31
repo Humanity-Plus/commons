@@ -1,7 +1,7 @@
 // Tests for the GitHub-publishing pipeline: diff anchoring, GFM degradation,
 // and review-payload assembly. Run: bun test  (from this directory)
 import { test, expect } from "bun:test";
-import { parseDiffAnchors, toGfm, buildReview, resolveEvent, checkPrMismatch, gistGuardError, reviewFooter, fmtStamp, pagesReportName, pagesGuardError } from "./publish.ts";
+import { parseDiffAnchors, toGfm, buildReview, blastRadiusLine, resolveEvent, checkPrMismatch, gistGuardError, reviewFooter, fmtStamp, pagesReportName, pagesGuardError } from "./publish.ts";
 
 // ---- --gist visibility guard (round 19: the private-source leak vector) ----
 test("gistGuardError refuses non-public repos unless forced", () => {
@@ -354,4 +354,39 @@ test("buildReview: min-severity gates inline comments, not the body", () => {
   const gated = buildReview(report, anchors, { event: "COMMENT", minSeverity: "medium" });
   expect(gated.comments).toHaveLength(1); // low finding pushed to the body
   expect(gated.body).toContain("Out-of-diff finding");
+});
+
+// ---- blast-radius safety fact in the review body ----
+test("blastRadiusLine: states the fact, its status, and the probe only while unproven", () => {
+  const base = { meta: {}, verdict: { decision: "comment", confidence: "high", summary: "" }, findings: [] };
+  expect(blastRadiusLine(base as any)).toBe(""); // absent on the default path
+  const unproven = {
+    ...base,
+    blastRadius: {
+      safetyFact: { claim: "no caller passes `null`", evidence: "skeptic", status: "unproven", probe: "bun test x" },
+      cleared: [{ what: "a" }, { what: "b" }],
+    },
+  };
+  const line = blastRadiusLine(unproven as any);
+  expect(line).toContain("**unproven**");
+  expect(line).toContain("probe: `bun test x`");
+  expect(line).toContain("2 risks cleared");
+  const proven = JSON.parse(JSON.stringify(unproven));
+  proven.blastRadius.safetyFact.status = "proven";
+  proven.blastRadius.safetyFact.evidence = "experiment";
+  expect(blastRadiusLine(proven as any)).toContain("**proven** (experiment)");
+  expect(blastRadiusLine(proven as any)).not.toContain("probe:");
+});
+
+test("buildReview puts the blast-radius line in the body before the sections", () => {
+  const anchors = parseDiffAnchors(DIFF);
+  const withFact = {
+    ...REPORT,
+    blastRadius: { safetyFact: { claim: "the column is nullable", evidence: "mechanical", status: "proven" } },
+  };
+  const p = buildReview(withFact as any, anchors, { event: "COMMENT" });
+  expect(p.body).toContain("**Blast radius** — safety fact: the column is nullable — **proven**");
+  expect(p.body.indexOf("Blast radius")).toBeLessThan(p.body.indexOf("New env var needed"));
+  const without = buildReview(REPORT, anchors, { event: "COMMENT" });
+  expect(without.body).not.toContain("Blast radius");
 });

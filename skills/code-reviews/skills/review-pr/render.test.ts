@@ -384,3 +384,90 @@ test("no systemChange section means no card", () => {
   } as any);
   expect(html).not.toContain("System change");
 });
+
+// ---- blast-radius card (the safety fact, its evidence rung, cleared risks) ----
+const brReport = {
+  meta: { title: "t", repo: "acme/checkout", headSha: "9f3c1ab" },
+  verdict: { decision: "comment", confidence: "high", summary: "ok" },
+  triage: { groups: [], skipped: [] },
+  blastRadius: {
+    summary: "Capture retries network errors up to three times.",
+    safetyFact: {
+      claim: "A repeated capture of an already-captured intent is a no-op at `stripe@14.2.0`.",
+      evidence: "skeptic",
+      status: "unproven",
+      proof: "`node_modules/stripe/lib/resources/PaymentIntents.js:40` reuses the idempotency key.",
+      probe: "bun test src/pay/charge.test.ts -t 'capture retry'",
+    },
+    cleared: [{ what: "Other readers of `charges.attempts`", how: "grep: only `reports/daily.ts`, which sums it." }],
+    preMerge: "Run the capture tests with the mock failing the first call.",
+  },
+  findings: [
+    {
+      id: "blast-radius-1",
+      lens: "blast-radius",
+      severity: "high",
+      category: "Production path",
+      likelihood: "high",
+      file: "src/pay/charge.ts",
+      line: 31,
+      title: "The retry loop sits behind a flag production has off",
+      evidence: "e",
+      suggestion: "s",
+      featureArea: "Payments",
+    },
+  ],
+};
+
+test("validateReport accepts a well-formed blastRadius and rejects malformed ones", () => {
+  expect(validateReport(brReport)).toEqual([]);
+  expect(validateReport({ blastRadius: [] }).join(" ")).toContain("blastRadius");
+  expect(validateReport({ blastRadius: { safetyFact: "x" } }).join(" ")).toContain("blastRadius");
+  expect(validateReport({ blastRadius: { safetyFact: { evidence: "skeptic" } } }).join(" ")).toContain("claim");
+});
+
+test("blast-radius card renders the fact, its rung, the probe, cleared risks, and links its findings", () => {
+  const html = page(brReport as any);
+  expect(html).toContain("Blast radius");
+  expect(html).toContain("Unproven");
+  expect(html).toContain("traced"); // rung 3 label
+  expect(html).toContain("capture retry"); // the probe, escaped
+  expect(html).toContain("1 open risk · 1 cleared");
+  expect(html).toContain('href="#f-blast-radius-1"'); // open risk links to its finding card
+  expect(html).toContain("likelihood high"); // both in the card and as a chip
+  expect(html).toContain('class="chip chip-like"');
+  expect(html).toContain("Before merge");
+  expect(html).toContain("which sums it");
+  expect(html).toContain("Capture retries network errors");
+});
+
+test("blast-radius status pill follows status; unknown evidence falls back to the lowest rung", () => {
+  const contradicted = JSON.parse(JSON.stringify(brReport));
+  contradicted.blastRadius.safetyFact.status = "contradicted";
+  contradicted.blastRadius.safetyFact.evidence = "guesswork";
+  const html = page(contradicted as any);
+  expect(html).toContain("Contradicted");
+  expect(html).toContain("asserted");
+});
+
+test("blast-radius card escapes hostile content", () => {
+  const hostile = JSON.parse(JSON.stringify(brReport));
+  hostile.blastRadius.summary = `<img src=x onerror=alert(1)>`;
+  hostile.blastRadius.safetyFact.claim = `<script>alert(2)</script>claim`;
+  hostile.blastRadius.safetyFact.probe = `<b onclick=steal()>x</b>`;
+  hostile.blastRadius.cleared[0].how = `<iframe src=https://e></iframe>`;
+  hostile.findings[0].likelihood = `<svg onload=alert(3)>`;
+  const html = page(hostile as any);
+  expect(html).not.toContain("<img src=x");
+  expect(html).not.toContain("<script>alert(2)");
+  expect(html).not.toContain("<b onclick"); // escaped to text, never a tag
+  expect(html).not.toContain("<iframe");
+  expect(html).not.toContain("<svg onload");
+  expect(html).toContain("claim");
+});
+
+test("no blastRadius section means no card and no likelihood chip", () => {
+  const html = page(baseReport({ findings: [mkFinding()] }));
+  expect(html).not.toContain("Blast radius");
+  expect(html).not.toContain('class="chip chip-like"');
+});

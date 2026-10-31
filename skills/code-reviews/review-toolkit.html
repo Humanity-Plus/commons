@@ -375,7 +375,7 @@ they're what turn a generic review into <em>your</em> review, and where great re
   <div class="flow-step">
     <div class="flow-phase">Phase 2</div>
     <div class="flow-cmd">lenses</div>
-    <div class="flow-desc">parallel subagents; seams where areas share contracts; sharded on large diffs; optional holistic</div>
+    <div class="flow-desc">parallel subagents; seams where areas share contracts; blast radius from the medium tier up; sharded on large diffs; optional holistic</div>
   </div>
   <div class="flow-step">
     <div class="flow-phase">Phase 3</div>
@@ -407,6 +407,7 @@ they're what turn a generic review into <em>your</em> review, and where great re
     <tr><td><code>intent</code></td><td>Does the diff match what the change claims to do (PR body, linked issues, spec files)?</td><td>when a spec source exists</td></tr>
     <tr><td><code>seams</code></td><td>Do the sides of every contract the diff crosses still fit together?</td><td>when triage finds interfaces</td></tr>
     <tr><td><code>primitives</code></td><td>What did the change do to the system's primitives (composes / extends / adds), and did it invent shapes outside the map?</td><td>repo has <code>primitives.yaml</code></td></tr>
+    <tr><td><code>blast-radius</code></td><td>What does the change reach beyond the diff (other readers of the same bytes, the library at its pinned version, the path production runs, timing, rollback), and what is the one <b>safety fact</b> it is safe because of, proven how far?</td><td>medium tier and up</td></tr>
   </tbody>
 </table></div>
 
@@ -436,7 +437,7 @@ they're what turn a generic review into <em>your</em> review, and where great re
   <div class="card">
     <h3>Role-based models</h3>
     <p>Subagents fill roles (<code>triage</code>, <code>lens</code>, <code>seams</code>,
-    <code>verify</code>, <code>arbiter</code>, <code>holistic</code>) mapped to tiers
+    <code>blast-radius</code>, <code>verify</code>, <code>arbiter</code>, <code>holistic</code>) mapped to tiers
     (<code>fast</code> / <code>balanced</code> / <code>strongest</code>, resolved against whatever
     the host tool offers. No hardcoded model ids. Override per repo in
     <code>REVIEW.md</code> → <code>## Review roles</code>.</p>
@@ -451,9 +452,10 @@ In agents without slash invocation, ask for the skill by name ("use review-pr on
   <div class="cmd-head"><h3 class="cmd-name">/review-pr</h3>
     <span class="cmd-tag readonly">read-only</span></div>
   <p>The full review. Produces <code>review-report/findings.json</code> (source of truth) and
-  <code>review-report/report.html</code>, verdict, severity donut, risk heatmap, conventions
-  scorecard, test-gap matrix, preflight checklist, plus (when applicable) grouped findings,
-  a folded <i>More findings</i> section, and a Holistic comparison card. Ends with a short
+  <code>review-report/report.html</code>, verdict, severity donut, risk heatmap, a Blast radius
+  card (the one safety fact the change rests on, how well it is proven, what was cleared),
+  conventions scorecard, test-gap matrix, preflight checklist, plus (when applicable) grouped
+  findings, a folded <i>More findings</i> section, and a Holistic comparison card. Ends with a short
   chat summary: verdict, counts, top 3 findings.</p>
   <ul class="args">
     <li><code>/review-pr</code> current branch vs <code>main</code></li>

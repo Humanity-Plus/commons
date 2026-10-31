@@ -36,18 +36,28 @@
  *                      "files"?, "invariantsTouched"?, "relatesTo"?, "note"? }],
  *     "added"?: [{ "name", "files"?, "note"? }]
  *   },
+ *   "blastRadius"?: {                                     // blast-radius lens
+ *     "summary"?: string,                                 // the change in behavior terms
+ *     "safetyFact": { "claim": string,                    // the load-bearing assumption
+ *                     "evidence": "advisory"|"documentation"|"skeptic"|"mechanical"|"experiment",
+ *                     "status": "proven"|"unproven"|"contradicted",
+ *                     "proof"?: string, "probe"?: string },
+ *     "cleared"?: [{ "what": string, "how"?: string }],   // risks checked and found to hold
+ *     "preMerge"?: string                                 // the cheapest check before merge
+ *   },
  *   "findings": Finding[],       // standard schema + lens-specific extras
  *   "limitations": string[]
  * }
  *
  * A Finding: { id, lens, severity, category, file, line, title, evidence,
  *   suggestion, featureArea, verified? } — lens is one of: triage | first-five |
- *   conventions | warm | zombies | preflight | intent | seams | holistic | merge
- *   (merge = Phase 0 conflict-probe findings; unlisted lens names render in the
+ *   conventions | warm | zombies | preflight | intent | seams | blast-radius | holistic |
+ *   merge (merge = Phase 0 conflict-probe findings; unlisted lens names render in the
  *   generic Findings section). Plus, per lens:
  *   warm:        { warm:{worth,alive,rightSized,secure}, ecosystem, changeType, packageVerdict }
  *   zombies:     { zombiesLetter, partial }
  *   preflight:   { confidence }
+ *   blast-radius: { likelihood }  // how likely the condition occurs in production
  *   any lens:    { verifiable? }  // the exact command/query/place that settles
  *                              // the finding (vs. a pure human judgment call,
  *                              // which omits it)
@@ -107,6 +117,7 @@ interface Finding {
   zombiesLetter?: string;
   partial?: boolean;
   confidence?: string;
+  likelihood?: string;
   verifiable?: string;
   rule?: string;
   // skill-added optionals (absent on the default path)
@@ -167,12 +178,22 @@ interface SystemChange {
   added?: Array<{ name: string; files?: string[]; note?: string }>;
 }
 
+type Evidence = "advisory" | "documentation" | "skeptic" | "mechanical" | "experiment";
+type FactStatus = "proven" | "unproven" | "contradicted";
+interface BlastRadius {
+  summary?: string;
+  safetyFact: { claim: string; evidence?: Evidence; status?: FactStatus; proof?: string; probe?: string };
+  cleared?: Array<{ what: string; how?: string }>;
+  preMerge?: string;
+}
+
 interface Report {
   meta: Meta;
   verdict: { decision: string; confidence: string; summary: string };
   triage: { groups: any[]; skipped: string[] };
   scorecard?: ScoreItem[];
   systemChange?: SystemChange;
+  blastRadius?: BlastRadius;
   findings: Finding[];
   limitations?: string[];
 }
@@ -203,6 +224,10 @@ export function validateReport(r: any): string[] {
     if (!isObj(r.systemChange) || !Array.isArray(r.systemChange.primitives))
       errs.push("systemChange must be an object whose primitives is an array");
   }
+  if (r.blastRadius !== undefined) {
+    if (!isObj(r.blastRadius) || !isObj(r.blastRadius.safetyFact) || typeof r.blastRadius.safetyFact.claim !== "string")
+      errs.push("blastRadius must be an object whose safetyFact is an object with a string claim");
+  }
   return errs;
 }
 
@@ -221,6 +246,20 @@ const CLASSIFICATION: Record<Classification, { label: string; color: string }> =
   adds: { label: "Adds", color: "#ff8589" },
   extends: { label: "Extends", color: "#f2c063" },
   composes: { label: "Composes", color: "#5fd39a" },
+};
+// Blast-radius evidence ladder (same names as a finding's verifiedBy) and the
+// safety fact's status: proven only when command output or a run settled it.
+const EVIDENCE: Record<Evidence, { rung: number; label: string }> = {
+  advisory: { rung: 1, label: "asserted" },
+  documentation: { rung: 2, label: "documented" },
+  skeptic: { rung: 3, label: "traced" },
+  mechanical: { rung: 4, label: "command-settled" },
+  experiment: { rung: 5, label: "observed" },
+};
+const FACT_STATUS: Record<FactStatus, { label: string; color: string }> = {
+  proven: { label: "Proven", color: "#5fd39a" },
+  unproven: { label: "Unproven", color: "#f2c063" },
+  contradicted: { label: "Contradicted", color: "#ff8589" },
 };
 const MARK: Record<Mark, { g: string; c: string }> = {
   pass: { g: "✓", c: "#5fd39a" },
@@ -814,6 +853,60 @@ function systemChangeCard(r: Report): string {
     ${body}</section>`;
 }
 
+// Blast radius (blast-radius lens): the one assumption the change is safe
+// because of — with how far up the evidence ladder it got — what the lens
+// cleared, the open risks (its findings, linked), and the cheapest pre-merge
+// check. The status pill is the headline: a contradicted fact renders loudest.
+function blastRadiusCard(r: Report): string {
+  const br = r.blastRadius;
+  if (!br) return "";
+  const m = r.meta;
+  const sf = br.safetyFact ?? { claim: "" };
+  const status = FACT_STATUS[(sf.status ?? "unproven") as FactStatus] ?? FACT_STATUS.unproven;
+  const ev = EVIDENCE[(sf.evidence ?? "advisory") as Evidence] ?? EVIDENCE.advisory;
+  const ladder = [1, 2, 3, 4, 5]
+    .map((n) => `<span class="br-rung${n <= ev.rung ? " br-rung-on" : ""}"></span>`)
+    .join("");
+  const risks = r.findings.filter((f) => f.lens === "blast-radius");
+  const riskList = risks.length
+    ? `<ul class="br-list">${risks
+        .map((f) => {
+          const sev = SEV[f.severity] ?? SEV.medium;
+          return `<li><a href="#f-${esc(f.id)}">${sev.dot} ${esc(f.title)}</a>${
+            f.likelihood ? `<span class="br-like">likelihood ${esc(f.likelihood)}</span>` : ""
+          }</li>`;
+        })
+        .join("")}</ul>`
+    : `<div class="empty">No open risks filed by the walk.</div>`;
+  const cleared = Array.isArray(br.cleared) ? br.cleared : [];
+  const clearedList = cleared.length
+    ? `<ul class="br-list br-cleared">${cleared
+        .map(
+          (c) =>
+            `<li>✓ ${renderInline(c.what, m)}${c.how ? `<span class="br-how">${renderInline(c.how, m)}</span>` : ""}</li>`
+        )
+        .join("")}</ul>`
+    : `<div class="empty">Nothing recorded as cleared.</div>`;
+
+  return `<section class="card br-card"><h2>Blast radius
+    <span class="sc-pill" style="--pc:${status.color}">${status.label}</span>
+    <span class="head-total">${risks.length} open risk${risks.length === 1 ? "" : "s"} · ${cleared.length} cleared</span></h2>
+    ${br.summary ? `<p class="br-summary">${renderInline(br.summary, m)}</p>` : ""}
+    <div class="br-fact" style="--pc:${status.color}">
+      <div class="br-fact-head"><span class="br-tag">Safety fact</span>
+        <span class="br-ladder" title="evidence rung ${ev.rung} of 5 — ${esc(ev.label)}">${ladder}<span class="br-rung-lbl">${esc(ev.label)}</span></span></div>
+      <div class="br-claim">${renderInline(sf.claim, m)}</div>
+      ${sf.proof ? `<div class="br-proof md">${renderRich(sf.proof, m)}</div>` : ""}
+      ${sf.probe ? `<div class="pf-verify"><span class="pf-verify-tag">probe</span><code>${esc(sf.probe)}</code></div>` : ""}
+    </div>
+    <div class="br-cols">
+      <div><div class="br-tag">Open risks</div>${riskList}</div>
+      <div><div class="br-tag">Cleared</div>${clearedList}</div>
+    </div>
+    ${br.preMerge ? `<div class="br-premerge"><span class="br-tag">Before merge</span>${renderInline(br.preMerge, m)}</div>` : ""}
+  </section>`;
+}
+
 function findingCard(m: Meta, f: Finding): string {
   const s = SEV[f.severity] ?? SEV.medium;
   const badges = [
@@ -821,6 +914,8 @@ function findingCard(m: Meta, f: Finding): string {
     `<span class="chip chip-lens">${esc(f.lens)}</span>`,
     f.category ? `<span class="chip chip-cat">${esc(f.category)}</span>` : "",
     f.verified ? `<span class="chip chip-ok">✓ verified</span>` : "",
+    // blast-radius lens: how likely the condition is to occur in production
+    f.likelihood ? `<span class="chip chip-like">likelihood ${esc(f.likelihood)}</span>` : "",
     // origin chip only when the --holistic comparison ran (source absent otherwise)
     f.source && f.source !== "lenses" ? `<span class="chip chip-src">${esc(f.source)}</span>` : "",
     f.locations?.length ? `<span class="chip chip-group">×${f.locations.length} occurrences</span>` : "",
@@ -1412,6 +1507,32 @@ function page(r: Report): string {
   .sc-added-head{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
     color:#ffb0b3;margin-bottom:8px}
 
+  /* blast radius (blast-radius lens) */
+  .br-summary{margin:0 0 12px;font-size:14px;color:var(--text)}
+  .br-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}
+  .br-fact{border:1px solid var(--border);border-left:4px solid var(--pc);border-radius:0 10px 10px 0;
+    background:var(--panel2);padding:11px 14px;margin-bottom:12px}
+  .br-fact-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .br-fact-head .br-tag{margin:0}
+  .br-ladder{display:inline-flex;align-items:center;gap:3px}
+  .br-rung{width:9px;height:9px;border-radius:50%;background:var(--border)}
+  .br-rung-on{background:var(--accent)}
+  .br-rung-lbl{font-size:11px;color:var(--muted);margin-left:6px}
+  .br-claim{font-size:14.5px;font-weight:600;line-height:1.45;margin:6px 0 4px;color:var(--head)}
+  .br-proof{font-size:12.5px;color:var(--muted)}
+  .br-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:720px){.br-cols{grid-template-columns:1fr}}
+  .br-list{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+  .br-list li{font-size:13px}
+  .br-list a{color:#7ec2ff;text-decoration:none}
+  .br-list a:hover{text-decoration:underline}
+  .br-like,.br-how{display:block;font-size:12px;color:var(--muted);margin:1px 0 2px 20px}
+  .br-cleared li{color:#8ce8b8}
+  .br-cleared .br-how{color:var(--muted)}
+  .br-premerge{margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);font-size:13px}
+  .br-premerge .br-tag{display:inline;margin-right:8px}
+  .chip-like{color:#f7d494;border-color:color-mix(in srgb,#f2c063 40%,transparent)}
+
   /* triage */
   .tri-group{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:4px 14px;margin-bottom:8px}
   .tri-group summary{cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 0;list-style:none}
@@ -1572,6 +1693,16 @@ function page(r: Report): string {
     font-size:12px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
   .foot-brand{font-weight:700;color:var(--text);background:var(--panel2);border:1px solid var(--border);
     border-radius:6px;padding:2px 8px;letter-spacing:.02em}
+  /* narrow screens — kept last so it wins over the nowrap rules above at equal specificity:
+     tokens kept on one line on desktop wrap inside instead of widening the page */
+  @media(max-width:720px){
+    .md code.md-code,.md .md-file,.head-total{white-space:normal;overflow-wrap:anywhere}
+    .card h2{flex-wrap:wrap}
+    /* flex rows with a pill + text: the text is an anonymous flex item, so its longest token must be allowed to break */
+    .finding-rule,.finding-regrade{overflow-wrap:anywhere}
+    /* tables scroll sideways instead; their chips stay whole so cells don't break mid-token */
+    .md-table,.md table{display:block;overflow-x:auto}
+    .md-table code.md-code,.md table code.md-code,.md-table .md-file,.md table .md-file{white-space:nowrap}}
 </style></head>
 <body><div class="wrap">
 
@@ -1603,7 +1734,7 @@ function page(r: Report): string {
     <section class="card"><h2>By section</h2>${composition(r.findings)}</section>
   </div>
   <section class="card"><h2>Risk by area</h2>${heatmap(r.triage.groups)}</section>
-  ${systemChangeCard(r)}${scorecardCard(r)}${holisticCard(r)}
+  ${blastRadiusCard(r)}${systemChangeCard(r)}${scorecardCard(r)}${holisticCard(r)}
 
   ${findingsSection(m, r.findings)}
   ${conventionsSection(m, r.findings)}

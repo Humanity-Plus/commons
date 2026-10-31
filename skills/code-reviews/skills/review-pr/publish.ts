@@ -103,6 +103,10 @@ interface Report {
     harness?: string;
   };
   verdict: { decision: string; confidence: string; summary: string };
+  blastRadius?: {
+    safetyFact: { claim: string; evidence?: string; status?: string; probe?: string };
+    cleared?: Array<{ what: string }>;
+  };
   findings: Finding[];
 }
 interface ReviewComment {
@@ -347,6 +351,19 @@ function severityTally(findings: Finding[]): string {
   return parts.length ? `**${findings.length} finding${findings.length === 1 ? "" : "s"}:** ${parts.join(" · ")}` : "No findings.";
 }
 
+// One line for the blast-radius lens's safety fact: the load-bearing assumption,
+// whether it was proven, and how to settle it when it wasn't. Markdown that a
+// reviewer reads before any finding.
+export function blastRadiusLine(report: Report, meta: Report["meta"] = {}): string {
+  const br = report.blastRadius;
+  if (!br?.safetyFact?.claim) return "";
+  const sf = br.safetyFact;
+  const status = sf.status === "proven" ? "**proven**" : sf.status === "contradicted" ? "**contradicted**" : "**unproven**";
+  const how = sf.evidence ? ` (${sf.evidence}${sf.status !== "proven" && sf.probe ? `; probe: \`${sf.probe}\`` : ""})` : "";
+  const cleared = br.cleared?.length ? ` · ${br.cleared.length} risk${br.cleared.length === 1 ? "" : "s"} cleared` : "";
+  return `**Blast radius** — safety fact: ${toGfm(sf.claim, meta)} — ${status}${how}${cleared}`;
+}
+
 export function buildReview(
   report: Report,
   anchors: Map<string, Set<number>>,
@@ -415,6 +432,8 @@ export function buildReview(
     );
   if (report.verdict.summary) body.push(toGfm(report.verdict.summary, meta));
   body.push(severityTally(findings));
+  const blast = blastRadiusLine(report, meta);
+  if (blast) body.push(blast);
   if (opts.reportUrl)
     body.push(
       `**[📊 Open the full HTML report](${opts.reportUrl})** — diagrams, conventions scorecard, test-gap matrix, and permalinked evidence.`

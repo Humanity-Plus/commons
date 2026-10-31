@@ -67,6 +67,11 @@ You may also be given a **repository review context** (trusted repo facts) and a
      `conventions` findings whose cited rules aren't in the docs — or that only restate
      a generic style opinion — are **refuted**; this is a key false-positive killer for
      that lens.
+   - **For `blast-radius` findings specifically:** the claim is about *reach*, so
+     confirm the reach exists — grep the hidden reader, open the flag's evaluation
+     site and its default, read the library file at the lockfile version. A reader
+     that isn't there, a flag that defaults the way the diff assumes, or a library
+     that behaves as the code expects at the pinned version → **refuted**.
 4. **Judge the `suggestion` too, not just the problem — and return the answer as
    `fixWorks`.** A finding can be real while its suggested fix is a no-op (wrong
    mechanism, guard already implicit, condition already enforced elsewhere).

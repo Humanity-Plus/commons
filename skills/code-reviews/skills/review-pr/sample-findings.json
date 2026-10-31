@@ -53,6 +53,10 @@
       {
         "name": "primitives",
         "status": "ran"
+      },
+      {
+        "name": "blast-radius",
+        "status": "ran"
       }
     ],
     "sharding": {
@@ -430,6 +434,21 @@
       "featureArea": "Payments",
       "verified": true,
       "source": "holistic"
+    },
+    {
+      "id": "blast-radius-1",
+      "lens": "blast-radius",
+      "severity": "high",
+      "category": "Production path",
+      "likelihood": "high",
+      "file": "src/pay/charge.ts",
+      "line": 31,
+      "title": "The retry loop sits behind a flag that production has off",
+      "evidence": "## What the code does\n\n`src/pay/charge.ts:31` wraps the new retry in `if (flags.NEW_CAPTURE)`. The flag's evaluation site, `src/config/flags.ts:12`, defaults it to `false` and reads overrides from `FLAGS_JSON`.\n\n## Why it matters\n\nThe review context lists the production flag set, and `NEW_CAPTURE` isn't in it — so the path under review is the one production will not run. Every test in the diff enables the flag explicitly, which is why the suite is green.",
+      "suggestion": "Either ship the flag flip in this PR (add `NEW_CAPTURE` to the production flag set and say so in the PR body) or state that the staged rollout is deliberate.\n\nTakeaway: when a change lives behind a flag, the reviewable unit is the change *plus* the flag's production value.",
+      "featureArea": "Payments",
+      "verified": true,
+      "verifiedBy": "mechanical"
     }
   ],
   "limitations": [
@@ -481,5 +500,26 @@
         "note": "New durable-retry primitive, not in the map."
       }
     ]
+  },
+  "blastRadius": {
+    "summary": "Payment capture now retries transient Stripe network errors up to three times before failing the order.",
+    "safetyFact": {
+      "claim": "Repeating a capture call for an intent that is already captured returns the captured intent instead of charging twice, at the lockfile's `stripe@14.2.0`.",
+      "evidence": "experiment",
+      "status": "proven",
+      "proof": "`node_modules/stripe/lib/resources/PaymentIntents.js:40` reuses the idempotency key the diff passes at `src/pay/charge.ts:48`. Probe run on the owned checkout: `bun test src/pay/charge.test.ts -t 'capture retry'` → 1 pass; the mock recorded one charge across three calls.",
+      "probe": "bun test src/pay/charge.test.ts -t 'capture retry'"
+    },
+    "cleared": [
+      {
+        "what": "Other readers of `charges.attempts`",
+        "how": "grep across `src/` and `workers/`: only `reports/daily.ts` reads it, and it sums the column, so a higher count is harmless."
+      },
+      {
+        "what": "Rollback",
+        "how": "The new column is nullable with a default; the previous release never reads it."
+      }
+    ],
+    "preMerge": "Run the capture tests once with `STRIPE_MOCK_FAIL_FIRST=1` so the retry path executes against the mock."
   }
 }

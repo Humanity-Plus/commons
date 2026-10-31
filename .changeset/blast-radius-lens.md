@@ -1,0 +1,5 @@
+---
+"humanity-plus-commons": minor
+---
+
+New `blast-radius` lens in `review-pr`, for changes that ship to production. It names the one **safety fact** the change rests on, proves it as far as reading allows on an evidence ladder (asserted → documented → traced → command-settled → observed, the same names as `verifiedBy`), writes the probe that settles it by execution, walks the change's reach past grep (other readers of the same bytes, the library at its pinned version, the path production actually runs, timing, rollback), and reports what it **cleared** as first-class output. On your own checkout the orchestrator runs the probe, so the fact arrives proven or contradicted. The report leads with a Blast radius card, `publish.ts` puts the fact at the top of the GitHub review body, and `resolve-review` re-runs the probe after its fixes. Runs from the medium tier up; trivial and light diffs skip it. The method adapts the `blast-radius` skill in Lauren Tan's (poteto) MIT-licensed pstack, credited in the toolkit README.

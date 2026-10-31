@@ -128,11 +128,13 @@ a reference for every skill.
 | [publish-review](skills/code-reviews/skills/publish-review/SKILL.md) | Posts a finished review to the GitHub PR as one real review with inline comments. Always dry-runs and confirms first. |
 | [review-issues](skills/code-reviews/skills/review-issues/SKILL.md) | Files a review's non-blocking nitpicks as grouped, deduplicated GitHub issues for a scheduled fixer to drain. |
 | [map-primitives](skills/code-reviews/skills/map-primitives/SKILL.md) | Maps your system's building blocks into `docs/primitives.md` + `primitives.yaml`, the config the review uses to spot when a change re-invents an existing shape. |
+| [create-verify-skill](skills/code-reviews/skills/create-verify-skill/SKILL.md) | Generates a repo-local `verify-<app>` skill that drives the real app the way a user does, plus a feature map with source paths and seeded personas; the review, the fixer, and the queue then drive the features a change touched. Refresh mode keeps the map honest. |
 
 **Make it yours.** The toolkit works out of the box, but its real configuration is
-three repo-owned files: a `REVIEW.md` with the facts a diff can't tell a reviewer,
-written convention docs the review cites rule-by-rule, and a `primitives.yaml` map
-of your system's building blocks. All three can be drafted by an agent, then
+four repo-owned artifacts: a `REVIEW.md` with the facts a diff can't tell a reviewer,
+written convention docs the review cites rule-by-rule, a `primitives.yaml` map
+of your system's building blocks, and a `verify-<app>` skill that knows how to run
+your app and prove its features. All four can be drafted by an agent, then
 **review and curate them yourself**; they're trusted context, and a wrong line
 suppresses real findings. The
 [guide's configuration section](https://htmlpreview.github.io/?https://github.com/Humanity-Plus/commons/blob/main/skills/code-reviews/review-toolkit.html#configure)

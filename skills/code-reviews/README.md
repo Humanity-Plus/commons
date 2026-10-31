@@ -3,7 +3,8 @@
 An AI code-review loop for PRs and branches: a multi-lens reviewer that produces a
 self-contained HTML report, a fixer that safely resolves the findings, a publisher
 that posts the review to GitHub as one real review, a review-debt filer, and a
-primitives-map generator. Built for the failure modes of **agent-written code** —
+primitives-map generator, and a verify-skill generator that teaches the toolkit
+how to run your app. Built for the failure modes of **agent-written code** —
 plausible reinvention, vacuous tests, green-CI-wrong-behavior — and evolved through
 23 field-feedback rounds on production repos before going public.
 
@@ -24,6 +25,9 @@ checkout, so use them where Claude has a terminal and your repository.
 /review-fix             review-pr + resolve-review in one pass, no HTML — the
                         fast pre-PR loop on a local branch
 /map-primitives         generate the primitives.yaml map the primitives lens reads
+/create-verify-skill    generate a repo-local verify-<app> skill + feature map; the
+                        review, the fixer, and pr-queue then drive the features a
+                        change touched
 ```
 
 **The recommended flow for a PR is the first three, in that order**: `/review-pr`
@@ -137,5 +141,10 @@ skill in Lauren Tan's ([poteto](https://github.com/poteto)) MIT-licensed
 phrasing and wired to this toolkit's trust model; the `interrogate` arg
 adapts pstack's `interrogate` and `arena` skills the same way — adversaries
 that must prove a finding with a run, kept only when a rerun reproduces it,
-with model-family diversity where a second runner exists. The toolkit is
+with model-family diversity where a second runner exists; and
+`create-verify-skill` adapts pstack's `create-verification-skill` and
+`maintain-verification-skill` — a generated, repo-local skill that drives the
+real app with launch / doctor / drive / evidence / cleanup and a feature map
+proven by observable end states — adding the paths join key and seeded
+personas that let this toolkit's review, fixer, and queue consume it. The toolkit is
 MIT-licensed, like the rest of the Commons.

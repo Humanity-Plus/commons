@@ -19,6 +19,10 @@
  *                                // recorded when Phase 2 ran per-feature-area shards
  *     "holistic"?: { "lensesOnly": number, "holisticOnly": number, "both": number }
  *                                // overlap stats when the --holistic branch ran
+ *     "interrogate"?: {          // per-seat ledger when the interrogate branch ran
+ *       "adversaries": [{ "seat": string, "runner": string, "brief": string,
+ *                         "findings": number, "kept": number, "dropped": number, "droppedWhy"?: string }],
+ *       "interrogateOnly"?: number, "both"?: number }
  *   },
  *   "verdict": { "decision": "approve"|"comment"|"request-changes",
  *                "confidence": "high"|"medium"|"low", "summary": string },
@@ -51,13 +55,15 @@
  *
  * A Finding: { id, lens, severity, category, file, line, title, evidence,
  *   suggestion, featureArea, verified? } — lens is one of: triage | first-five |
- *   conventions | warm | zombies | preflight | intent | seams | blast-radius | holistic |
- *   merge (merge = Phase 0 conflict-probe findings; unlisted lens names render in the
+ *   conventions | warm | zombies | preflight | intent | seams | blast-radius | interrogate |
+ *   holistic | merge (merge = Phase 0 conflict-probe findings; unlisted lens names render in the
  *   generic Findings section). Plus, per lens:
  *   warm:        { warm:{worth,alive,rightSized,secure}, ecosystem, changeType, packageVerdict }
  *   zombies:     { zombiesLetter, partial }
  *   preflight:   { confidence }
  *   blast-radius: { likelihood }  // how likely the condition occurs in production
+ *   interrogate: { repro, patch?, observed, expected }  // the run that proves it: command,
+ *                              // optional unified diff it needs, output seen, output required
  *   any lens:    { verifiable? }  // the exact command/query/place that settles
  *                              // the finding (vs. a pure human judgment call,
  *                              // which omits it)
@@ -71,7 +77,7 @@
  *   regradeNote?: string                  // arbiter's justification for a severity regrade
  *   folded?:      boolean                 // beyond the report budget — rendered in the
  *                                         //   collapsed "More findings" section, never dropped
- *   source?:      "lenses"|"holistic"|"both"  // origin when the --holistic branch ran
+ *   source?:      "lenses"|"holistic"|"interrogate"|"both"  // origin on --holistic / interrogate runs
  *   trackedIssue?: string                 // URL of the review-debt issue /review-issues
  *                                         //   filed for it — rendered as a linked chip;
  *                                         //   publish.ts posts a one-liner instead of prose
@@ -118,6 +124,10 @@ interface Finding {
   partial?: boolean;
   confidence?: string;
   likelihood?: string;
+  repro?: string;
+  patch?: string;
+  observed?: string;
+  expected?: string;
   verifiable?: string;
   rule?: string;
   // skill-added optionals (absent on the default path)
@@ -125,7 +135,7 @@ interface Finding {
   locations?: Array<{ file: string; line: number; note?: string }>;
   regradeNote?: string;
   folded?: boolean;
-  source?: "lenses" | "holistic" | "both";
+  source?: "lenses" | "holistic" | "interrogate" | "both";
   trackedIssue?: string;
   verifiedBy?: "mechanical" | "experiment" | "documentation" | "skeptic" | "advisory";
 }
@@ -155,6 +165,19 @@ interface Meta {
   lenses?: Array<{ name: string; status: "ran" | "skipped"; note?: string }>;
   sharding?: { sharded: boolean; threshold?: number; areas?: string[] };
   holistic?: { lensesOnly: number; holisticOnly: number; both: number };
+  interrogate?: {
+    adversaries?: Array<{
+      seat: string;
+      runner?: string;
+      brief?: string;
+      findings?: number;
+      kept?: number;
+      dropped?: number;
+      droppedWhy?: string;
+    }>;
+    interrogateOnly?: number;
+    both?: number;
+  };
 }
 
 type Classification = "composes" | "extends" | "adds";
@@ -954,6 +977,15 @@ function findingCard(m: Meta, f: Finding): string {
         ? `<div class="finding-fix"><div class="fix-tag">Fix</div><div class="md">${renderRich(f.suggestion, m)}</div></div>`
         : ""
     }${
+      f.repro
+        ? `
+    <div class="repro"><div class="pf-verify"><span class="pf-verify-tag">repro</span><code>${esc(f.repro)}</code></div>${
+      f.observed ? `<pre class="repro-out"><code>${esc(f.observed)}</code></pre>` : ""
+    }${f.expected ? `<div class="repro-expected"><span class="repro-lbl">expected</span>${esc(f.expected)}</div>` : ""}${
+      f.patch ? `<details class="repro-patch"><summary>repro patch</summary><pre><code>${esc(f.patch)}</code></pre></details>` : ""
+    }</div>`
+        : ""
+    }${
       f.verifiable
         ? `
     <div class="pf-verify"><span class="pf-verify-tag">verify</span><code>${esc(f.verifiable)}</code></div>`
@@ -1252,6 +1284,38 @@ function holisticCard(r: Report): string {
     )}</div>${list}</section>`;
 }
 
+// Interrogation (the interrogate arg): one row per adversary seat — runner,
+// focus, findings returned vs kept after the orchestrator's rerun — plus the
+// overlap with the lenses. Like the holistic card it reports the branch's
+// yield, which is what decides whether the arg earns a tier.
+function interrogateCard(r: Report): string {
+  const ig = r.meta?.interrogate;
+  if (!ig) return "";
+  const seats = Array.isArray(ig.adversaries) ? ig.adversaries : [];
+  const rows = seats
+    .map(
+      (a) => `<tr><td class="irg-seat">${esc(a.seat)}</td><td>${esc(a.runner ?? "")}</td><td>${esc(a.brief ?? "")}</td>
+        <td class="irg-n">${esc(a.findings ?? 0)}</td><td class="irg-n">${esc(a.kept ?? 0)}</td>
+        <td class="irg-n">${esc(a.dropped ?? 0)}${a.droppedWhy ? `<span class="irg-why">${esc(a.droppedWhy)}</span>` : ""}</td></tr>`
+    )
+    .join("");
+  const table = seats.length
+    ? `<div class="table-scroll"><table class="irg-table"><thead><tr><th>Seat</th><th>Runner</th><th>Focus</th><th>Found</th><th>Kept</th><th>Dropped</th></tr></thead><tbody>${rows}</tbody></table></div>`
+    : `<p class="empty">No adversary seats recorded.</p>`;
+  const only = r.findings.filter((f) => f.source === "interrogate");
+  const list = only.length
+    ? `<div class="holi-only"><div class="holi-only-head">Interrogate-only findings (proven by a run, missed by every lens)</div>
+      <ul class="holi-list">${only.map((f) => `<li><a href="#f-${esc(f.id)}">${esc(f.title)}</a></li>`).join("")}</ul></div>`
+    : `<p class="empty">No interrogate-only findings — everything the adversaries proved, a lens had already found.</p>`;
+  const stat = (n: number, lbl: string) =>
+    `<div class="holi-stat"><div class="holi-num">${esc(n)}</div><div class="holi-lbl">${esc(lbl)}</div></div>`;
+  const families = new Set(seats.map((a) => (a.runner ?? "").split(/[\s:/]/)[0]).filter(Boolean));
+  return `<section class="card"><h2>Interrogation <span class="section-tag">eval</span>
+    <span class="head-total">${seats.length} seat${seats.length === 1 ? "" : "s"} · ${families.size} runner famil${families.size === 1 ? "y" : "ies"}</span></h2>
+    <div class="holi-stats irg-stats">${stat(ig.interrogateOnly ?? only.length, "interrogate only")}${stat(ig.both ?? 0, "both")}</div>
+    ${table}${list}</section>`;
+}
+
 // ---------- page ----------
 function page(r: Report): string {
   const m = r.meta;
@@ -1533,6 +1597,26 @@ function page(r: Report): string {
   .br-premerge .br-tag{display:inline;margin-right:8px}
   .chip-like{color:#f7d494;border-color:color-mix(in srgb,#f2c063 40%,transparent)}
 
+  /* interrogate: the run that proves a finding, and the per-seat ledger card */
+  .repro{margin-top:12px;border:1px solid var(--border);border-radius:8px;padding:10px 13px;background:var(--panel2)}
+  .repro .pf-verify{margin-top:0}
+  .repro-out{margin:8px 0 0;padding:9px 12px;background:#0b0c10;border:1px solid var(--border);border-radius:6px;
+    font-size:11.5px;line-height:1.5;overflow-x:auto;color:#ffb0b3}
+  .repro-expected{margin-top:8px;font-size:12.5px;color:var(--text)}
+  .repro-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8ce8b8;margin-right:8px}
+  .repro-patch{margin-top:8px;font-size:12px}
+  .repro-patch summary{cursor:pointer;color:var(--muted)}
+  .repro-patch pre{margin:6px 0 0;padding:9px 12px;background:#0b0c10;border:1px solid var(--border);border-radius:6px;
+    font-size:11.5px;overflow-x:auto}
+  .irg-stats{grid-template-columns:repeat(2,1fr)}
+  .irg-table{width:100%;border-collapse:collapse;font-size:12.5px;margin:0 0 14px}
+  .irg-table th,.irg-table td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
+  .irg-table th{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .irg-seat{font-family:var(--mono)}
+  .irg-n{font-variant-numeric:tabular-nums;text-align:right}
+  .irg-why{display:block;font-size:11.5px;color:var(--muted);text-align:left;min-width:240px}
+  .table-scroll{overflow-x:auto}
+
   /* triage */
   .tri-group{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:4px 14px;margin-bottom:8px}
   .tri-group summary{cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 0;list-style:none}
@@ -1734,7 +1818,7 @@ function page(r: Report): string {
     <section class="card"><h2>By section</h2>${composition(r.findings)}</section>
   </div>
   <section class="card"><h2>Risk by area</h2>${heatmap(r.triage.groups)}</section>
-  ${blastRadiusCard(r)}${systemChangeCard(r)}${scorecardCard(r)}${holisticCard(r)}
+  ${blastRadiusCard(r)}${systemChangeCard(r)}${scorecardCard(r)}${holisticCard(r)}${interrogateCard(r)}
 
   ${findingsSection(m, r.findings)}
   ${conventionsSection(m, r.findings)}

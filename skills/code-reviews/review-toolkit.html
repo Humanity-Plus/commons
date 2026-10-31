@@ -375,7 +375,7 @@ they're what turn a generic review into <em>your</em> review, and where great re
   <div class="flow-step">
     <div class="flow-phase">Phase 2</div>
     <div class="flow-cmd">lenses</div>
-    <div class="flow-desc">parallel subagents; seams where areas share contracts; blast radius from the medium tier up; sharded on large diffs; optional holistic</div>
+    <div class="flow-desc">parallel subagents; seams where areas share contracts; blast radius from the medium tier up; sharded on large diffs; optional holistic or interrogation</div>
   </div>
   <div class="flow-step">
     <div class="flow-phase">Phase 3</div>
@@ -432,12 +432,18 @@ they're what turn a generic review into <em>your</em> review, and where great re
     <h3>Holistic comparison <span class="dim">(optional)</span></h3>
     <p>Pass <code>holistic</code> to also run a whole-diff generalist in parallel with Phase 2.
     Overlap stats land in a <b>Holistic comparison</b> card, holistic-only findings flag gaps in
-    the lens decomposition. Off by default; an eval harness, not part of the everyday loop.</p>
+    the lens decomposition. Off by default; an eval harness, not part of the everyday loop.
+    Pass <code>interrogate</code> (or <code>interrogate=3</code>) to add adversaries that try to
+    <b>break the change by running it</b>, each in its own scratch worktree; only findings a
+    rerun reproduces survive, and an <b>Interrogation</b> card shows each seat's yield. Executes
+    code, so it works on your own checkouts or under <code>REVIEW.md</code>'s
+    <code>## Trust</code> only.</p>
   </div>
   <div class="card">
     <h3>Role-based models</h3>
     <p>Subagents fill roles (<code>triage</code>, <code>lens</code>, <code>seams</code>,
-    <code>blast-radius</code>, <code>verify</code>, <code>arbiter</code>, <code>holistic</code>) mapped to tiers
+    <code>blast-radius</code>, <code>adversary</code>, <code>verify</code>, <code>arbiter</code>,
+    <code>holistic</code>) mapped to tiers
     (<code>fast</code> / <code>balanced</code> / <code>strongest</code>, resolved against whatever
     the host tool offers. No hardcoded model ids. Override per repo in
     <code>REVIEW.md</code> → <code>## Review roles</code>.</p>
@@ -465,6 +471,8 @@ In agents without slash invocation, ask for the skill by name ("use review-pr on
     <li><code>/review-pr 482 shard-threshold=250</code> shard earlier than the default 400 lines</li>
     <li><code>/review-pr 482 budget=20</code> keep more findings above the fold</li>
     <li><code>/review-pr 482 holistic</code> also run the whole-diff generalist comparison</li>
+    <li><code>/review-pr 482 interrogate=3</code> also run three adversaries that break the change by execution
+      (own checkouts or <code>## Trust</code> only)</li>
     <li><code>/review-pr 482 context=docs/review.md</code> use a non-default context file</li>
     <li><code>/review-pr 482 no-report</code> findings-only: full pipeline, <code>findings.json</code>,
       no HTML and <b>no fix phase</b>, review in a fresh unbiased session, then fix later with

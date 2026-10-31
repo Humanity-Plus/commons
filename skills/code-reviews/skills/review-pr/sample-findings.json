@@ -57,6 +57,11 @@
       {
         "name": "blast-radius",
         "status": "ran"
+      },
+      {
+        "name": "interrogate",
+        "status": "ran",
+        "note": "2 seats, owned checkout"
       }
     ],
     "sharding": {
@@ -72,6 +77,30 @@
       "lensesOnly": 14,
       "holisticOnly": 1,
       "both": 1
+    },
+    "interrogate": {
+      "adversaries": [
+        {
+          "seat": "A",
+          "runner": "agent",
+          "brief": "Inputs and boundaries",
+          "findings": 1,
+          "kept": 0,
+          "dropped": 1,
+          "droppedWhy": "rerun passed: the empty-cart case is rejected upstream"
+        },
+        {
+          "seat": "B",
+          "runner": "codex exec",
+          "brief": "State and time",
+          "findings": 2,
+          "kept": 1,
+          "dropped": 1,
+          "droppedWhy": "not a run (a structure remark)"
+        }
+      ],
+      "interrogateOnly": 1,
+      "both": 0
     }
   },
   "verdict": {
@@ -449,11 +478,31 @@
       "featureArea": "Payments",
       "verified": true,
       "verifiedBy": "mechanical"
+    },
+    {
+      "id": "interrogate-b-1",
+      "lens": "interrogate",
+      "severity": "high",
+      "category": "State and time",
+      "source": "interrogate",
+      "file": "src/pay/charge.ts",
+      "line": 44,
+      "title": "A second capture after a timeout charges the order twice",
+      "evidence": "## Mechanism\n\nThe retry loop at `src/pay/charge.ts:44` generates a fresh idempotency key on every attempt (`crypto.randomUUID()` inside the loop), so Stripe sees the retry as a new capture rather than a repeat of the first.",
+      "suggestion": "Compute the key once, before the loop, from the order id:\n\n```diff\n-for (let i = 0; i < 3; i++) {\n-  const key = crypto.randomUUID();\n+const key = `capture:${order.id}`;\n+for (let i = 0; i < 3; i++) {\n```\n\nTakeaway: an idempotency key that changes per attempt is no idempotency key.",
+      "featureArea": "Payments",
+      "repro": "bun test src/pay/charge.test.ts -t 'capture retry charges once'",
+      "patch": "diff --git a/src/pay/charge.test.ts b/src/pay/charge.test.ts\n--- a/src/pay/charge.test.ts\n+++ b/src/pay/charge.test.ts\n@@ -40,0 +41,6 @@\n+test('capture retry charges once', async () => {\n+  stripeMock.failFirst('ETIMEDOUT');\n+  await capture(order);\n+  expect(stripeMock.charges).toHaveLength(1);\n+});\n",
+      "observed": "expect(received).toHaveLength(expected)\n  Expected length: 1\n  Received length: 2",
+      "expected": "one charge recorded across the retry",
+      "verified": true,
+      "verifiedBy": "experiment"
     }
   ],
   "limitations": [
     "Registry release dates for `left-pad` could not be re-verified offline; based on cached metadata.",
-    "Zombies analysis assumes the existing test suite in `tests/pay` is complete."
+    "Zombies analysis assumes the existing test suite in `tests/pay` is complete.",
+    "Interrogation ran with 2 seats on an owned checkout; seats spanned two runner families (host agent, Codex CLI). Adversary worktrees removed after the rerun."
   ],
   "systemChange": {
     "mapPath": "docs/project/primitives.yaml",

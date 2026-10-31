@@ -134,5 +134,8 @@ blast-radius lens — one load-bearing safety fact, an evidence ladder climbed b
 proof rather than argument, cleared risks as output — adapts the `blast-radius`
 skill in Lauren Tan's ([poteto](https://github.com/poteto)) MIT-licensed
 [pstack](https://github.com/cursor/plugins/tree/main/pstack), in our own
-phrasing and wired to this toolkit's trust model. The toolkit is
+phrasing and wired to this toolkit's trust model; the `interrogate` arg
+adapts pstack's `interrogate` and `arena` skills the same way — adversaries
+that must prove a finding with a run, kept only when a rerun reproduces it,
+with model-family diversity where a second runner exists. The toolkit is
 MIT-licensed, like the rest of the Commons.

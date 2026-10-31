@@ -53,11 +53,14 @@ Phase 2   first-five, conventions,   [parallel subagents] → Finding[] each
           │  intent / preflight / warm / blast-radius stay whole-diff (inherently global)
           ├─ large / findings-only runs: compaction — full findings to disk,
           │  compact indexes in context
-          └─ `holistic` arg: + one whole-diff generalist in parallel,
-             findings tagged source: lenses|holistic for overlap stats
+          ├─ `holistic` arg: + one whole-diff generalist in parallel,
+          │  findings tagged source: lenses|holistic for overlap stats
+          └─ `interrogate[=N]` arg: + N adversaries, each in a scratch worktree,
+             briefed to break the change by running it; owned / Trust checkouts only
 Phase 3   verify — contradiction scan first, then per-claim triage:
           mechanical (orchestrator greps) · experiment (owned checkouts only,
-          orchestrator runs the probe — the blast-radius safety fact's too) ·
+          orchestrator runs the probe — the blast-radius safety fact's too;
+          interrogate findings settled by rerun in a fresh worktree) ·
           documentation (vendor doc, quoted) ·
           judgment [1 subagent each, fast tier]; suggestions checked for
           fix-correctness; verifiers may shrink claims, never grow them —
@@ -83,6 +86,21 @@ generalist reviewer in parallel with the lenses, verifies its findings under
 identical rules, and reports `lenses-only / both / holistic-only` overlap counts in
 a "Holistic comparison" card — holistic-only findings indicate gaps in the lens
 decomposition.
+
+The **`interrogate[=N]` arg** is the pipeline's one *offensive* pass: N adversaries
+(default 2), each in its own scratch worktree, are briefed to **break the change
+by running it** — three focuses (inputs and boundaries; state and time;
+environment and integration) assigned round-robin — and a finding survives only
+when the orchestrator's **rerun in a fresh worktree** reproduces it (`repro`,
+`patch`, `observed`, `expected` travel with the finding). Adversaries execute
+code, so the arg is honored only on an owned checkout or under the repo's
+`## Trust` opt-in. Runners are detected, never assumed: seats run on the host's
+subagent mechanism, and when an external agent CLI is on `PATH` (today `codex`)
+one seat runs there so the adversaries span model families; with one family,
+diversity comes from the briefs and the report says so. An **Interrogation**
+card shows the per-seat ledger (found / kept / dropped) and the
+interrogate-only findings — the yield that decides whether the arg ever earns a
+tier. Off by default, like `holistic`.
 
 ## Installing
 
@@ -187,7 +205,7 @@ tracked debt), labeled `review-debt`, ready for a scheduled fixer like the
 fixed pre-PR by `/review-fix`; debt flows through the tracker.
 
 **Model selection is role-based, not hardcoded:** every subagent fills a role
-(triage, lens, seams, blast-radius, verify, arbiter, holistic) mapped to a capability tier
+(triage, lens, seams, blast-radius, adversary, verify, arbiter, holistic) mapped to a capability tier
 (`fast` / `balanced` / `strongest`) that resolves against whatever models the host
 tool offers — so nothing goes stale when models churn. Defaults live in `SKILL.md`
 ("Review roles & model tiers"); a repo can override them in a `## Review roles`
@@ -232,6 +250,11 @@ section of `REVIEW.md` (see `REVIEW.example.md`).
   checkout the orchestrator runs the probe, so the fact arrives proven or
   contradicted rather than argued; `publish.ts` puts the same line at the top of
   the GitHub review body, and `resolve-review` re-runs the probe after its fixes.
+- On `interrogate` runs, an **Interrogation** card lists every adversary seat
+  (runner, focus, findings found / kept / dropped with the drop reason) and the
+  interrogate-only findings, and each surviving finding's card carries the run
+  that proves it: the repro command, the output observed, the output the intent
+  required, and the repro patch when one was needed.
 - When the `primitives` lens runs (repo has a `primitives.yaml` map — bootstrap
   one with the `map-primitives` skill), a **System
   change** card classifies every touched primitive (composes / extends / adds),

@@ -75,8 +75,8 @@ callbacks; avoid unchecked `as` casts outside a validation boundary.
 
 <!--
   Optional: reassign the review-pr skill's subagent roles to model capability tiers
-  (fast | balanced | strongest). Roles: triage, lens, seams, verify, arbiter, holistic
-  — defaults and what each does are in the skill's SKILL.md. Tiers resolve to whatever
+  (fast | balanced | strongest). Roles: triage, lens, seams, blast-radius, adversary,
+  verify, arbiter, holistic — defaults and what each does are in the skill's SKILL.md. Tiers resolve to whatever
   models the host tool offers, so this survives model churn; an exact model id also
   works but will go stale. Delete this section to use the defaults.
 -->

@@ -208,24 +208,30 @@ test("grouped finding renders as one card listing every location", () => {
   expect((html.match(/<article class="finding"/g) || []).length).toBe(1); // exactly one card
 });
 
-test("a class finding renders the chip, its evidence line, and the Classes card; hostile evidence is escaped", () => {
+test("class findings render the chip, the evidence line, and the Classes card; blank marks and hostile evidence do not", () => {
   const html = page(
     baseReport({
       findings: [
         mkFinding({ id: "c-1", title: "Inline status enum", classEvidence: "3 sites in this diff <script>bad()</script>" }),
-        mkFinding({ id: "c-2", title: "Plain finding" }),
+        mkFinding({ id: "c-2", title: "Count drifted again", classEvidence: "also findings-pr41.json intent-5" }),
+        mkFinding({ id: "c-3", title: "Plain finding" }),
+        mkFinding({ id: "c-4", title: "Blank mark", classEvidence: "   " }), // whitespace is not a mark
       ],
     })
   );
-  expect(html).toContain('class="chip chip-class"');
-  expect((html.match(/class="chip chip-class"/g) || []).length).toBe(1); // only the marked one
-  expect(html).toContain('class="finding-class"'); // the evidence line on the card
+  expect((html.match(/class="chip chip-class"/g) || []).length).toBe(2); // the two marked ones, not the blank
+  expect((html.match(/class="finding-class"/g) || []).length).toBe(2); // the evidence line per marked card
   expect(html).toContain("3 sites in this diff");
   expect(html).not.toContain("<script>bad()"); // evidence goes through the sanitizer
-  const card = html.slice(html.indexOf('class="card cls-card"'), html.indexOf("</section>", html.indexOf('class="card cls-card"')));
-  expect(card).toContain("1 to fix as a class"); // the Classes card counts the marked findings…
-  expect(card).toContain('href="#f-c-1"'); // …and links them
+  const start = html.indexOf('class="card cls-card"');
+  const card = html.slice(start, html.indexOf("</section>", start));
+  expect(card).toContain("2 to fix as a class"); // the Classes card counts the marked findings…
+  expect(card).toContain('href="#f-c-1"'); // …links each…
+  expect(card).toContain('href="#f-c-2"');
+  expect(card.indexOf("Inline status enum")).toBeLessThan(card.indexOf("Count drifted again")); // …in finding order…
+  expect(card).toContain('<span class="cls-why">also findings-pr41.json intent-5</span>'); // …with its evidence
   expect(card).not.toContain("Plain finding"); // unmarked findings stay out of it
+  expect(card).not.toContain("Blank mark"); // and so does the blank mark
 });
 
 test("folded findings move to the collapsed More-findings section", () => {

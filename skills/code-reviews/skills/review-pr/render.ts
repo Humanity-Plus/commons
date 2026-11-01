@@ -146,6 +146,10 @@ interface Finding {
   verifiedBy?: "mechanical" | "experiment" | "documentation" | "skeptic" | "advisory";
   classEvidence?: string;
 }
+// One predicate for "this finding is a class", shared with publish.ts: a blank
+// mark must read the same to the chip, the card, and the review body.
+export const isClass = (f: { classEvidence?: unknown }): f is { classEvidence: string } =>
+  typeof f.classEvidence === "string" && f.classEvidence.trim() !== "";
 type Mark = "pass" | "warn" | "fail" | "unknown";
 type ScoreStatus = "pass" | "warn" | "fail" | "na";
 interface ScoreItem {
@@ -883,16 +887,12 @@ function systemChangeCard(r: Report): string {
     ${body}</section>`;
 }
 
-// Blast radius (blast-radius lens): the one assumption the change is safe
-// because of — with how far up the evidence ladder it got — what the lens
-// cleared, the open risks (its findings, linked), and the cheapest pre-merge
-// check. The status pill is the headline: a contradicted fact renders loudest.
 // Classes (Phase 4's class mark): the findings the repo will make again unless
 // something stops it — several sites in one diff, a rule resting on prose, or a
 // defect a past review already found. Listed in one place because the reader
 // who decides what to harden has not read the code; the agent that did has.
 function classesCard(r: Report): string {
-  const classes = r.findings.filter((f) => typeof f.classEvidence === "string" && f.classEvidence.trim());
+  const classes = r.findings.filter(isClass);
   if (!classes.length) return "";
   const m = r.meta;
   const items = classes
@@ -908,6 +908,10 @@ function classesCard(r: Report): string {
     <ul class="cls-list">${items}</ul></section>`;
 }
 
+// Blast radius (blast-radius lens): the one assumption the change is safe
+// because of — with how far up the evidence ladder it got — what the lens
+// cleared, the open risks (its findings, linked), and the cheapest pre-merge
+// check. The status pill is the headline: a contradicted fact renders loudest.
 function blastRadiusCard(r: Report): string {
   const br = r.blastRadius;
   if (!br) return "";
@@ -971,7 +975,7 @@ function findingCard(m: Meta, f: Finding): string {
     f.source && f.source !== "lenses" ? `<span class="chip chip-src">${esc(f.source)}</span>` : "",
     f.locations?.length ? `<span class="chip chip-group">×${f.locations.length} occurrences</span>` : "",
     // Phase 4 class mark: the fix phase hardens this one, not just patches it
-    f.classEvidence ? `<span class="chip chip-class">class</span>` : "",
+    isClass(f) ? `<span class="chip chip-class">class</span>` : "",
     // linked chip when /review-issues filed this finding as a review-debt issue
     f.trackedIssue && safeUrl(f.trackedIssue)
       ? `<a class="chip chip-tracked" href="${esc(safeUrl(f.trackedIssue))}" target="_blank" rel="noopener">tracked ↗</a>`
@@ -1001,7 +1005,7 @@ function findingCard(m: Meta, f: Finding): string {
         ? `<div class="finding-regrade"><span class="regrade-tag">Regraded</span>${renderInline(f.regradeNote, m)}</div>`
         : ""
     }${
-      f.classEvidence
+      isClass(f)
         ? `<div class="finding-class"><span class="class-tag">Class</span>${renderInline(f.classEvidence, m)}</div>`
         : ""
     }${locations}

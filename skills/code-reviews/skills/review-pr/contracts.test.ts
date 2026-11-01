@@ -4,7 +4,7 @@
 // the generator mandates. A rename in one file fails here instead of in the field.
 // Run: bun test  (from this directory)
 import { test, expect } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const skills = join(import.meta.dir, "..");
@@ -77,13 +77,36 @@ test("the shared-file narrowing rule is the generator's, cited by every consumer
 // The class mark is one field name across the reviewer, the renderer, the
 // publisher, the fixer, and the hardener; the rule table it reads is one heading
 // across the skill that keeps it and the two that consult it.
-test("the class mark and the rule-table heading are one text across producers and consumers", () => {
-  const FIELD = "classEvidence";
-  for (const rel of ["review-pr/SKILL.md", "review-pr/render.ts", "review-pr/publish.ts", "resolve-review/SKILL.md", "fix-the-class/SKILL.md"]) {
-    expect(read(rel), rel).toContain(FIELD);
+test("the class mark and the rule-table tokens are one text across producers and consumers", () => {
+  // the producer sets the field by that name (anchored to the setting sentence,
+  // so a rename that leaves a stray mention elsewhere still fails here)
+  expect(consumers["review-pr"]).toContain("sets `classEvidence`");
+  expect(read("review-pr/render.ts")).toContain("classEvidence?: string");
+  expect(read("review-pr/publish.ts")).toContain("classEvidence?: string");
+  expect(consumers["resolve-review"]).toContain("`classEvidence` (string)");
+  expect(read("fix-the-class/SKILL.md")).toContain("`classEvidence`");
+  // the rule table review-pr reads and fix-the-class/resolve-review write: one
+  // heading, one column name, one prose-only token
+  for (const token of ["## Rules and what enforces them", "Enforced by", "`prose only`"]) {
+    for (const rel of ["fix-the-class/SKILL.md", "review-pr/SKILL.md", "resolve-review/SKILL.md"]) {
+      expect(read(rel), `${rel} lacks ${token}`).toContain(token);
+    }
   }
-  const HEADING = "## Rules and what enforces them";
-  for (const rel of ["fix-the-class/SKILL.md", "review-pr/SKILL.md", "resolve-review/SKILL.md"]) {
-    expect(read(rel), rel).toContain(HEADING);
-  }
+});
+
+// A hand-kept count in the guide drifted from the table under it twice, in two
+// PRs ("four artifacts" over three rows, "seven skills" over eight). The guide
+// states no counts, and its skills table lists every skill directory.
+test("the guide keeps no hand-kept counts and its skills table lists every skill directory", () => {
+  const guide = read("../review-toolkit.html");
+  const intro = (id: string) => {
+    const from = guide.indexOf(`<h2 id="${id}"`);
+    return guide.slice(from, guide.indexOf('<div class="table-scroll">', from));
+  };
+  const counted = /\b(two|three|four|five|six|seven|eight|nine|ten|\d+)\b[^.<]{0,20}\b(skills?|artifacts?|files?)\b/i;
+  for (const id of ["pieces", "configure"]) expect(intro(id), `${id}: state no count — the table below is the list`).not.toMatch(counted);
+  const table = guide.slice(guide.indexOf('<h2 id="pieces"'), guide.indexOf("How the pieces chain"));
+  const listed = [...table.matchAll(/<tr><td><code>([a-z-]+)<\/code>/g)].map((m) => m[1]).sort();
+  const dirs = readdirSync(skills, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
+  expect(listed, "the guide's skills table needs one <tr> per skill directory").toEqual(dirs);
 });

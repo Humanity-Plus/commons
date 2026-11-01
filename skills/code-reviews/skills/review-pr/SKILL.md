@@ -1092,11 +1092,11 @@ test setup**: an experiment claim, the blast-radius `probe`, or an
 example-truth check that **needs the running app** goes through those
 recipes rather than an ad-hoc `node -e` or a hand-started dev server — launch
 per the skill, doctor, drive the feature whose **Paths** entry the finding's
-file equals or lies under — when several features list the file, the join
-**narrows by symbol** (the generator's shared-file rule: a feature stays only
-if another of its Paths references an export the diff changed) and the
-finding's own claim picks among what remains — with the persona its file
-names, and judge by its **Proof** section (a finding with no file drives
+file equals or lies under — when several features list the file, apply the
+generator's shared-file rule as `create-verify-skill` §3 states it (the join
+**narrows by symbol**; that section is the rule's one statement, not restated
+here) and let the finding's own claim pick among what remains — with the
+persona its file names, and judge by its **Proof** section (a finding with no file drives
 nothing). Claims a test or
 one-liner settles stay as they are. **Under the `## Trust` opt-in the verify
 skill is never launched**: those runs happen in a scratch worktree with no
@@ -1305,17 +1305,26 @@ contradiction between a lens's fetch and the stale Phase 0 measurement).
    - **Several sites in this diff** — the finding carries `locations` (the
      arbiter's swarm collapse). Evidence: `N sites in this diff`.
    - **A rule that rests on prose** — a `conventions` finding whose `rule` cites a
-     rule the repo's agent instruction file lists under
-     `## Rules and what enforces them` with `prose only` in its *Enforced by*
-     cell, or does not list at all. Applies only when that table exists; without
-     it the test is skipped, not failed. Evidence: `rule table: prose only` /
-     `rule table: not listed`.
-   - **Seen before** — the same `lens` and `category` on the same file in an
-     archived `review-report/findings-*.json` of this checkout, or an open
-     `review-debt` issue whose title names the same defect (`gh issue list
-     --label review-debt --state open --json number,title` — the title scan
-     `review-issues` dedupes with). Evidence: `also findings-pr<N>.json` /
-     `also review-debt #<n>`.
+     **repo-authored** rule (a path under `docs/`, `AGENTS.md`, `CLAUDE.md`,
+     `REVIEW.md`, `.cursor/rules/`) that the agent instruction file's
+     `## Rules and what enforces them` table lists with `prose only` in its
+     *Enforced by* cell, or does not list at all. A `Fowler, …` smell citation or
+     a `sibling: …` precedent is not a repo rule and never fires this test (field:
+     as first written it would have marked every baseline-smell nitpick a class).
+     Applies only when that table exists; without it the test is skipped, not
+     failed. Evidence: `rule table: prose only` / `rule table: not listed`.
+   - **Seen before** — the same mistake in a **different PR or branch**: an
+     archived `review-report/findings-*.json` of this checkout whose
+     `meta.prNumber` (or `meta.head` in local mode) differs from this run's
+     target and holds a finding whose title names the same mistake at the same
+     file — same lens and category is a cue, not the match; a repeat is the
+     defect, not the bucket (field: on the first live run the bucket key matched
+     an unrelated finding and missed a true repeat that two lenses had filed
+     under different names) — or an open `review-debt` issue whose title names
+     it (`gh issue list --label review-debt --state open --json number,title` —
+     the title scan `review-issues` dedupes with). An archive of this same PR's
+     earlier round is the same instance, never a repeat. Evidence: `also
+     findings-pr<N>.json <id>` / `also review-debt #<n>`.
 
    The mark changes neither severity nor verdict; it changes what the fix phase
    does with the finding (`resolve-review` fixes every site, then hardens the

@@ -74,6 +74,7 @@
  */
 
 import { basename, dirname, join } from "node:path";
+import { isClass } from "./render.ts";
 
 // ---------- types (subset of render.ts's schema) ----------
 type Sev = "critical" | "high" | "medium" | "low" | "nitpick";
@@ -305,7 +306,7 @@ function bodyFindingBlock(f: Finding, meta: Report["meta"]): string {
   const loc = f.file ? ` · <code>${f.file}${f.line > 0 ? `:${f.line}` : ""}</code>` : "";
   const inner = [
     f.rule ? `> **Rule** — ${f.rule}` : "",
-    f.classEvidence ? `> **Class** — ${f.classEvidence}` : "",
+    isClass(f) ? `> **Class** — ${toGfm(f.classEvidence, meta)}` : "",
     f.evidence ? toGfm(f.evidence, meta) : "",
     f.suggestion ? `**Fix**\n\n${toGfm(f.suggestion, meta)}` : "",
   ]
@@ -357,11 +358,11 @@ function severityTally(findings: Finding[]): string {
 // who skims the body still learns which findings are a repeat waiting to happen,
 // which is what decides whether to harden rather than patch.
 export function classesLine(report: Report, meta: Report["meta"] = {}): string {
-  const classes = report.findings.filter((f) => typeof f.classEvidence === "string" && f.classEvidence.trim());
+  const classes = report.findings.filter(isClass);
   if (!classes.length) return "";
   const items = classes.map((f) => {
     const loc = f.file ? ` · \`${f.file}${f.line > 0 ? `:${f.line}` : ""}\`` : "";
-    return `- ${SEV_DOT[f.severity] ?? "🟡"} **${f.title}**${loc} — ${toGfm(f.classEvidence!, meta)}`;
+    return `- ${SEV_DOT[f.severity] ?? "🟡"} **${f.title}**${loc} — ${toGfm(f.classEvidence, meta)}`;
   });
   return `**${classes.length} class${classes.length === 1 ? "" : "es"} — fix the class, not the instance** (the same mistake at several sites, a rule resting on prose, or a defect a past review found):\n${items.join("\n")}`;
 }

@@ -36,8 +36,11 @@ Three entry points, same procedure:
   cited rule rests on prose, or a past review found it before; `resolve-review`
   fixes every site in its scope and then follows steps 2 to 4 for that class
   at the guard levels (types, a check, a test), proven red on the instance it
-  just fixed. Step 1 is already done: the finding is the evidence. An
-  architecture move is reported for its own PR, never applied from a review.
+  just fixed — in place, by re-applying the defect and restoring; from a
+  review nothing is committed and no scratch worktree is used, so step 3's
+  "one class per commit" reads "one class per discrete change" there. Step 1
+  is already done: the finding is the evidence. An architecture move is
+  reported for its own PR, never applied from a review.
 
 ## 1. Find the mistake classes
 
@@ -151,9 +154,10 @@ The **Enforced by** cell is a command or a file path, or the words
   with the check that enforced it if the check can no longer fail.
 
 The rule table is the only part of this skill that is prose, and it exists
-to show which rules still rest on prose. `review-pr`'s conventions lens reads
-it too: a finding that cites a `prose only` row, or a rule the table does not
-list, is marked as a class, which is what routes it back here.
+to show which rules still rest on prose. `review-pr`'s class mark (Phase 4,
+after the arbiter) reads it too: a `conventions` finding that cites a repo rule
+in a `prose only` row, or one the table does not list, is marked as a class,
+which is what routes it back here.
 
 ## Report
 

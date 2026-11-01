@@ -175,11 +175,20 @@ For each task, smallest blast radius first:
    revert only the failing sites and mark the finding `partial`, listing which
    locations remain.
 6. **Class findings get hardened, not just patched** (`classEvidence` present).
-   After the sites are fixed, follow `fix-the-class` (this toolkit's
-   `../fix-the-class/SKILL.md`, steps 2 to 4) for that class **at the guard
-   levels only** — types, a check whose error names the fix, or a test — as its
-   own discrete change, and prove the guard red on the instance you just fixed
-   (re-apply the defect, run the guard, restore) before trusting it. Add or raise
+   After the sites are fixed, follow `fix-the-class` steps 2 to 4 for that
+   class — read `<fix-the-class-skill-dir>/SKILL.md`, the skill installed
+   beside this one (resolved like `<review-pr-skill-dir>`; it is slash-only, so
+   you read the file rather than invoke it). When it is not installed (a
+   single-skill install), the class stays unhardened: mark the row `partial:
+   fix-the-class not installed` and name the install command
+   (`npx skills add Humanity-Plus/commons --skill fix-the-class`). Harden **at
+   the guard levels only** — types, a check whose error names the fix, or a
+   test — as its own discrete change, and prove the guard red on the instance
+   you just fixed by re-applying the defect in place, running the guard, and
+   restoring: nothing is committed and no worktree is checked out, whatever
+   fix-the-class's standalone steps say — this skill's no-commit rule wins.
+   The table row pairs the rule with its *Enforced by* cell: the guard's
+   command or file, or `prose only` with the reason. Add or raise
    the class's row in the repo's `## Rules and what enforces them` table
    (`AGENTS.md`, or `CLAUDE.md` where that is the convention; create the table
    when the file has none). The architecture level is reported, never applied
@@ -251,15 +260,14 @@ For each task, smallest blast radius first:
    change's file list from `triage.groups[].files[].path` plus the files your
    fixes touched, and match each against every feature file's **Paths**
    entries — equal to an entry, or under a directory entry; the features that
-   match are the ones to drive, after the generator's shared-file rule: when a
-   changed file is listed by several features the join **narrows by symbol** —
-   a feature stays only when another of its changed Paths matched directly, or
-   one of its Paths references an export the diff changed (the changed export
-   itself, or an export of the same file whose body calls it; `grep -l` the
-   names across the feature's other Paths entries) — and the features set
-   aside are recorded as `not-affected` with the file and the exports checked
-   (field: a three-file refactor of a shared helper selected eight journeys
-   under the plain file join). Follow the skill's own Launch → Doctor →
+   match are the ones to drive, after the generator's shared-file rule as
+   `create-verify-skill` §3 states it (the one statement of the rule: a changed
+   file that several features list and that exports symbols
+   **narrows by symbol**; a file with nothing to reference drives them all) —
+   record the
+   features it sets aside as `not-affected` with the file and the exports
+   checked (field: a three-file refactor of a shared helper selected eight
+   journeys under the plain file join). Follow the skill's own Launch → Doctor →
    Drive → Evidence → Cleanup, signing in as the **personas** each feature
    file names, and judge each journey by its **Proof** section — the
    observable end state, not "no error". Evidence lands in

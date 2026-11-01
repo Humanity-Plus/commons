@@ -229,13 +229,17 @@ file has exactly these H2s, in this order:
    users table, an auth helper) sit under many features' Paths, and a plain
    file join drives every one of them for a change most cannot observe (field:
    a three-file refactor of a shared helper selected eight journeys). When a
-   changed file is listed by more than one feature, a feature stays only when
+   changed file is listed by more than one feature **and exports symbols**, a
+   feature stays only when
    another of its changed Paths matched directly, or one of its Paths
    references an export the diff changed — the changed export itself, or an
    export of the same file whose body calls it (`grep -l` the names across the
    feature's other Paths entries). The rest are recorded as `not-affected`,
    with the file and the exports checked, so the record shows what was skipped
-   and why. A file listed by one feature always drives it.
+   and why. A changed file with no exports to reference — seed data, a
+   migration, a stylesheet, config — can break every feature that lists it, so
+   it drives them all; and a file listed by one feature always drives it. This
+   paragraph is the rule's one statement: consumers cite it, never restate it.
 2. **Personas** — which personas (from the skill's Personas section) this
    feature needs, and which state each must be in. A journey that needs a
    state the seed doesn't provide **fails and says why** in Gotchas; never

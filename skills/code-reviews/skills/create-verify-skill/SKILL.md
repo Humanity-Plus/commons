@@ -89,7 +89,11 @@ Answer these from the codebase; ask the user only what the repo can't tell you:
   an API, a mobile app, a library? Pick the primary surface; note the rest.
 - **Run.** How does the app start locally? The repo's own documented dev
   command first (`package.json` scripts, `Makefile`, the README quickstart).
-  Ports, env vars, seed data, auth, migrations.
+  Ports, env vars, seed data, auth, migrations. And what a **fresh worktree**
+  lacks: a worktree materializes tracked files only, so gitignored env files,
+  per-checkout deployments, and caches the main checkout has are missing
+  there — find the repo's own worktree setup script, or the copy step, that
+  provides them.
 - **Seed and personas.** Where does seed data come from (`seed.ts`, fixtures,
   a `db:seed` script, a snapshot)? Which **users** does it create, in which
   **states** — a plain user, an admin, a user with an empty account, a user
@@ -152,6 +156,15 @@ grounded in what the interview found:
   file kept beside the evidence was archived with another PR's findings
   while its instance was still running, so Doctor and Cleanup lost the
   server and the next run re-registered the client).
+
+  **Launch works from a fresh worktree.** The toolkit runs in worktrees, and a
+  worktree materializes tracked files only. Launch names what a fresh worktree
+  lacks — gitignored env files, a per-checkout deployment or database, caches —
+  and runs the repo's own command that provides them before the first start (a
+  worktree setup script when the repo has one, a documented copy step
+  otherwise), so a run in a worktree no setup hook touched still reaches
+  usable (field: a repo's worktree setup script existed and its verify skill
+  never named it, so every fresh-worktree run had to rediscover it).
 - **Doctor.** One read-only check that answers "is this instance worth
   driving?" — process up, right build, port owned by us, auth valid, seed
   present — and it prints every identifier Launch derived, so a refusal
@@ -211,6 +224,22 @@ file has exactly these H2s, in this order:
    a directory entry — to find the features the change touched. A feature
    with no paths is unreachable to every consumer; name at least the entry
    points.
+
+   **A file listed by several features narrows by symbol.** Shared modules (a
+   users table, an auth helper) sit under many features' Paths, and a plain
+   file join drives every one of them for a change most cannot observe (field:
+   a three-file refactor of a shared helper selected eight journeys). When a
+   changed file is listed by more than one feature **and exports symbols**, a
+   feature stays only when
+   another of its changed Paths matched directly, or one of its Paths
+   references an export the diff changed — the changed export itself, or an
+   export of the same file whose body calls it (`grep -l` the names across the
+   feature's other Paths entries). The rest are recorded as `not-affected`,
+   with the file and the exports checked, so the record shows what was skipped
+   and why. A changed file with no exports to reference — seed data, a
+   migration, a stylesheet, config — can break every feature that lists it, so
+   it drives them all; and a file listed by one feature always drives it. This
+   paragraph is the rule's one statement: consumers cite it, never restate it.
 2. **Personas** — which personas (from the skill's Personas section) this
    feature needs, and which state each must be in. A journey that needs a
    state the seed doesn't provide **fails and says why** in Gotchas; never
@@ -280,8 +309,8 @@ keep it out of the corrections).
    source path is required before calling one missing. Check the seed for
    personas added or removed since the map was written. Re-read the skill's
    own Launch, Doctor, and Cleanup against section 2's contract — pid file
-   and runtime state in the git dir, bounded wait, derived identifiers
-   sanitized and printed by Doctor — a
+   and runtime state in the git dir, bounded wait, the fresh-worktree setup
+   step, derived identifiers sanitized and printed by Doctor — a
    section written before a contract rule existed is harness drift, fixed
    under the helpers rule (field: a generated Launch kept deriving a
    deployment name from the raw checkout path after the generator learned to

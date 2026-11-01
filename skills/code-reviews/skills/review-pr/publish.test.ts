@@ -1,7 +1,7 @@
 // Tests for the GitHub-publishing pipeline: diff anchoring, GFM degradation,
 // and review-payload assembly. Run: bun test  (from this directory)
 import { test, expect } from "bun:test";
-import { parseDiffAnchors, toGfm, buildReview, blastRadiusLine, resolveEvent, checkPrMismatch, gistGuardError, reviewFooter, fmtStamp, pagesReportName, pagesGuardError } from "./publish.ts";
+import { parseDiffAnchors, toGfm, buildReview, blastRadiusLine, classesLine, resolveEvent, checkPrMismatch, gistGuardError, reviewFooter, fmtStamp, pagesReportName, pagesGuardError } from "./publish.ts";
 
 // ---- --gist visibility guard (round 19: the private-source leak vector) ----
 test("gistGuardError refuses non-public repos unless forced", () => {
@@ -389,4 +389,35 @@ test("buildReview puts the blast-radius line in the body before the sections", (
   expect(p.body.indexOf("Blast radius")).toBeLessThan(p.body.indexOf("New env var needed"));
   const without = buildReview(REPORT, anchors, { event: "COMMENT" });
   expect(without.body).not.toContain("Blast radius");
+});
+
+test("classesLine lists the marked findings through toGfm; buildReview orders it after the blast line and tags the body block", () => {
+  const anchors = parseDiffAnchors(DIFF);
+  const evidence = "also `src/pay/refund.ts:3` in review-debt #12";
+  const permalink = "[`src/pay/refund.ts:3`](https://github.com/acme/app/blob/abc1234/src/pay/refund.ts#L3)";
+  const marked = {
+    ...REPORT,
+    blastRadius: { safetyFact: { claim: "the column is nullable", evidence: "mechanical", status: "proven" } },
+    findings: REPORT.findings.map((f) =>
+      f.id === "first-five-2"
+        ? { ...f, classEvidence: evidence }
+        : f.id === "preflight-1"
+          ? { ...f, classEvidence: "3 sites in this diff" }
+          : { ...f, classEvidence: "   " } // whitespace is not a mark
+    ),
+  };
+  const line = classesLine(marked as any, marked.meta);
+  expect(line).toContain("**2 classes — fix the class, not the instance**");
+  expect(line).toContain(`**Out-of-diff finding** · \`src/pay/charge.ts:999\` — also ${permalink} in review-debt #12`); // path:line → permalink
+  expect(line).toContain("**New env var needed** — 3 sites in this diff"); // no file, no location
+  expect(line).not.toContain("Wrong Stripe method"); // the blank mark stays out
+  const p = buildReview(marked as any, anchors, { event: "COMMENT" });
+  const at = (s: string) => p.body.indexOf(s);
+  expect(at("findings:**")).toBeLessThan(at("**Blast radius**")); // tally, then blast line…
+  expect(at("**Blast radius**")).toBeLessThan(at("fix the class, not the instance")); // …then classes…
+  expect(at("fix the class, not the instance")).toBeLessThan(at("#### Findings")); // …before the sections
+  expect(p.body).toContain(`> **Class** — also ${permalink} in review-debt #12`); // the body block carries the mark, through toGfm
+  expect(p.comments[0].body).not.toContain("**Class**"); // the blank mark on the inline finding adds nothing
+  expect(classesLine(REPORT)).toBe("");
+  expect(buildReview(REPORT, anchors, { event: "COMMENT" }).body).not.toContain("fix the class");
 });

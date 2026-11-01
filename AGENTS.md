@@ -39,6 +39,19 @@ the Releasing section in `README.md`.
 - Don't add comments for obvious content; focus on non-obvious,
   decision-relevant context that readers cannot infer from the diff.
 
+## Rules and what enforces them
+
+<!--
+  One row per rule agents have been corrected on, paired with what makes the
+  mistake impossible. "prose only" carries a reason and marks a repeat risk;
+  the fix-the-class skill is the procedure for raising it.
+-->
+
+| Rule | Enforced by |
+|---|---|
+| The user guide's intros carry no hand-kept counts, and its skills table lists every skill directory | `bun test skills/code-reviews/skills/review-pr/contracts.test.ts` ("the guide keeps no hand-kept counts…") |
+| A test added for a review finding is seen red under the mutation that names its regression, never only a coarser one | prose only: no mutation runner here; `resolve-review` Phase 3 step 2 is the procedure (PR #44: three class-mark tests stayed green under the fine mutations after passing coarse ones) |
+
 ## Known Issues
 
 <!--

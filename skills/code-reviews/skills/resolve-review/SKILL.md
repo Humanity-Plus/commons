@@ -88,6 +88,10 @@ working tree, so the boundary moves:
      settled by command output or vendor source (a light confirm suffices);
      `skeptic` means one subagent judged it (re-read normally); `advisory` means
      nobody refute-tested it (re-verify fully before editing).
+   - `classEvidence` (string) — the review marked this finding a **class**: the
+     same mistake at several sites of the diff, a cited rule that rests on prose,
+     or a defect a past review already found. Fixing the sites is half the job;
+     Phase 2 step 6 hardens the class so the next change cannot repeat it.
    - `area`, `regradeNote`, `source` — context only; no effect on fixing.
 3. **Load the repo's rules** if present (`REVIEW.md`, `docs/conventions/**`, `AGENTS.md`)
    so fixes match house style — the same context `review-pr` used.
@@ -133,7 +137,9 @@ Classify each selected finding:
 
 Order the fixable set: **severity first** (critical → high → medium), then **group by
 file** so related edits land together and churn/conflicts stay low. Record the plan as
-an ordered task list (`id · file:line · one-line intent`).
+an ordered task list (`id · file:line · one-line intent`). A finding carrying
+`classEvidence` is two tasks: its sites, then the class guard (Phase 2 step 6),
+which lands last so every site it must prove against is already fixed.
 
 ### Phase 2 — Apply, one finding at a time
 
@@ -168,6 +174,29 @@ For each task, smallest blast radius first:
    group (same defect class, same checks). If some sites fix cleanly and others fail,
    revert only the failing sites and mark the finding `partial`, listing which
    locations remain.
+6. **Class findings get hardened, not just patched** (`classEvidence` present).
+   After the sites are fixed, follow `fix-the-class` steps 2 to 4 for that
+   class — read `<fix-the-class-skill-dir>/SKILL.md`, the skill installed
+   beside this one (resolved like `<review-pr-skill-dir>`; it is slash-only, so
+   you read the file rather than invoke it). When it is not installed (a
+   single-skill install), the class stays unhardened: mark the row `partial:
+   fix-the-class not installed` and name the install command
+   (`npx skills add Humanity-Plus/commons --skill fix-the-class`). Harden **at
+   the guard levels only** — types, a check whose error names the fix, or a
+   test — as its own discrete change, and prove the guard red on the instance
+   you just fixed by re-applying the defect in place, running the guard, and
+   restoring: nothing is committed and no worktree is checked out, whatever
+   fix-the-class's standalone steps say — this skill's no-commit rule wins.
+   The table row pairs the rule with its *Enforced by* cell: the guard's
+   command or file, or `prose only` with the reason. Add or raise
+   the class's row in the repo's `## Rules and what enforces them` table
+   (`AGENTS.md`, or `CLAUDE.md` where that is the convention; create the table
+   when the file has none). The architecture level is reported, never applied
+   from a review: when the smallest guard is an architecture move that changes
+   runtime behavior, land the next level down now and hand the move back as its
+   own PR. A class whose only workable level is prose gets a `prose only` row
+   with the reason — that is the honest outcome, and the row is what the next
+   review's class mark reads.
 
 ### Phase 3 — Validate
 
@@ -231,7 +260,14 @@ For each task, smallest blast radius first:
    change's file list from `triage.groups[].files[].path` plus the files your
    fixes touched, and match each against every feature file's **Paths**
    entries — equal to an entry, or under a directory entry; the features that
-   match are the ones to drive. Follow the skill's own Launch → Doctor →
+   match are the ones to drive, after the generator's shared-file rule as
+   `create-verify-skill` §3 states it (the one statement of the rule: a changed
+   file that several features list and that exports symbols
+   **narrows by symbol**; a file with nothing to reference drives them all) —
+   record the
+   features it sets aside as `not-affected` with the file and the exports
+   checked (field: a three-file refactor of a shared helper selected eight
+   journeys under the plain file join). Follow the skill's own Launch → Doctor →
    Drive → Evidence → Cleanup, signing in as the **personas** each feature
    file names, and judge each journey by its **Proof** section — the
    observable end state, not "no error". Evidence lands in
@@ -241,8 +277,9 @@ For each task, smallest blast radius first:
    map already records as failing is `known-failing`, not a regression. The
    ledger gains one row per driven feature — `passed`, `regressed` (passed at
    the reviewed head or never recorded as failing, fails now: a finding about
-   the fix, revert or repair before reporting `fixed`), `known-failing`, or
-   `unreachable` with the missing prerequisite. A journey the map describes
+   the fix, revert or repair before reporting `fixed`), `known-failing`,
+   `unreachable` with the missing prerequisite, or `not-affected` (set aside by
+   the shared-file rule, with the exports checked). A journey the map describes
    wrongly is **map drift**: when this branch's own diff touched the
    feature's Paths, fix the feature file in this PR (that is the AGENTS.md
    rule the generator offers); pre-existing drift is reported for a
@@ -261,9 +298,15 @@ For each task, smallest blast radius first:
    (e.g. `4/4 locations`), and `partial` rows name the unresolved locations.
    When Phase 3 drove features through the repo's verify skill, add a **Driven
    features** block under the ledger: one row per feature — persona, outcome
-   (`passed` / `regressed` / `known-failing` / `unreachable`, words distinct
-   from the ledger's so a `failed` fix and a failed journey never read alike),
-   and the evidence path.
+   (`passed` / `regressed` / `known-failing` / `unreachable` / `not-affected`,
+   words distinct from the ledger's so a `failed` fix and a failed journey never
+   read alike), and the evidence path (for `not-affected`, the shared file and
+   the exports checked instead).
+   When any selected finding carried `classEvidence`, add a **Classes** block:
+   one row per class — the finding, the level the guard landed at (`types` /
+   `check` / `test` / `prose only: <reason>`), the proof (red on which instance,
+   green after), the rule-table row added or raised, and any architecture move
+   handed back for its own PR.
 2. Write `review-report/resolution.md` (for `/resolve-review`) and/or report the same
    table to chat (for `/review-fix`). Lead with the **"over to you"** list ranked by
    severity — advisory + failed items, and above all any finding whose remediation
@@ -272,7 +315,10 @@ For each task, smallest blast radius first:
    actually bite on merge, so they must not read like an appendix below the
    fixed-count. When Phase 0 found the branch behind base, open with that fact
    ("N commits behind `<base>` — rebase is the operative remediation") before
-   anything else. Then the counts and the table.
+   anything else. **Name every sibling you left alone**: when a fix has siblings
+   outside this branch's scope (Phase 2 step 5), list each one by `file:line` in
+   the hand-back — the reader has not read the code, so a sibling you do not
+   name is a class that never gets fixed. Then the counts and the table.
    For the **below-threshold leftovers** (readability, naming, soft conventions),
    mention the review-debt lane: `/review-issues` files them as grouped,
    fingerprint-deduped tracker issues that a scheduled fixer (e.g. the `issue-fixer`
@@ -300,8 +346,9 @@ For each task, smallest blast radius first:
 
 `fixed` · `partial` · `skipped` · `failed` — defined in Phase 4. Keep the mapping stable
 so a follow-up run (or a human) can diff against a prior `resolution.md`. The
-Driven-features block has its own four: `passed` · `regressed` · `known-failing` ·
-`unreachable`.
+Driven-features block has its own five: `passed` · `regressed` · `known-failing` ·
+`unreachable` · `not-affected`. The Classes block's levels are `types` · `check` ·
+`test` · `prose only`.
 
 ## How the commands use this skill
 

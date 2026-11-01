@@ -74,11 +74,13 @@ the code under review.
    assembles the handoff from those — the consumer here is the fix phase, not a
    report reader.
 3. **Fix.** Invoke the `resolve-review` skill on those findings: plan → apply scoped
-   edits on the current branch → validate with the repo's existing checks.
+   edits on the current branch → validate with the repo's existing checks. A finding
+   the review marked as a class (`classEvidence`) is hardened with `fix-the-class`
+   after its sites are fixed — that is `resolve-review`'s own step, not an extra.
 4. **Report to chat.** Lead with **blockers language, not GitHub-review language**
    (nothing is being published, so `request-changes`/`approve` means nothing here):
-   *"N blockers (critical/high) · M should-fix (medium) · K advisories — X of them
-   now fixed."* Order matters: **unfixable blockers come first**, above the
+   *"N blockers (critical/high) · M should-fix (medium) · K advisories · C classes — X
+   of them now fixed, the classes hardened or handed back."* Order matters: **unfixable blockers come first**, above the
    fixed-count — the fix phase can't do commit-level remediation (rebase, merge,
    revert) or deploy actions, and those hand-backs are often the only findings that
    will actually bite on merge; they must not read like an appendix. Then the

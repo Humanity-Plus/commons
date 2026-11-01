@@ -72,6 +72,58 @@ test("check-clean runs the check with review-report/ moved aside, then restores 
   expect(existsSync(join(dir, "review-report", "findings.json"))).toBe(true);
 });
 
+// A verify-skill instance records its pids in the git dir (create-verify-skill's
+// contract), outside review-report/, so both scripts can tell one is running.
+function writePids(dir: string, ...pids: number[]) {
+  mkdirSync(join(dir, ".git", "verify"), { recursive: true });
+  writeFileSync(join(dir, ".git", "verify", ".pids"), pids.join("\n"));
+}
+
+test("check-clean refuses while a verify-skill instance is running", () => {
+  const { dir } = scratchRepo();
+  writeFindings(dir, "x");
+  writePids(dir, process.pid);
+  const result = run(dir, "check-clean.sh", "sh", "-c", "echo ran");
+  expect(result.exitCode).toBe(2);
+  expect(result.stdout.toString()).not.toContain("ran");
+  expect(result.stderr.toString()).toContain("Cleanup");
+  expect(existsSync(join(dir, "review-report", "findings.json"))).toBe(true);
+});
+
+test("check-clean ignores a stale pid file whose processes are gone", () => {
+  const { dir } = scratchRepo();
+  writeFindings(dir, "x");
+  writePids(dir, 2147483646);
+  const result = run(dir, "check-clean.sh", "sh", "-c", "echo ran");
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout.toString()).toContain("ran");
+});
+
+test("check-clean fails loudly instead of nesting when review-report/ reappears during the check", () => {
+  const { dir } = scratchRepo();
+  writeFindings(dir, "x");
+  const result = run(dir, "check-clean.sh", "sh", "-c", "mkdir review-report && echo fresh > review-report/new");
+  expect(result.exitCode).toBe(2);
+  expect(existsSync(join(dir, "review-report", "review-report"))).toBe(false);
+  expect(existsSync(join(dir, "review-report", "new"))).toBe(true);
+  const left = result.stderr.toString().match(/left at (\S+)/)?.[1];
+  expect(left).toBeDefined();
+  expect(existsSync(join(left!, "findings.json"))).toBe(true);
+  rmSync(left!.replace(/\/review-report$/, ""), { recursive: true, force: true });
+});
+
+test("reset leaves a running instance's state and evidence alone", () => {
+  const { dir } = scratchRepo();
+  writeFindings(dir, "0000000000000000000000000000000000000000");
+  writePids(dir, process.pid);
+  const evidence = join(dir, "review-report", "verify", "checkout", "review-0000000");
+  mkdirSync(evidence, { recursive: true });
+  writeFileSync(join(evidence, "result.json"), "{}");
+  expect(run(dir, "reset-workspace.sh", "24").exitCode).toBe(0);
+  expect(existsSync(join(dir, ".git", "verify", ".pids"))).toBe(true);
+  expect(existsSync(join(evidence, "result.json"))).toBe(true);
+});
+
 test("check-clean refuses to run the check when it can't move review-report/ aside", () => {
   const { dir } = scratchRepo();
   writeFindings(dir, "x");

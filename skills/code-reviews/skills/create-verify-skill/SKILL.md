@@ -133,7 +133,13 @@ grounded in what the interview found:
   a stated timeout after which Launch runs Cleanup and reports the instance
   never became usable, instead of a hand-rolled sleep loop. For a short-lived
   CLI or TUI there is no server: launch means build once, then each drive
-  starts in its own isolated session.
+  starts in its own isolated session. Any identifier Launch **derives** from
+  the environment — a deployment or database name, a port, a cache key built
+  from the checkout path or branch — is sanitized to the target's allowed
+  charset before use, and Doctor prints the derived value so a refusal reads
+  as one. Worktree and temporary-directory names carry underscores, dots, and
+  mixed case that deployment names reject (field: an underscore in a temp dir
+  failed Launch before the process started).
 - **Doctor.** One read-only check that answers "is this instance worth
   driving?" — process up, right build, port owned by us, auth valid, seed
   present. An agent runs it first whenever anything looks off.

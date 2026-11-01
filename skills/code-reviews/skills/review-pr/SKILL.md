@@ -438,8 +438,25 @@ you had to); the defaults above apply.
      why it's gated on owned + behind-base — and in batch runs over stacked
      follow-up PRs it has caught real information every time. Clean up the
      scratch worktree after.
+   - **Conflicts in most of the PR's files change the question.** When the
+     probe conflicts across most of the files the PR touches *and* the
+     base-side diff shows base **replaced** what the PR edits — the wrappers it
+     restyles are gone, the module it patches was rewritten, the layout it
+     fixes moved into shared components — do not plan the merge. Ask whether
+     the PR is **superseded**: is its goal already met on base? Settle that by
+     reading and measuring, never by resolving the conflicts first: `intent`
+     and `seams` run whole-diff with the base-side diff as their material, and
+     where the goal is measurable on an owned checkout (a layout width, a
+     count, a response) measure it on base tip. Goal met → the verdict summary
+     leads with *superseded*: the base commits that met it, the measurement,
+     and the recommendation to close; the lenses still cover anything the PR
+     adds that base lacks. Goal not met → the conflicts are findings as above
+     and the merge-forward review proceeds (field: a PR with 29 conflicts drew
+     a merge plan against retired architecture when two reads and one base
+     measurement would have closed it).
    - Record it in `limitations` ("branch is N commits behind <base>; reviewed
-     merge-forward; conflicts in: …; merged-tree gates: <green / failures>").
+     merge-forward; conflicts in: …; merged-tree gates: <green / failures>" —
+     or "superseded on base by <commits>").
 8. **Check for a dependent/stacked PR** (see "Stack-aware review" below). In PR mode
    this is one or two cheap `gh` calls that work for *any* stacking tool (or none), so
    run it unconditionally: if a PR is stacked above/below this one, gather the stack so
@@ -540,11 +557,12 @@ sharding, no behavior change.
 
 ### Phase 2 — Lenses in parallel
 
-**Light lens path for tiny diffs.** When the diff is a **single file under ~50
-changed lines** *and* triage put it in no high-risk area (auth, payments,
-permissions, data integrity — any `high` tier falls back to the full fan-out), the
-five-lens fan-out is redundancy without diversity: every lens reads the same
-handful of lines. Instead spawn **one generalist subagent** carrying the
+**Light lens path for tiny diffs.** When the diff matches the ladder's **light**
+row below — the row is the one authoritative predicate; this paragraph only
+describes the treatment (field: this paragraph said "single file" while the row
+said two, and reviewers followed the stricter text) — the five-lens fan-out is
+redundancy without diversity: every lens reads the same handful of lines.
+Instead spawn **one generalist subagent** carrying the
 **concatenated lens definitions** (the same framing as the holistic branch: review
 as a single thorough reviewer using the definitions as the checklist, standard
 Finding schema, each finding tagged with the closest lens name) — plus `intent`
@@ -571,7 +589,11 @@ returns). The light row allows **two** files for the same reason: a tiny
 cross-file move — cut a type from one file, paste it into another — is one
 file's worth of content, and gating light on "single file" sent a 9-line type
 move to the medium tier (field: the reviewer deviated to fewer agents and lost
-nothing).
+nothing). A **repeated mechanical substitution** — the same literal, rename,
+or import swap landing in every hunk — is one hunk's worth of content however
+many files it touches, so it takes the light row too (field: a four-file,
+ten-line literal substitution paid six agents for six `[]` returns). The
+distinct-content rule already counts it once; the row now says so.
 
 **The complete ladder — mechanical predicates, in order; the first row that
 matches wins** (no re-deriving the tier per run):
@@ -579,7 +601,7 @@ matches wins** (no re-deriving the tier per run):
 | Tier | Predicate (on triage's output + distinct changed lines) | Who reviews |
 |------|---------------------------------------------------------|-------------|
 | **trivial** | single hunk, < ~10 lines | the orchestrator itself, inline, with the concatenated checklist — zero lens spawns. **Zero spawns is not zero work**: trivial still owes real verification — is the changed surface deployed/referenced anywhere else (grep for dynamic references), does the commit/changelog type still fit, and Phase 3 discipline on any claim you make |
-| **light** | one or two files, < ~50 distinct lines, no high-risk area — or a docs-only diff (every changed file is documentation), any file count | one generalist subagent, all lens definitions |
+| **light** | < ~50 distinct lines and no high-risk area, in one or two files — or in any number of files when every hunk is the same mechanical substitution (one literal, rename, or import swap repeated) — or a docs-only diff (every changed file is documentation), any file count | one generalist subagent, all lens definitions |
 | **medium** | one feature area under the shard threshold — or single-file-small but high-risk | combined bugs+tests generalist (+ per area if several such areas), `conventions`, globals per their skip rules |
 | **full fan-out** | multi-area, under the shard threshold | every lens whole-diff |
 | **sharded** | over threshold AND ≥3 areas AND interfaces gate passes | risk-tiered per-area shards |

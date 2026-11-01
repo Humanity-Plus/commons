@@ -52,6 +52,18 @@ test("reset archives findings for the same PR once new commits land", () => {
   expect(existsSync(join(dir, "review-report", "findings-pr24.json"))).toBe(true);
 });
 
+test("reset leaves verify-skill evidence in place when it archives findings", () => {
+  const { dir } = scratchRepo();
+  writeFindings(dir, "0000000000000000000000000000000000000000");
+  const evidence = join(dir, "review-report", "verify", "checkout", "review-0000000");
+  mkdirSync(evidence, { recursive: true });
+  writeFileSync(join(evidence, "journey.md"), "passed");
+  expect(run(dir, "reset-workspace.sh", "24").exitCode).toBe(0);
+  expect(existsSync(join(dir, "review-report", "findings-pr24.json"))).toBe(true);
+  expect(existsSync(join(evidence, "journey.md"))).toBe(true);
+  expect(existsSync(join(dir, "review-report", "verify-pr24"))).toBe(false);
+});
+
 test("check-clean runs the check with review-report/ moved aside, then restores it", () => {
   const { dir } = scratchRepo();
   writeFindings(dir, "x");

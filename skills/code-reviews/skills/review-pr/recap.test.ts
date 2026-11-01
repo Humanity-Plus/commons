@@ -71,6 +71,16 @@ test("long invariants clip on a word boundary with an ellipsis, not mid-word", (
   expect(prefix.length).toBeLessThanOrEqual(160);
 });
 
+test("buildBlock with nothing touched emits a one-line recap, no diagram, no table", () => {
+  const empty = { ...report, systemChange: { ...report.systemChange, overall: "composes", primitives: [], added: [] } };
+  const block = buildBlock(empty);
+  expect(block).not.toContain("```mermaid");
+  expect(block).not.toContain("| Primitive |");
+  expect(block).toContain("0 primitives touched");
+  expect(block).toContain("classification only");
+  expect(block.endsWith("<!-- system-recap:end -->")).toBe(true);
+});
+
 test("buildBlock throws without a systemChange section", () => {
   expect(() => buildBlock({ verdict: { decision: "comment" } })).toThrow("no systemChange");
 });

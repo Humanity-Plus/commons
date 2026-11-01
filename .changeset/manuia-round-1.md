@@ -1,0 +1,5 @@
+---
+"humanity-plus-commons": patch
+---
+
+Field round from a five-PR queue run. `review-pr`: a repeated mechanical substitution (the same literal, rename, or import swap in every hunk) takes the light tier however many files it touches, and the light-tier text now defers to the ladder row instead of restating it; when the conflict probe hits most of a PR's files and base replaced what the PR edits, the review asks whether the PR is superseded — goal met on base by reading and measurement — before planning any merge. The `intent` lens compares equivalence and duplication claims (keys, resolved values, exports) instead of accepting them. `recap.ts` emits a one-line classification-only block when no mapped primitive was touched, instead of an empty diagram and table. `reset-workspace.sh` leaves `review-report/verify/` in place when it archives stale findings — evidence dirs are keyed by phase and SHA, and moving them dangled every link the findings recorded. `create-verify-skill`: identifiers a generated Launch derives from the checkout path are sanitized to the target's charset and printed by Doctor.

@@ -40,7 +40,17 @@ diff, and file refs as `` `path/file.ts:15` ``.
    - **Missing changes** — the description claims something the diff does not deliver.
    - **Scope creep** — unrelated changes bundled in that should be a separate PR.
    - **Contradictions** — code behaves opposite to what the description says.
-4. Only flag real, specific mismatches. A description being terse is not a finding.
+4. **Compare equivalence claims, never accept them.** When the description says
+   two things are identical, duplicates, equivalent, or that behavior is
+   unchanged — a deleted file duplicated another, a config mirrors another, a
+   refactor preserves output — that sentence is the cheapest one in a PR body
+   to write and the one this lens is most tempted to wave through. Compare the
+   artifacts yourself: keys and resolved values, exported symbols, branches,
+   defaults. Report what differs as a `Contradiction` with both sides quoted
+   (field: an "identical duplicate" removed by a PR differed in resolved
+   values; this lens accepted the claim and a generalist found it false by
+   diffing the keys).
+5. Only flag real, specific mismatches. A description being terse is not a finding.
 
 ## Output
 

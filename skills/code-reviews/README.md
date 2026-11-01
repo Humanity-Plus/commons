@@ -26,8 +26,8 @@ checkout, so use them where Claude has a terminal and your repository.
                         fast pre-PR loop on a local branch
 /map-primitives         generate the primitives.yaml map the primitives lens reads
 /create-verify-skill    generate a repo-local verify-<app> skill + feature map; the
-                        review, the fixer, and pr-queue then drive the features a
-                        change touched
+                        review, the fixer, and loops built on them then drive the
+                        features a change touched
 ```
 
 **The recommended flow for a PR is the first three, in that order**: `/review-pr`

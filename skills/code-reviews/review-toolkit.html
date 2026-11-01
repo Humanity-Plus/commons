@@ -238,8 +238,8 @@ review skill twice.</p>
 </div>
 
 <h2 id="pieces"><span class="n">02</span> What gets installed</h2>
-<p class="sub">Six skills. Two carry the core know-how, three chain them into everyday workflows, one
-bootstraps the configuration. In Claude Code every skill is also invocable directly as a slash
+<p class="sub">Seven skills. Two carry the core know-how, three chain them into everyday workflows, two
+bootstrap the configuration. In Claude Code every skill is also invocable directly as a slash
 command, <code>/review-pr</code>, <code>/review-fix</code>, … with the CLI install, or namespaced
 (<code>/humanity-plus-review:review-pr</code>) with the plugin.</p>
 
@@ -252,7 +252,7 @@ command, <code>/review-pr</code>, <code>/review-fix</code>, … with the CLI ins
     <tr><td><code>publish-review</code></td><td>workflow</td><td>Post a previous review to the GitHub PR as one real review.</td></tr>
     <tr><td><code>review-issues</code></td><td>workflow</td><td>File non-blocking findings (readability, naming, soft conventions) as grouped, deduped <code>review-debt</code> GitHub issues for a scheduled fixer.</td></tr>
     <tr><td><code>map-primitives</code></td><td>setup</td><td>The mapper. Bootstraps or refreshes <code>docs/primitives.md</code> + <code>primitives.yaml</code>, the machine-readable map of your system's building blocks that the review's <b>primitives</b> lens consumes, and reports drift (the same concept re-declared in multiple shapes).</td></tr>
-    <tr><td><code>create-verify-skill</code></td><td>setup</td><td>The driver. Generates a repo-local <code>verify-&lt;app&gt;</code> skill (launch, doctor, personas, drive, evidence, cleanup) and a feature map, one file per user-facing feature with the source paths that implement it and the seeded personas it needs. The review's experiment bucket, <code>resolve-review</code>, and <code>pr-queue</code> then drive the features a change touched. Refresh mode keeps the map honest.</td></tr>
+    <tr><td><code>create-verify-skill</code></td><td>setup</td><td>The driver. Generates a repo-local <code>verify-&lt;app&gt;</code> skill (launch, doctor, personas, drive, evidence, cleanup) and a feature map, one file per user-facing feature with the source paths that implement it and the seeded personas it needs. The review's experiment bucket, <code>resolve-review</code>, and loops built on them then drive the features a change touched. Refresh mode keeps the map honest.</td></tr>
   </tbody>
 </table></div>
 
@@ -303,6 +303,14 @@ they're what turn a generic review into <em>your</em> review, and where great re
       primitives, <em>extends</em> one, or quietly <em>invents a new shape</em>, the classic
       failure of agent-written code. Bootstrap it with the <code>map-primitives</code> skill.</td>
     </tr>
+    <tr>
+      <td><code>verify-&lt;app&gt;/</code><span class="hint">a project skill + features/</span></td>
+      <td>the experiment bucket, <b>resolve-review</b>, and loops built on them</td>
+      <td>A generated, repo-local skill that knows how to launch the app, sign in as a seeded persona,
+      drive a feature, and capture evidence, plus a feature map whose <b>Paths</b> let a change's files
+      find the features it touched. The one artifact that <em>executes</em>: it runs only on your own
+      checkouts, where experiments already run. Bootstrap it with <code>create-verify-skill</code>.</td>
+    </tr>
   </tbody>
 </table></div>
 
@@ -349,8 +357,8 @@ they're what turn a generic review into <em>your</em> review, and where great re
   <p>The fourth artifact is a <b>verify skill</b>: <code>/create-verify-skill</code> interviews the repo and
   writes a project-local <code>verify-&lt;app&gt;</code> skill, the scripted way to launch the app, sign in as a
   seeded persona, drive a feature, and capture evidence, plus a feature map whose <b>Paths</b> sections let the
-  review, the fixer, and the queue find and drive the features a change touched. It proves itself once before
-  handing over, and a refresh run keeps the map honest.</p>
+  review, the fixer, and loops built on them find and drive the features a change touched. It proves itself
+  once before handing over, and a refresh run keeps the map honest.</p>
   <p>The three files can be drafted by an agent: run <code>/map-primitives</code> to bootstrap the
   primitives map, and ask your agent to draft <code>REVIEW.md</code> (from
   <code>REVIEW.example.md</code>) and to distill <code>docs/conventions/</code> from the patterns
@@ -363,7 +371,9 @@ they're what turn a generic review into <em>your</em> review, and where great re
 <div class="callout note">
   <p class="t">Trust boundary &amp; compatibility</p>
   <p>In PR mode, <code>REVIEW.md</code>, the convention docs, and the primitives map are read from
-  the <b>base branch only</b>, a PR can never rewrite the ruler it's measured with.
+  the <b>base branch only</b>, a PR can never rewrite the ruler it's measured with. The verify skill
+  is different in kind, it executes, so it runs only where experiments already run: your own
+  checkouts, never in report-only PR mode and never under the <code>## Trust</code> scratch runs.
   <code>REVIEW.md</code> is deliberately the same file Anthropic's Claude Code Review reads, so one
   committed file drives both reviewers with no duplication. Keep it self-contained, neither tool
   expands <code>@</code>-imports.</p>
@@ -557,11 +567,11 @@ In agents without slash invocation, ask for the skill by name ("use review-pr on
   Bootstrap interviews the repo (surface, run command, seed and personas, harness, evidence, isolation),
   writes the skill into the host's project skill directory, maps the top features with their source
   <b>Paths</b> and <b>Personas</b>, and drives one feature end to end before handing over. Refresh runs one
-  source reader per feature and one live pass, and ships at most one PR of proven corrections, never
-  product code.</p>
+  source reader per feature and one live pass, and leaves proven corrections in the working tree
+  (a PR only when asked), never touching product code.</p>
   <ul class="args">
     <li><code>/create-verify-skill</code> bootstrap, or refresh when a verify skill exists</li>
-    <li><code>/create-verify-skill refresh</code> force refresh mode</li>
+    <li><code>/create-verify-skill refresh</code> force refresh mode (stops if no verify skill exists)</li>
   </ul>
 </article>
 

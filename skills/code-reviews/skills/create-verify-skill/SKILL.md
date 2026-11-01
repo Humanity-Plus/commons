@@ -6,8 +6,8 @@ description: >
   launch, doctor, drive, evidence, cleanup, plus a feature map (one file per
   user-facing feature, with the source paths that implement it and the seeded
   personas it needs). The review toolkit consumes it: review-pr's experiment
-  bucket, resolve-review's post-fix verification, and pr-queue drive the
-  features a change touched. Use when asked to "create a verify skill", "make a
+  bucket, resolve-review's post-fix verification, and loops built on them
+  drive the features a change touched. Use when asked to "create a verify skill", "make a
   verification skill for this repo", "map the features", or when a repo has no
   scripted way to prove UI, CLI, or service behavior; in refresh mode when asked
   to "refresh the verify skill" or "audit the feature map". Two modes: bootstrap
@@ -29,7 +29,8 @@ rest of the toolkit consumes it:
   and drive recipes on owned checkouts instead of ad-hoc `node -e`.
 - `resolve-review` drives the features a review touched after its fixes land
   and attaches the evidence to the resolution ledger.
-- `pr-queue` drives the affected features before landing a PR.
+- Loops built on those two (a PR queue, for instance) drive the affected
+  features before landing a PR.
 
 You write the generated skill **for the next agent, not for a human**: it is
 read cold, mid-task, by an agent that has never seen the app. Every line must
@@ -38,10 +39,39 @@ placeholders.
 
 ## Mode selection
 
-- No `verify-*` skill in the repo → **bootstrap** (sections 1–5).
-- One exists (a project skill whose body has a Launch section and a sibling
-  `features/README.md`) → **refresh** (section 6). Several candidates → ask
-  which; the user names the app.
+- No verify skill in the repo → **bootstrap** (sections 1–5).
+- One exists → **refresh** (section 6). Several distinct ones → ask which; the
+  user names the app.
+- An explicit `refresh` argument forces refresh mode; with no verify skill
+  present it stops and says so instead of bootstrapping.
+
+**Detection — one rule, shared with every consumer.** A verify skill is a
+`SKILL.md` found by
+
+```sh
+find . -path '*/skills/verify-*/SKILL.md' -not -path '*/node_modules/*'
+```
+
+with a sibling `features/README.md`. It is `find -path`, not a shell glob:
+the host skill directories start with a dot, and a `*` glob skips those.
+Resolve symlinks and dedupe by real path (several hosts may point at one
+skill); several *distinct* matches means several apps — ask which one.
+
+## Preconditions
+
+- **Your own checkout only.** Bootstrap builds, seeds, and starts the app
+  and may touch the tree to make it start; refresh drives it. That is the
+  same execution trust `resolve-review` demands: a branch you own, never a
+  colleague's or a fork's PR checkout (`gh pr view --json author` against
+  `gh api user` when in doubt). The recipes you write become "the sanctioned
+  way to run the app" for `review-pr`, so they must come from a tree you
+  trust.
+- **A local or disposable instance only.** The generated Launch starts an
+  instance from the repo's own seed (or an environment the repo documents
+  as disposable), and Drive signs in only as seeded test personas. A repo
+  with no local run path gets a skill that says its features are unprovable
+  locally — never one that drives a shared, staging, or production
+  deployment.
 
 **Where the skill lives — the host's project skill directory, detected not
 assumed.** Each agent host discovers project skills at its own path:
@@ -49,9 +79,7 @@ assumed.** Each agent host discovers project skills at its own path:
 (Codex), `.agents/skills/` (the skills CLI's shared location). Write to the
 directory the repo **already has**; when it has none, write to the current
 host's and say so; when it has several, write once and symlink the others so
-one map stays the source of truth. The consumers detect the skill by shape,
-not by path: any `*/skills/verify-*/SKILL.md` with a sibling
-`features/README.md`.
+one map stays the source of truth (the detection rule dedupes by real path).
 
 ## 1. Interview the repo, not the user
 
@@ -98,9 +126,14 @@ grounded in what the interview found:
   to tell it is **usable**, not merely answering: the log line or prompt that
   means migrations and seed ran. A database health check passes while its init
   scripts are still running; wait for the real signal. Launch reaches a usable
-  state from an empty data dir. Include teardown. For a short-lived CLI or TUI
-  there is no server: launch means build once, then each drive starts in its
-  own isolated session.
+  state from an empty data dir. Shell state does not survive between an
+  agent's tool calls, so Launch starts the instance in the background and
+  **records every pid it started in a named file** (the skill says where,
+  e.g. `review-report/verify/.pids`), and the readiness wait is **bounded** —
+  a stated timeout after which Launch runs Cleanup and reports the instance
+  never became usable, instead of a hand-rolled sleep loop. For a short-lived
+  CLI or TUI there is no server: launch means build once, then each drive
+  starts in its own isolated session.
 - **Doctor.** One read-only check that answers "is this instance worth
   driving?" — process up, right build, port owned by us, auth valid, seed
   present. An agent runs it first whenever anything looks off.
@@ -113,17 +146,32 @@ grounded in what the interview found:
   routes. Prefer stable handles — ARIA labels, data attributes, prompt strings,
   route paths — over coordinates and tab order.
 - **Evidence.** What to capture for a proof and where it goes:
-  `review-report/verify/<feature>/` (git-ignored, survives cleanup). The proof
-  standards: exercise the real user path, not internal setters or test-only
-  endpoints; capture the action and the resulting state, not just the final
-  screen; verify side effects (rows written, files created, messages sent)
-  alongside what is visible; mocks only where a production boundary already
-  isolates the external system. When the safe path is a dry-run or test mode,
-  verify what it actually skips by observing files, network, and git refs,
-  rather than trusting its name.
-- **Cleanup.** Tear down what the run created. Never kill by process name —
-  kill what you started, by pid. Cleanup removes instances and scratch state,
-  never the evidence.
+  `review-report/verify/<feature>/<phase>-<sha7>/`, where `<phase>` names who
+  ran it (`bootstrap`, `refresh`, `review`, `resolve`, `queue`) and `<sha7>`
+  is the head the run proved — so a later phase can compare against an
+  earlier one instead of overwriting it, and the ledger's evidence path is
+  unambiguous. Evidence survives cleanup. **Before the first write, make sure
+  `review-report/` is ignored** — the review toolkit does it in its workspace
+  reset, but a bootstrap is often the first toolkit run in a clone:
+
+  ```sh
+  git check-ignore -q review-report || echo "review-report/" >> "$(git rev-parse --git-common-dir)/info/exclude"
+  ```
+
+  The proof standards: exercise the real user path, not internal setters or
+  test-only endpoints; capture the action and the resulting state, not just
+  the final screen; verify side effects (rows written, files created, messages
+  sent) alongside what is visible; mocks only where a production boundary
+  already isolates the external system. When the safe path is a dry-run or
+  test mode, verify what it actually skips by observing files, network, and
+  git refs, rather than trusting its name. **Redact what evidence may carry**:
+  never capture the credential-entry step itself, and strip `Authorization`,
+  `Set-Cookie`, and token fields from saved response bodies and transcripts —
+  evidence is read by people and agents long after the run.
+- **Cleanup.** Tear down what the run created: read the pid file Launch
+  wrote, confirm each pid is still the process you started, kill those, and
+  remove the file. Never kill by process name or port. Cleanup removes
+  instances and scratch state, never the evidence.
 - **Helpers.** Any script the skill ships is executable and its invocation
   appears in the skill body. A helper the reader has to reverse-engineer is
   not a helper.
@@ -135,10 +183,14 @@ plus one file per user-facing feature, from routes, commands, menus, and docs.
 Start with the top three to five; the map grows in refresh mode. Each feature
 file has exactly these H2s, in this order:
 
-1. **Paths** — the source files and directories that implement the feature.
-   This is the join key the toolkit uses: a review's changed files intersect
-   these paths to find the features a change touched. A feature with no paths
-   is unreachable to every consumer; name at least the entry points.
+1. **Paths** — the source files and directories that implement the feature,
+   repo-root-relative, one per line, no globs; a directory entry matches
+   every path under it (the same rule as the primitives map's `sources`).
+   This is the join key the toolkit uses: a change's file list intersects
+   these paths — a changed file matches when it equals an entry or lies under
+   a directory entry — to find the features the change touched. A feature
+   with no paths is unreachable to every consumer; name at least the entry
+   points.
 2. **Personas** — which personas (from the skill's Personas section) this
    feature needs, and which state each must be in. A journey that needs a
    state the seed doesn't provide **fails and says why** in Gotchas; never
@@ -173,19 +225,22 @@ covers them.
 Report: where the skill lives, the personas found, the features mapped (and
 the user-facing surfaces you saw but didn't map yet), the feature you drove and
 where its evidence is, and anything the repo made unprovable (no seed for a
-state, no way to isolate instances). Tell the user the toolkit now consumes
-the skill automatically — `resolve-review` and `pr-queue` drive touched
-features, `review-pr` uses the recipes on owned checkouts — and that a refresh
-run keeps the map honest as the app changes. Offer the AGENTS.md rule *"when
-a PR adds or changes a user-facing feature, update its file under
-`verify-<app>/features/` in the same PR"*; the review's `conventions` lens then
-cites it.
+state, no way to isolate instances). Tell the user the review toolkit now
+consumes the skill — `resolve-review` drives touched features after its
+fixes, `review-pr` uses the recipes on owned checkouts, and loops built on
+them (a PR queue) drive the rest of a change's reach — and that a refresh run
+keeps the map honest as the app changes. Offer the AGENTS.md rule *"when a PR
+adds or changes a user-facing feature, update its file under
+`verify-<app>/features/` in the same PR"*; the review's `conventions` lens
+then cites it, and the fixer repairs drift its own branch caused in that same
+PR (pre-existing drift goes to a refresh).
 
 ## 6. Refresh mode
 
 A feature map rots the moment the app changes. The unit of rigor is the
 feature, not every sentence: cover every feature file from source, exercise
-every feature live, ship at most one PR of proven corrections.
+every feature live, prepare at most one set of proven corrections. The
+Preconditions above apply: your own checkout, a local instance.
 
 **Edit scope: the verify skill's own directory only.** Never edit product code
 during a refresh. A behavior the map describes that the app no longer does is
@@ -209,7 +264,7 @@ keep it out of the corrections).
    and on each fresh session where sessions are the unit. Exercise every
    feature at least once, with the personas its file names. Evidence survives
    every cleanup, checked at its location. Nothing a drive started outlives
-   the drive. A feature that can't be reached is `verified-unreachable` only
+   the drive. A feature that can't be reached is `unreachable` only
    with the concrete prerequisite and the route attempted; a prerequisite the
    map omits is drift. Final teardown after the last drive.
 5. **Triage.** Wrong or missing user-POV description or paths → doc drift,
@@ -217,10 +272,12 @@ keep it out of the corrections).
    under the helpers rule. App behavior that is broken → product gap: record
    it for the user, keep it out of this PR.
 6. **Outcome, one of three, stated:** `clean` (every feature covered from
-   source and live, nothing to ship — no branch, no PR), `changed` (one PR of
-   proven corrections, every changed file re-read first), `blocked` (coverage
-   could not finish or a proven fix could not ship safely — say exactly what
-   blocked it).
+   source and live, nothing to change), `changed` (the proven corrections
+   applied in the working tree, every changed file re-read, reported as a
+   diff — a branch, commit, or PR only when the invocation asked for one;
+   opening a PR is a visible action, so it is never the default), `blocked`
+   (coverage could not finish or a proven fix could not land safely — say
+   exactly what blocked it).
 
 ## Rules
 
@@ -232,5 +289,8 @@ keep it out of the corrections).
   in Gotchas is the honest output.
 - **Stop what you start.** Every instance the generator or the generated
   skill launches is torn down by pid before the run ends, evidence intact.
+- **Local instances, seeded personas, your own checkout** — the
+  Preconditions are rules for the generated skill too; it refuses a live
+  target rather than driving one.
 - **Product code is out of scope** in refresh mode, and in bootstrap it is
   touched only to make a broken checkout start, reported as such.

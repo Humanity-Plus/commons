@@ -20,8 +20,9 @@ the Releasing section in `README.md`.
   skill change that shouldn't appear in release notes. CI's "Changeset present
   for skill changes" job fails otherwise.
 - Never merge a PR while any check is failing, pending, or not yet started.
-  The changeset gate is not a required status check — a red ✗ or a spinner
-  still means stop and resolve first.
+  The required `check` job bundles plugin manifest validation, skill tests,
+  and the changeset gate. A red ✗ or a spinner on any check still means stop
+  and resolve first.
 - Never edit `version` in any `plugin.json` by hand. It is stamped from
   `package.json` by `scripts/sync-plugin-version.mjs` during a release, and CI
   fails PRs where the two drift.
@@ -51,9 +52,9 @@ the Releasing section in `README.md`.
 
 - [2026-08-27 agent] The changesets version PR ("chore: version plugins") is
   pushed with the default `GITHUB_TOKEN`, so GitHub never triggers CI on it —
-  "no checks reported" on that PR is expected, not a failure. A human-initiated
-  close/reopen (`gh pr close <n> && gh pr reopen <n>`) triggers CI if a run is
-  wanted before merging.
+  "no checks reported" on that PR is expected. A human-initiated close/reopen
+  (`gh pr close <n> && gh pr reopen <n>`) must trigger the required CI before
+  merging.
 
 ## Agent Notes
 

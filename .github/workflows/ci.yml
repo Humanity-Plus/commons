@@ -4,7 +4,7 @@ on:
   pull_request:
 
 jobs:
-  check:
+  plugin-manifests:
     name: Plugin manifests in sync
     runs-on: ubuntu-latest
     steps:
@@ -39,8 +39,6 @@ jobs:
 
   changeset:
     name: Changeset present for skill changes
-    # The version PR ("chore: version plugins") consumes changesets by design.
-    if: github.head_ref != 'changeset-release/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -49,6 +47,8 @@ jobs:
           fetch-depth: 0
 
       - name: Require a changeset when skill content changes
+        # The version PR ("chore: version plugins") consumes changesets by design.
+        if: github.head_ref != 'changeset-release/main'
         env:
           BASE: ${{ github.base_ref }}
         run: |
@@ -66,3 +66,14 @@ jobs:
           fi
           echo "Changeset found:"
           echo "$changesets"
+
+  check:
+    name: check
+    if: always()
+    needs: [plugin-manifests, skill-tests, changeset]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all CI jobs to succeed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: echo "$RESULTS" | jq -e 'all(.[]; .result == "success")'

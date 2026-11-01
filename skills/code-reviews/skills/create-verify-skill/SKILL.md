@@ -136,13 +136,13 @@ grounded in what the interview found:
   starts in its own isolated session. Any identifier Launch **derives** from
   the environment — a deployment or database name, a port, a cache key built
   from the checkout path or branch — is sanitized to the target's allowed
-  charset before use, and Doctor prints the derived value so a refusal reads
-  as one. Worktree and temporary-directory names carry underscores, dots, and
-  mixed case that deployment names reject (field: an underscore in a temp dir
-  failed Launch before the process started).
+  charset before use. Worktree and temporary-directory names carry
+  underscores, dots, and mixed case that deployment names reject (field: an
+  underscore in a temp dir failed Launch before the process started).
 - **Doctor.** One read-only check that answers "is this instance worth
   driving?" — process up, right build, port owned by us, auth valid, seed
-  present. An agent runs it first whenever anything looks off.
+  present — and it prints every identifier Launch derived, so a refusal
+  reads as one. An agent runs it first whenever anything looks off.
 - **Personas.** One entry per seeded user state: a name, what state the seed
   puts them in, how to sign in as them (the seed file and key, by reference),
   and what they are for. The empty-state persona and the edge-case persona
@@ -264,7 +264,13 @@ keep it out of the corrections).
    drift; don't re-prove clean claims. Sweep recent churn (`git log` since the
    last refresh) for user-facing surfaces missing from the map — a concrete
    source path is required before calling one missing. Check the seed for
-   personas added or removed since the map was written.
+   personas added or removed since the map was written. Re-read the skill's
+   own Launch, Doctor, and Cleanup against section 2's contract — pid file,
+   bounded wait, derived identifiers sanitized and printed by Doctor — a
+   section written before a contract rule existed is harness drift, fixed
+   under the helpers rule (field: a generated Launch kept deriving a
+   deployment name from the raw checkout path after the generator learned to
+   sanitize it).
 4. **Live pass — required even when source looks clean.** Follow the skill's
    own launch model. Doctor before the first drive, after any failed drive,
    and on each fresh session where sessions are the unit. Exercise every

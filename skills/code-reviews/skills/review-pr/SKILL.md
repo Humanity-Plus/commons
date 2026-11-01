@@ -445,12 +445,16 @@ you had to); the defaults above apply.
      fixes moved into shared components — do not plan the merge. Ask whether
      the PR is **superseded**: is its goal already met on base? Settle that by
      reading and measuring, never by resolving the conflicts first: `intent`
-     and `seams` run whole-diff with the base-side diff as their material, and
-     where the goal is measurable on an owned checkout (a layout width, a
-     count, a response) measure it on base tip. Goal met → the verdict summary
-     leads with *superseded*: the base commits that met it, the measurement,
-     and the recommendation to close; the lenses still cover anything the PR
-     adds that base lacks. Goal not met → the conflicts are findings as above
+     runs whole-diff with the base-side diff as its material (and `seams` too,
+     under its own gate — triage's `interfaces` non-empty), and where the goal
+     is measurable on an owned checkout (a layout width, a count, a response)
+     measure it on base tip. Goal met → the verdict summary leads with
+     *superseded*: the base commits that met it, the measurement, and the
+     recommendation to close — with `verdict.decision: "comment"`, never
+     `approve` (a clean superseded PR has zero findings, and the severity rule
+     alone would derive an APPROVE that `publish.ts` posts as a merge signal on
+     a PR the body says to close); the lenses still cover anything the PR adds
+     that base lacks. Goal not met → the conflicts are findings as above
      and the merge-forward review proceeds (field: a PR with 29 conflicts drew
      a merge plan against retired architecture when two reads and one base
      measurement would have closed it).
@@ -1276,7 +1280,8 @@ contradiction between a lens's fetch and the stale Phase 0 measurement).
    Phase 3.5 arbiter after this dedupe.
 2. **Derive the verdict** from **post-arbiter severities**: `request-changes` if any
    surviving `critical`/`high`; `comment` if only `medium`/`low`; `approve` if
-   nothing above `nitpick`. Set a confidence (`high`/`medium`/`low`) based on how
+   nothing above `nitpick` — except a **superseded** verdict (Phase 0 step 7),
+   which is `comment` whatever survived. Set a confidence (`high`/`medium`/`low`) based on how
    many findings were unverifiable.
 3. **Normalize every anchor — always, on every path.** Lenses fabricate line
    numbers (findings citing `:1320` in a 550-line file have shipped); on the

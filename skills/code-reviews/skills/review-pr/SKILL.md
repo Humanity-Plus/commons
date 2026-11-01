@@ -597,7 +597,14 @@ nothing). A **repeated mechanical substitution** — the same literal, rename,
 or import swap landing in every hunk — is one hunk's worth of content however
 many files it touches, so it takes the light row too (field: a four-file,
 ten-line literal substitution paid six agents for six `[]` returns). The
-distinct-content rule already counts it once; the row now says so.
+distinct-content rule already counts it once; the row now says so. One duty
+travels with it: `blast-radius` does not run at this tier, and a literal
+swapped across files is the canonical **hidden reader** shape — the old token
+may be a persisted value, a wire key, an env-var name, something a log parser
+or another language reads. So the light generalist's brief owes the
+substituted token the trivial row's reach check: grep the old token across
+every reader that isn't source (data, fixtures, config, CI, other languages)
+and report a hit as a hidden reader, with the surviving reference quoted.
 
 **The complete ladder — mechanical predicates, in order; the first row that
 matches wins** (no re-deriving the tier per run):
@@ -613,7 +620,9 @@ matches wins** (no re-deriving the tier per run):
 `seams`/`intent`/`primitives`/`preflight`/`warm` run per their own objective skip
 conditions at every tier. **`blast-radius` runs from the medium tier up** — its
 skip condition *is* the tier (a trivial or light diff has no reach worth a
-dedicated pass); below medium record it `skipped` with the note `light tier`.
+dedicated pass — the trivial row and the light row's substitution clause carry
+the reach check for their own token themselves); below medium record it
+`skipped` with the note `light tier`.
 
 **Test-only diffs get a mode, not just a tier.** When every changed file matches
 test/spec patterns (`*.test.*`, `*.spec.*`, test fixtures), the decisive question

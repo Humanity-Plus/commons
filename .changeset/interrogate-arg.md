@@ -1,5 +1,0 @@
----
-"humanity-plus-commons": minor
----
-
-New `interrogate[=N]` arg for `review-pr`: the pipeline's one offensive pass. N adversaries (default 2), each in its own scratch worktree, are briefed to break the change by running it — three focuses, inputs and boundaries / state and time / environment and integration, assigned round-robin — and a finding survives only when the orchestrator's rerun in a fresh worktree reproduces it; the repro command, patch, observed and expected output travel with the finding and render on its card. Adversaries execute code, so the arg is honored only on an owned checkout or under `REVIEW.md`'s `## Trust`. Runners are detected, never assumed: seats run on the host's subagents, and when the Codex CLI is on `PATH` one seat runs there so the adversaries span model families; with one family the report says diversity came from the briefs. An Interrogation card shows each seat's found / kept / dropped ledger and the interrogate-only findings. Off by default, like `holistic`. The method adapts the `interrogate` and `arena` skills in Lauren Tan's (poteto) MIT-licensed pstack, credited in the toolkit README.

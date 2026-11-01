@@ -42,7 +42,7 @@ Phase 2   first-five, conventions,   [parallel subagents] → Finding[] each
           warm, zombies, preflight,                         (+ conventions scorecard,
           intent, primitives,                                  primitives systemChange,
           blast-radius                                         blast-radius safety fact)
-          ├─ tiered by triage: light (1 file <~50 lines) → medium (single feature
+          ├─ tiered by triage: light (the ladder row in SKILL.md) → medium (single feature
           │  area under the shard threshold: combined bugs+tests generalist +
           │  conventions + globals) → full fan-out (multi-area) → sharded
           ├─ materials inline (or one bundle file above ~10KB of trusted context)

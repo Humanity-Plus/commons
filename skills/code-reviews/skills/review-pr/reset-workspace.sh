@@ -44,11 +44,9 @@ if [[ -f "$f" ]]; then
     label="${label:-old}"
     mv "$f" "review-report/findings-${label}.json"
     echo "✓ archived stale findings.json → findings-${label}.json (it described: pr=${pr:-?} head=${head:-?} sha=${sha:0:7})"
-    # verify-skill evidence belongs to the same run as the findings it was driven for
-    if [[ -d review-report/verify ]]; then
-      mv review-report/verify "review-report/verify-${label}"
-      echo "✓ archived review-report/verify → verify-${label}"
-    fi
+    # review-report/verify/ stays where it is: its dirs are keyed <phase>-<sha7>,
+    # so runs never collide, and the archived findings/resolution record those
+    # paths — moving the directory would dangle every evidence link.
   fi
 fi
 

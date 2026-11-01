@@ -128,15 +128,34 @@ grounded in what the interview found:
   scripts are still running; wait for the real signal. Launch reaches a usable
   state from an empty data dir. Shell state does not survive between an
   agent's tool calls, so Launch starts the instance in the background and
-  **records every pid it started in a named file** (the skill says where,
-  e.g. `review-report/verify/.pids`), and the readiness wait is **bounded** —
+  **records every pid it started in `$(git rev-parse --git-dir)/verify/.pids`**,
+  and the readiness wait is **bounded** —
   a stated timeout after which Launch runs Cleanup and reports the instance
   never became usable, instead of a hand-rolled sleep loop. For a short-lived
   CLI or TUI there is no server: launch means build once, then each drive
-  starts in its own isolated session.
+  starts in its own isolated session. Any identifier Launch **derives** from
+  the environment — a deployment or database name, a port, a cache key built
+  from the checkout path or branch — is sanitized to the target's allowed
+  charset before use. Worktree and temporary-directory names carry
+  underscores, dots, and mixed case that deployment names reject (field: an
+  underscore in a temp dir failed Launch before the process started).
+
+  **Runtime state lives in the git dir, never under `review-report/`.** The
+  pid file, the port, the head the instance was built from, its log, and any
+  registered client an external service rate-limits all go in
+  `$(git rev-parse --git-dir)/verify/` — per worktree, never committed, and
+  outside the directory the review toolkit moves aside for checks and
+  archives between runs. State that must outlive a worktree (a registered
+  OAuth client, when registration is limited per hour) goes one level up in
+  `$(git rev-parse --git-common-dir)/verify/`, shared by every worktree of
+  the repo. `review-report/verify/` holds **evidence only** (field: a pid
+  file kept beside the evidence was archived with another PR's findings
+  while its instance was still running, so Doctor and Cleanup lost the
+  server and the next run re-registered the client).
 - **Doctor.** One read-only check that answers "is this instance worth
   driving?" — process up, right build, port owned by us, auth valid, seed
-  present. An agent runs it first whenever anything looks off.
+  present — and it prints every identifier Launch derived, so a refusal
+  reads as one. An agent runs it first whenever anything looks off.
 - **Personas.** One entry per seeded user state: a name, what state the seed
   puts them in, how to sign in as them (the seed file and key, by reference),
   and what they are for. The empty-state persona and the edge-case persona
@@ -171,7 +190,8 @@ grounded in what the interview found:
 - **Cleanup.** Tear down what the run created: read the pid file Launch
   wrote, confirm each pid is still the process you started, kill those, and
   remove the file. Never kill by process name or port. Cleanup removes
-  instances and scratch state, never the evidence.
+  instances and the per-run scratch state in the git dir, never the evidence
+  and never the shared, rate-limited registrations.
 - **Helpers.** Any script the skill ships is executable and its invocation
   appears in the skill body. A helper the reader has to reverse-engineer is
   not a helper.
@@ -258,7 +278,14 @@ keep it out of the corrections).
    drift; don't re-prove clean claims. Sweep recent churn (`git log` since the
    last refresh) for user-facing surfaces missing from the map — a concrete
    source path is required before calling one missing. Check the seed for
-   personas added or removed since the map was written.
+   personas added or removed since the map was written. Re-read the skill's
+   own Launch, Doctor, and Cleanup against section 2's contract — pid file
+   and runtime state in the git dir, bounded wait, derived identifiers
+   sanitized and printed by Doctor — a
+   section written before a contract rule existed is harness drift, fixed
+   under the helpers rule (field: a generated Launch kept deriving a
+   deployment name from the raw checkout path after the generator learned to
+   sanitize it).
 4. **Live pass — required even when source looks clean.** Follow the skill's
    own launch model. Doctor before the first drive, after any failed drive,
    and on each fresh session where sessions are the unit. Exercise every

@@ -112,16 +112,11 @@ function buildBlock(report: any, login = ""): string {
 
   // GitHub renders markdown inside <details> only with blank lines after
   // <summary> and around fenced blocks — the empty strings are load-bearing.
-  const parts = [
-    START,
-    "<details>",
-    `<summary>${summary}</summary>`,
-    "",
-    mermaid,
-    "",
-    table,
-    "",
-  ];
+  const parts = [START, "<details>", `<summary>${summary}</summary>`, ""];
+  // An empty map and an empty table render as a broken diagram and a bare
+  // header row; a classification-only change says so in one line instead.
+  if (prims.length || added.length) parts.push(mermaid, "", table, "");
+  else parts.push("_No mapped primitives touched — classification only, nothing to map._", "");
   if (invariants) parts.push(invariants, "");
   if (mapLine) parts.push(mapLine.trim(), "");
   const m = report.meta ?? {};

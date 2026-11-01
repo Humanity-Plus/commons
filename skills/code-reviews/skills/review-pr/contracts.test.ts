@@ -38,3 +38,28 @@ test("the evidence root and the phase-scoped layout are shared text", () => {
   expect(consumers["resolve-review"]).toContain("review-report/verify/<feature>/resolve-<sha7>/");
   expect(consumers["review-pr"]).toContain("review-report/verify/<feature>/review-<sha7>/");
 });
+
+// The light-tier predicate lives in exactly one place: the ladder row. Every
+// restatement has drifted (field: "single file" beside a row that allowed two,
+// then a README still saying "1 file" after the paragraph was fixed).
+test("the light-tier predicate is stated once, in the ladder row", () => {
+  const skill = consumers["review-pr"];
+  expect(skill.match(/^\| \*\*light\*\* \|/gm)?.length).toBe(1);
+  const restated = /light \(\d+ files?|single file under|one file under/i;
+  for (const rel of ["review-pr/README.md", "../README.md", "../../../README.md", "../review-toolkit.html", "review-fix/SKILL.md"]) {
+    expect(read(rel), rel).not.toMatch(restated);
+  }
+  expect(skill.replace(/^\| \*\*light\*\* \|.*$/m, "")).not.toMatch(restated);
+});
+
+// Where a running instance keeps its pid file is a contract between the
+// generator (which tells Launch where to write it) and check-clean.sh (which
+// refuses to move review-report/ aside while those pids are alive). Field: the
+// pid file lived under review-report/verify/ and a workspace reset archived it
+// with another PR's findings while the server was still up.
+test("the verify-skill runtime-state path is one text, in the generator and check-clean.sh", () => {
+  const PIDS = "$(git rev-parse --git-dir)/verify/.pids";
+  expect(generator).toContain(PIDS);
+  expect(read("review-pr/check-clean.sh")).toContain(PIDS);
+  expect(generator).not.toContain("review-report/verify/.pids");
+});

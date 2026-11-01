@@ -71,6 +71,28 @@ test("long invariants clip on a word boundary with an ellipsis, not mid-word", (
   expect(prefix.length).toBeLessThanOrEqual(160);
 });
 
+test("buildBlock with nothing touched emits a one-line recap, no diagram, no table", () => {
+  const empty = { ...report, systemChange: { ...report.systemChange, overall: "composes", primitives: [], added: [] } };
+  const block = buildBlock(empty);
+  expect(block).not.toContain("```mermaid");
+  expect(block).not.toContain("| Primitive |");
+  expect(block).toContain("0 primitives touched");
+  expect(block).toContain("classification only");
+  expect(block.endsWith("<!-- system-recap:end -->")).toBe(true);
+});
+
+test("buildBlock with only unmapped additions keeps the diagram and the adds row", () => {
+  const addsOnly = {
+    ...report,
+    systemChange: { ...report.systemChange, overall: "adds", primitives: [], added: [{ name: "Sounding", files: ["convex/soundings.ts"] }] },
+  };
+  const block = buildBlock(addsOnly);
+  expect(block).toContain("```mermaid");
+  expect(block).toContain('new_0["Sounding (new)"]:::adds');
+  expect(block).toContain("| Sounding | — | **adds (unmapped)** | convex/soundings.ts |");
+  expect(block).not.toContain("classification only");
+});
+
 test("buildBlock throws without a systemChange section", () => {
   expect(() => buildBlock({ verdict: { decision: "comment" } })).toThrow("no systemChange");
 });

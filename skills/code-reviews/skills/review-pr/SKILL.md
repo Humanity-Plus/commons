@@ -121,6 +121,12 @@ all absent on the default small-PR path:
   finding as a review-debt issue. The renderer shows a linked "tracked" chip;
   `publish.ts` posts a one-liner pointing at the issue instead of duplicating the
   prose; `resolve-review` closes the issue when it fixes the finding.
+- `classEvidence` (string) — set by Phase 4's class mark when the finding is a
+  **class**: the same mistake at several sites of this diff, a cited rule that rests
+  on prose, or a defect a past review already found. One line naming the evidence.
+  The renderer shows a `class` chip on the card and a **Classes** card; `publish.ts`
+  lists the classes in the review body; `resolve-review` hardens the class with
+  `fix-the-class` after fixing the sites.
 
 **`evidence` and `suggestion` accept native HTML + inline CSS, *and* Markdown.**
 The report is HTML precisely so you can express things Markdown can't. Reach for
@@ -1086,8 +1092,12 @@ test setup**: an experiment claim, the blast-radius `probe`, or an
 example-truth check that **needs the running app** goes through those
 recipes rather than an ad-hoc `node -e` or a hand-started dev server — launch
 per the skill, doctor, drive the feature whose **Paths** entry the finding's
-file equals or lies under, with the persona its file names, and judge by its
-**Proof** section (a finding with no file drives nothing). Claims a test or
+file equals or lies under — when several features list the file, the join
+**narrows by symbol** (the generator's shared-file rule: a feature stays only
+if another of its Paths references an export the diff changed) and the
+finding's own claim picks among what remains — with the persona its file
+names, and judge by its **Proof** section (a finding with no file drives
+nothing). Claims a test or
 one-liner settles stay as they are. **Under the `## Trust` opt-in the verify
 skill is never launched**: those runs happen in a scratch worktree with no
 install and no seed, which Launch does not fit, so the probe stays the
@@ -1287,12 +1297,37 @@ contradiction between a lens's fetch and the stale Phase 0 measurement).
    `meta.interrogate` records per seat `{ seat, runner, brief, findings, kept,
    dropped, droppedWhy }` plus the totals `interrogateOnly` and `both`. Run the
    Phase 3.5 arbiter after this dedupe.
-2. **Derive the verdict** from **post-arbiter severities**: `request-changes` if any
+2. **Mark the classes — mechanically, after the arbiter.** A finding is a *class*
+   when the repo will make the same mistake again unless something stops it, and
+   the agent that read the diff is the only one positioned to see that (the
+   report's reader has not read the code). Three tests, each objective; the first
+   that fires sets `classEvidence` to one line naming what it found:
+   - **Several sites in this diff** — the finding carries `locations` (the
+     arbiter's swarm collapse). Evidence: `N sites in this diff`.
+   - **A rule that rests on prose** — a `conventions` finding whose `rule` cites a
+     rule the repo's agent instruction file lists under
+     `## Rules and what enforces them` with `prose only` in its *Enforced by*
+     cell, or does not list at all. Applies only when that table exists; without
+     it the test is skipped, not failed. Evidence: `rule table: prose only` /
+     `rule table: not listed`.
+   - **Seen before** — the same `lens` and `category` on the same file in an
+     archived `review-report/findings-*.json` of this checkout, or an open
+     `review-debt` issue whose title names the same defect (`gh issue list
+     --label review-debt --state open --json number,title` — the title scan
+     `review-issues` dedupes with). Evidence: `also findings-pr<N>.json` /
+     `also review-debt #<n>`.
+
+   The mark changes neither severity nor verdict; it changes what the fix phase
+   does with the finding (`resolve-review` fixes every site, then hardens the
+   class with `fix-the-class` at the guard levels) and what the report leads
+   with. The chat summary states the count: *"C classes — fix the class, not the
+   instance."*
+3. **Derive the verdict** from **post-arbiter severities**: `request-changes` if any
    surviving `critical`/`high`; `comment` if only `medium`/`low`; `approve` if
    nothing above `nitpick` — except a **superseded** verdict (Phase 0 step 7),
    which is `comment` whatever survived. Set a confidence (`high`/`medium`/`low`) based on how
    many findings were unverifiable.
-3. **Normalize every anchor — always, on every path.** Lenses fabricate line
+4. **Normalize every anchor — always, on every path.** Lenses fabricate line
    numbers (findings citing `:1320` in a 550-line file have shipped); on the
    report path that's a broken permalink, on the fix path it's an edit at the
    wrong location. Mechanically validate each surviving finding's anchor: `line`
@@ -1375,14 +1410,14 @@ contradiction between a lens's fetch and the stale Phase 0 measurement).
    this is the right place to record what the review did **not** cover (including
    anything the repository review context put out of scope; the sharding note is
    added to that card automatically from `meta.sharding`).
-4. Render: `bun run <this-skill-dir>/render.ts review-report/findings.json review-report/report.html`.
+5. Render: `bun run <this-skill-dir>/render.ts review-report/findings.json review-report/report.html`.
    When the report has a `systemChange` section, also generate the GitHub-native
    recap block: `bun run <this-skill-dir>/recap.ts review-report/findings.json`
    (writes `review-report/system-recap.md` — a `<details>` block with a mermaid
    primitives map that GitHub renders in a PR description).
-5. Open it (`open review-report/report.html` on macOS) and give the user a short
-   terminal summary: verdict, counts by severity, and the top 3 findings.
-6. **Optional — publish to GitHub.** Only when the user asks for it (posting a
+6. Open it (`open review-report/report.html` on macOS) and give the user a short
+   terminal summary: verdict, counts by severity, the classes, and the top 3 findings.
+7. **Optional — publish to GitHub.** Only when the user asks for it (posting a
    review is a visible action on someone's PR, never do it by default): run
    `bun run <this-skill-dir>/publish.ts review-report/findings.json` (PR mode only —
    it needs `meta.repo` + `meta.prNumber`). See "Publishing the review to GitHub".
@@ -1401,7 +1436,7 @@ contradiction between a lens's fetch and the stale Phase 0 measurement).
 **Findings-only mode (skip render).** Rendering is the *only* optional step — every
 phase before it is unchanged. When a caller asks for findings without the HTML report
 (e.g. the `resolve-review` skill or the `/review-fix` command, which chain straight
-into fixing), still write `review-report/findings.json` in step 3, then **skip steps 4–5**
+into fixing), still write `review-report/findings.json` in step 4, then **skip steps 5–6**
 and hand back the findings. The analysis, verify pass, and verdict are identical; only
 the artifact differs. Two mode-specific adjustments:
 
@@ -1421,7 +1456,7 @@ the artifact differs. Two mode-specific adjustments:
 - **Report in blockers language, not GitHub-review language.** `findings.json` keeps
   the `verdict` field (the renderer and `publish.ts` depend on it), but the chat
   summary says what a fixer needs: *"N blockers (critical/high) · M should-fix
-  (medium) · K advisories"* — `request-changes`/`approve` means nothing when
+  (medium) · K advisories · C classes"* — `request-changes`/`approve` means nothing when
   nothing is being published.
 
 **Queue mode (consecutive reviews in one session — e.g. working a PR backlog).**
@@ -1511,7 +1546,7 @@ bun run <this-skill-dir>/publish.ts review-report/findings.json [--dry-run] \
   publish.ts says so. Pushing into the pages repo is a visible action: name
   the repo and the file when confirming the dry run.
 - `--recap` appends `review-report/system-recap.md` to the review body — the
-  recap channel for PRs whose description you don't own (see step 6 above).
+  recap channel for PRs whose description you don't own (see step 7 above).
 - `--min-severity` keeps low/nitpick findings out of inline comments (they still
   appear in the body) when a full inline dump would be noisy. **Recommend
   `--min-severity medium` whenever surviving findings exceed the report budget**

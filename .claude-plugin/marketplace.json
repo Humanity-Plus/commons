@@ -9,7 +9,7 @@
     {
       "name": "humanity-plus-review",
       "source": "./skills/code-reviews",
-      "description": "AI code-review loop for PRs and branches: multi-lens review with HTML report, safe fixing, GitHub publishing, review-debt filing, and a primitives-map generator."
+      "description": "AI code-review loop for PRs and branches: multi-lens review with HTML report, safe fixing, GitHub publishing, review-debt filing, a primitives-map generator, a verify-skill generator, and a class hardener."
     },
     {
       "name": "humanity-plus-publish",

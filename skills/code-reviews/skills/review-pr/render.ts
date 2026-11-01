@@ -84,6 +84,12 @@
  *   verifiedBy?:  "mechanical"|"experiment"|"documentation"|"skeptic"|"advisory"
  *                                         // which verify bucket settled it (pass-through
  *                                         //   for resolve-review; not rendered)
+ *   classEvidence?: string                // Phase 4's class mark: the same mistake at
+ *                                         //   several sites, a cited rule resting on
+ *                                         //   prose, or a defect a past review found —
+ *                                         //   one line naming the evidence. Rendered as a
+ *                                         //   chip + line on the card and a Classes card;
+ *                                         //   resolve-review hardens these with fix-the-class
  *
  * Rich content: `evidence`, `suggestion`, and `verdict.summary` accept **native
  * HTML + inline CSS** (including inline `<svg>` for diagrams) AND a Markdown
@@ -138,6 +144,7 @@ interface Finding {
   source?: "lenses" | "holistic" | "interrogate" | "both";
   trackedIssue?: string;
   verifiedBy?: "mechanical" | "experiment" | "documentation" | "skeptic" | "advisory";
+  classEvidence?: string;
 }
 type Mark = "pass" | "warn" | "fail" | "unknown";
 type ScoreStatus = "pass" | "warn" | "fail" | "na";
@@ -880,6 +887,27 @@ function systemChangeCard(r: Report): string {
 // because of — with how far up the evidence ladder it got — what the lens
 // cleared, the open risks (its findings, linked), and the cheapest pre-merge
 // check. The status pill is the headline: a contradicted fact renders loudest.
+// Classes (Phase 4's class mark): the findings the repo will make again unless
+// something stops it — several sites in one diff, a rule resting on prose, or a
+// defect a past review already found. Listed in one place because the reader
+// who decides what to harden has not read the code; the agent that did has.
+function classesCard(r: Report): string {
+  const classes = r.findings.filter((f) => typeof f.classEvidence === "string" && f.classEvidence.trim());
+  if (!classes.length) return "";
+  const m = r.meta;
+  const items = classes
+    .map((f) => {
+      const sev = SEV[f.severity] ?? SEV.medium;
+      return `<li><a href="#f-${esc(f.id)}">${sev.dot} ${esc(f.title)}</a>${
+        f.file ? ` <span class="cls-where">${fileRef(m, f.file, f.line)}</span>` : ""
+      }<span class="cls-why">${renderInline(f.classEvidence, m)}</span></li>`;
+    })
+    .join("");
+  return `<section class="card cls-card"><h2>Classes
+    <span class="head-total">${classes.length} to fix as a class, not an instance</span></h2>
+    <ul class="cls-list">${items}</ul></section>`;
+}
+
 function blastRadiusCard(r: Report): string {
   const br = r.blastRadius;
   if (!br) return "";
@@ -942,6 +970,8 @@ function findingCard(m: Meta, f: Finding): string {
     // origin chip only when the --holistic comparison ran (source absent otherwise)
     f.source && f.source !== "lenses" ? `<span class="chip chip-src">${esc(f.source)}</span>` : "",
     f.locations?.length ? `<span class="chip chip-group">×${f.locations.length} occurrences</span>` : "",
+    // Phase 4 class mark: the fix phase hardens this one, not just patches it
+    f.classEvidence ? `<span class="chip chip-class">class</span>` : "",
     // linked chip when /review-issues filed this finding as a review-debt issue
     f.trackedIssue && safeUrl(f.trackedIssue)
       ? `<a class="chip chip-tracked" href="${esc(safeUrl(f.trackedIssue))}" target="_blank" rel="noopener">tracked ↗</a>`
@@ -969,6 +999,10 @@ function findingCard(m: Meta, f: Finding): string {
     ${f.rule ? `<div class="finding-rule"><span class="rule-tag">Rule</span>${renderInline(f.rule, m)}</div>` : ""}${
       f.regradeNote
         ? `<div class="finding-regrade"><span class="regrade-tag">Regraded</span>${renderInline(f.regradeNote, m)}</div>`
+        : ""
+    }${
+      f.classEvidence
+        ? `<div class="finding-class"><span class="class-tag">Class</span>${renderInline(f.classEvidence, m)}</div>`
         : ""
     }${locations}
     ${f.evidence ? `<div class="finding-evidence md">${renderRich(f.evidence, m)}</div>` : ""}
@@ -1443,6 +1477,18 @@ function page(r: Report): string {
   .loc-list li{font-size:12.5px}
   .loc-list .loc-note{color:var(--muted);margin-left:8px}
   .chip-group{color:#bcc3ff;border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+  /* class mark (Phase 4): chip on the card, its evidence line, and the Classes card */
+  .chip-class{color:#f7d494;border-color:color-mix(in srgb,#f2c063 45%,transparent)}
+  .finding-class{display:flex;align-items:baseline;gap:8px;margin:0 0 12px;font-size:12.5px;color:var(--muted)}
+  .finding-class .class-tag{flex:none;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    color:#f7d494;background:color-mix(in srgb,#f2c063 14%,var(--panel2));
+    border:1px solid color-mix(in srgb,#f2c063 32%,var(--border));border-radius:20px;padding:1px 8px}
+  .cls-list{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+  .cls-list li{font-size:13px}
+  .cls-list a{color:var(--text);text-decoration:none}
+  .cls-list a:hover{text-decoration:underline}
+  .cls-where{margin-left:6px}
+  .cls-why{display:block;font-size:12px;color:var(--muted);margin:1px 0 2px 20px}
   .chip-src{color:#a5d3ff;border-color:color-mix(in srgb,#7ec2ff 40%,transparent)}
   a.chip-tracked{color:#8ce8b8;border-color:color-mix(in srgb,#5fd39a 40%,transparent);text-decoration:none}
   a.chip-tracked:hover{border-color:#5fd39a}
@@ -1783,7 +1829,7 @@ function page(r: Report): string {
     .md code.md-code,.md .md-file,.head-total{white-space:normal;overflow-wrap:anywhere}
     .card h2{flex-wrap:wrap}
     /* flex rows with a pill + text: the text is an anonymous flex item, so its longest token must be allowed to break */
-    .finding-rule,.finding-regrade{overflow-wrap:anywhere}
+    .finding-rule,.finding-regrade,.finding-class{overflow-wrap:anywhere}
     /* tables scroll sideways instead; their chips stay whole so cells don't break mid-token */
     .md-table,.md table{display:block;overflow-x:auto}
     .md-table code.md-code,.md table code.md-code,.md-table .md-file,.md table .md-file{white-space:nowrap}}
@@ -1818,7 +1864,7 @@ function page(r: Report): string {
     <section class="card"><h2>By section</h2>${composition(r.findings)}</section>
   </div>
   <section class="card"><h2>Risk by area</h2>${heatmap(r.triage.groups)}</section>
-  ${blastRadiusCard(r)}${systemChangeCard(r)}${scorecardCard(r)}${holisticCard(r)}${interrogateCard(r)}
+  ${blastRadiusCard(r)}${classesCard(r)}${systemChangeCard(r)}${scorecardCard(r)}${holisticCard(r)}${interrogateCard(r)}
 
   ${findingsSection(m, r.findings)}
   ${conventionsSection(m, r.findings)}

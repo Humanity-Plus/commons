@@ -68,7 +68,7 @@ Phase 3   verify — contradiction scan first, then per-claim triage:
 Phase 3.5 arbiter                    [1 subagent; inline when small & nothing > medium]
           → regrade severities relatively, group repeated defect classes
           (locations[] with per-site notes), fold past the report budget
-Phase 4   dedupe by defect (not anchor) → verdict → anchors normalized (always)
+Phase 4   dedupe by defect (not anchor) → classes marked → verdict → anchors normalized (always)
           → findings.json → render.ts
           → report.html   (findings-only: skip render, blockers-language summary)
           └─ optional, on request: publish.ts → GitHub PR review (inline comments)
@@ -77,7 +77,7 @@ Phase 4   dedupe by defect (not anchor) → verdict → anchors normalized (alwa
 Every lens emits the same `Finding` JSON shape (documented in `SKILL.md` and the
 header of `render.ts`), which is what lets one renderer visualize all of them. The
 skill may add optional fields downstream (`area`, `locations`, `regradeNote`,
-`folded`, `source`) — all absent on the default small-PR path, so small reviews
+`folded`, `source`, `classEvidence`) — all absent on the default small-PR path, so small reviews
 produce the same report structure as before.
 
 The **`holistic` flag** exists to measure whether the specialized lenses miss
@@ -238,6 +238,11 @@ section of `REVIEW.md` (see `REVIEW.example.md`).
   every occurrence; findings **folded** past the report budget land in a collapsed
   *More findings* section; on `holistic` runs a **Holistic comparison** card shows
   the lens-vs-generalist overlap counts and lists holistic-only findings.
+- A finding Phase 4 marked as a **class** — the same mistake at several sites, a
+  cited rule that rests on prose, or a defect a past review already found —
+  carries a `class` chip and its evidence line, and a **Classes** card lists them:
+  those are what `resolve-review` hardens with `fix-the-class` instead of only
+  patching.
 - When the `conventions` lens runs, a **Conventions & stack conformance** card shows a
   per-area ✓/⚠/✗ scorecard (Convex, React, TypeScript, Tests, …), and a dedicated
   **Conventions** section lists the craft findings with the repo rule each one cites.

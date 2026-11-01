@@ -1,6 +1,6 @@
 {
   "name": "humanity-plus-review",
-  "description": "AI code-review loop for PRs and branches: a multi-lens reviewer that produces an HTML report, a fixer that safely resolves the findings, a publisher that posts the review to GitHub, a review-debt filer, and a primitives-map generator.",
+  "description": "AI code-review loop for PRs and branches: a multi-lens reviewer that produces an HTML report, a fixer that safely resolves the findings, a publisher that posts the review to GitHub, a review-debt filer, a primitives-map generator, a verify-skill generator, and a class hardener.",
   "version": "0.4.0",
   "author": {
     "name": "Humanity Plus",

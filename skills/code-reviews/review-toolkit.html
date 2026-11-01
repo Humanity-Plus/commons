@@ -107,7 +107,7 @@
     .flow-step::after{content:"↓";right:auto;left:50%;top:auto;bottom:-24px;transform:translateX(-50%)}}
 
   .c-reviewpr{--cc:var(--blue)} .c-reviewfix{--cc:var(--green)} .c-resolve{--cc:var(--amber)}
-  .c-publish{--cc:#b9a8ff} .c-issues{--cc:var(--red)} .c-verify{--cc:#7ec2ff}
+  .c-publish{--cc:#b9a8ff} .c-issues{--cc:var(--red)} .c-verify{--cc:#7ec2ff} .c-class{--cc:#f7d494}
   /* Colored edge is a real border with square corners on that side — a straight bar. */
   .cmd{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--cc,var(--accent));
     border-radius:0 12px 12px 0;padding:18px 22px;margin-bottom:14px}
@@ -253,6 +253,7 @@ command, <code>/review-pr</code>, <code>/review-fix</code>, … with the CLI ins
     <tr><td><code>review-issues</code></td><td>workflow</td><td>File non-blocking findings (readability, naming, soft conventions) as grouped, deduped <code>review-debt</code> GitHub issues for a scheduled fixer.</td></tr>
     <tr><td><code>map-primitives</code></td><td>setup</td><td>The mapper. Bootstraps or refreshes <code>docs/primitives.md</code> + <code>primitives.yaml</code>, the machine-readable map of your system's building blocks that the review's <b>primitives</b> lens consumes, and reports drift (the same concept re-declared in multiple shapes).</td></tr>
     <tr><td><code>create-verify-skill</code></td><td>setup</td><td>The driver. Generates a repo-local <code>verify-&lt;app&gt;</code> skill (launch, doctor, personas, drive, evidence, cleanup) and a feature map, one file per user-facing feature with the source paths that implement it and the seeded personas it needs. The review's experiment bucket, <code>resolve-review</code>, and loops built on them then drive the features a change touched. Refresh mode keeps the map honest.</td></tr>
+    <tr><td><code>fix-the-class</code></td><td>setup</td><td>The hardener. Makes a repeated agent mistake impossible at the highest level that works — architecture, types, a check whose error names the fix, a test, prose last — proven red on a past instance, and keeps the <code>AGENTS.md</code> table of each rule and what enforces it. <code>resolve-review</code> runs it for the findings a review marked as a <b>class</b>.</td></tr>
   </tbody>
 </table></div>
 
@@ -516,7 +517,9 @@ In agents without slash invocation, ask for the skill by name ("use review-pr on
   (from a prior <code>/review-pr</code>), fix the selected findings, validate each fix with the repo's
   existing typecheck/lint/tests, and revert anything that breaks them. Grouped findings fix
   every site in <code>locations[]</code>; folded findings sit below the default threshold
-  (include them only on explicit request).</p>
+  (include them only on explicit request). A finding the review marked as a <b>class</b> — the same
+  mistake at several sites, a rule resting on prose, or a defect seen before — is hardened with
+  <code>fix-the-class</code> after its sites are fixed, and every sibling left outside scope is named.</p>
   <ul class="args">
     <li><code>/resolve-review</code> default set, verified findings at medium+</li>
     <li><code>/resolve-review high</code> only high severity and above</li>
@@ -572,6 +575,23 @@ In agents without slash invocation, ask for the skill by name ("use review-pr on
   <ul class="args">
     <li><code>/create-verify-skill</code> bootstrap, or refresh when a verify skill exists</li>
     <li><code>/create-verify-skill refresh</code> force refresh mode (stops if no verify skill exists)</li>
+  </ul>
+</article>
+
+<article class="cmd c-class">
+  <div class="cmd-head"><h3 class="cmd-name">/fix-the-class</h3>
+    <span class="cmd-tag writes">restructures the repo</span></div>
+  <p>After a correction the repo has seen before, or as a hardening pass. Finds the mistake classes
+  from the repo's own record (commits and reverts, review findings, <code>review-debt</code> issues,
+  <code>AGENTS.md</code> notes, workaround comments), then makes each one impossible at the highest
+  level that works — architecture, types, a check whose error names the fix, a test, prose last —
+  and proves every new check <b>red on a real past instance</b> before trusting it. Keeps the
+  <code>AGENTS.md</code> table of rules and what enforces them, where <code>prose only</code> marks a
+  repeat risk. Explicit invocation only; <code>resolve-review</code> follows the same steps for a
+  review's class findings.</p>
+  <ul class="args">
+    <li><code>/fix-the-class</code> harden the class behind the correction you just gave</li>
+    <li><code>/fix-the-class</code> with no fresh correction: a hardening pass over every class the record shows</li>
   </ul>
 </article>
 

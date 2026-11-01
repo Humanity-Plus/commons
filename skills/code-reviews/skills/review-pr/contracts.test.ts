@@ -63,3 +63,27 @@ test("the verify-skill runtime-state path is one text, in the generator and chec
   expect(read("review-pr/check-clean.sh")).toContain(PIDS);
   expect(generator).not.toContain("review-report/verify/.pids");
 });
+
+// The shared-file rule narrows the Paths join by symbol. It is the generator's
+// rule and every consumer cites it by that phrase (field: a three-file refactor
+// of a shared helper selected eight journeys under the plain file join).
+test("the shared-file narrowing rule is the generator's, cited by every consumer", () => {
+  expect(generator).toContain("**A file listed by several features narrows by symbol.**");
+  expect(generator).toContain("`not-affected`");
+  for (const [name, text] of Object.entries(consumers)) expect(text, name).toContain("narrows by symbol");
+  expect(consumers["resolve-review"]).toContain("`not-affected`");
+});
+
+// The class mark is one field name across the reviewer, the renderer, the
+// publisher, the fixer, and the hardener; the rule table it reads is one heading
+// across the skill that keeps it and the two that consult it.
+test("the class mark and the rule-table heading are one text across producers and consumers", () => {
+  const FIELD = "classEvidence";
+  for (const rel of ["review-pr/SKILL.md", "review-pr/render.ts", "review-pr/publish.ts", "resolve-review/SKILL.md", "fix-the-class/SKILL.md"]) {
+    expect(read(rel), rel).toContain(FIELD);
+  }
+  const HEADING = "## Rules and what enforces them";
+  for (const rel of ["fix-the-class/SKILL.md", "review-pr/SKILL.md", "resolve-review/SKILL.md"]) {
+    expect(read(rel), rel).toContain(HEADING);
+  }
+});

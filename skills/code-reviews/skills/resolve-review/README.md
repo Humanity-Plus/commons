@@ -18,6 +18,11 @@ Given a `review-pr` findings file (or findings passed in-session), it:
    site's `note` is its specific remedy.
 2. **Applies** — one minimal, scoped edit per finding, matching the repo's
    conventions; anchors are treated as approximate and confirmed before editing.
+   A finding the review marked as a **class** (`classEvidence`: several sites, a
+   rule resting on prose, or seen before) is fixed at every site and then
+   **hardened** with `fix-the-class` at the guard level — types, a check whose
+   error names the fix, or a test — proven red on the instance just fixed, with
+   a row in the repo's rules table; siblings left outside scope are named.
 3. **Validates** — runs the repo's *existing* typecheck/lint/targeted tests (via the
    workspace runner in monorepos); **mutation-tests every added test** (sees it fail
    on the reintroduced defect before trusting it); reverts any fix that breaks

@@ -2,9 +2,10 @@
 
 An AI code-review loop for PRs and branches: a multi-lens reviewer that produces a
 self-contained HTML report, a fixer that safely resolves the findings, a publisher
-that posts the review to GitHub as one real review, a review-debt filer, and a
-primitives-map generator, and a verify-skill generator that teaches the toolkit
-how to run your app. Built for the failure modes of **agent-written code** —
+that posts the review to GitHub as one real review, a review-debt filer, a
+primitives-map generator, a verify-skill generator that teaches the toolkit
+how to run your app, and a class hardener that makes a repeated mistake
+impossible instead of fixing it again. Built for the failure modes of **agent-written code** —
 plausible reinvention, vacuous tests, green-CI-wrong-behavior — and evolved through
 23 field-feedback rounds on production repos before going public.
 
@@ -28,6 +29,9 @@ checkout, so use them where Claude has a terminal and your repository.
 /create-verify-skill    generate a repo-local verify-<app> skill + feature map; the
                         review, the fixer, and loops built on them then drive the
                         features a change touched
+/fix-the-class          make a repeated mistake impossible at the highest level that
+                        works, proven red on a past instance; resolve-review runs
+                        it for the findings a review marked as a class
 ```
 
 **The recommended flow for a PR is the first three, in that order**: `/review-pr`
@@ -146,5 +150,8 @@ with model-family diversity where a second runner exists; and
 `maintain-verification-skill` — a generated, repo-local skill that drives the
 real app with launch / doctor / drive / evidence / cleanup and a feature map
 proven by observable end states — adding the paths join key and seeded
-personas that let this toolkit's review, fixer, and queue consume it. The toolkit is
+personas that let this toolkit's review, fixer, and queue consume it; and
+`fix-the-class` adapts pstack's `correct` — the agent model, the level ladder,
+proof on a past mistake, and the rule table — with a scope guard on the ladder
+and an entry point from `resolve-review`'s class findings. The toolkit is
 MIT-licensed, like the rest of the Commons.

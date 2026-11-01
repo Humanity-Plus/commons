@@ -91,6 +91,7 @@ interface Finding {
   rule?: string;
   confidence?: string;
   trackedIssue?: string; // review-debt issue URL from /review-issues — see trackedLine()
+  classEvidence?: string; // Phase 4 class mark — see classesLine()
 }
 interface Report {
   meta: {
@@ -304,6 +305,7 @@ function bodyFindingBlock(f: Finding, meta: Report["meta"]): string {
   const loc = f.file ? ` · <code>${f.file}${f.line > 0 ? `:${f.line}` : ""}</code>` : "";
   const inner = [
     f.rule ? `> **Rule** — ${f.rule}` : "",
+    f.classEvidence ? `> **Class** — ${f.classEvidence}` : "",
     f.evidence ? toGfm(f.evidence, meta) : "",
     f.suggestion ? `**Fix**\n\n${toGfm(f.suggestion, meta)}` : "",
   ]
@@ -349,6 +351,19 @@ function severityTally(findings: Finding[]): string {
     (s) => `${SEV_DOT[s]} ${findings.filter((f) => f.severity === s).length} ${s}`
   );
   return parts.length ? `**${findings.length} finding${findings.length === 1 ? "" : "s"}:** ${parts.join(" · ")}` : "No findings.";
+}
+
+// The classes (Phase 4's class mark), as one block before the sections: a reader
+// who skims the body still learns which findings are a repeat waiting to happen,
+// which is what decides whether to harden rather than patch.
+export function classesLine(report: Report, meta: Report["meta"] = {}): string {
+  const classes = report.findings.filter((f) => typeof f.classEvidence === "string" && f.classEvidence.trim());
+  if (!classes.length) return "";
+  const items = classes.map((f) => {
+    const loc = f.file ? ` · \`${f.file}${f.line > 0 ? `:${f.line}` : ""}\`` : "";
+    return `- ${SEV_DOT[f.severity] ?? "🟡"} **${f.title}**${loc} — ${toGfm(f.classEvidence!, meta)}`;
+  });
+  return `**${classes.length} class${classes.length === 1 ? "" : "es"} — fix the class, not the instance** (the same mistake at several sites, a rule resting on prose, or a defect a past review found):\n${items.join("\n")}`;
 }
 
 // One line for the blast-radius lens's safety fact: the load-bearing assumption,
@@ -434,6 +449,8 @@ export function buildReview(
   body.push(severityTally(findings));
   const blast = blastRadiusLine(report, meta);
   if (blast) body.push(blast);
+  const classes = classesLine(report, meta);
+  if (classes) body.push(classes);
   if (opts.reportUrl)
     body.push(
       `**[📊 Open the full HTML report](${opts.reportUrl})** — diagrams, conventions scorecard, test-gap matrix, and permalinked evidence.`

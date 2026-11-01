@@ -208,6 +208,26 @@ test("grouped finding renders as one card listing every location", () => {
   expect((html.match(/<article class="finding"/g) || []).length).toBe(1); // exactly one card
 });
 
+test("a class finding renders the chip, its evidence line, and the Classes card; hostile evidence is escaped", () => {
+  const html = page(
+    baseReport({
+      findings: [
+        mkFinding({ id: "c-1", title: "Inline status enum", classEvidence: "3 sites in this diff <script>bad()</script>" }),
+        mkFinding({ id: "c-2", title: "Plain finding" }),
+      ],
+    })
+  );
+  expect(html).toContain('class="chip chip-class"');
+  expect((html.match(/class="chip chip-class"/g) || []).length).toBe(1); // only the marked one
+  expect(html).toContain('class="finding-class"'); // the evidence line on the card
+  expect(html).toContain("3 sites in this diff");
+  expect(html).not.toContain("<script>bad()"); // evidence goes through the sanitizer
+  const card = html.slice(html.indexOf('class="card cls-card"'), html.indexOf("</section>", html.indexOf('class="card cls-card"')));
+  expect(card).toContain("1 to fix as a class"); // the Classes card counts the marked findings…
+  expect(card).toContain('href="#f-c-1"'); // …and links them
+  expect(card).not.toContain("Plain finding"); // unmarked findings stay out of it
+});
+
 test("folded findings move to the collapsed More-findings section", () => {
   const html = page(
     baseReport({
@@ -310,6 +330,8 @@ test("default path: none of the new sections/chips render when the fields are ab
   expect(html).not.toContain('class="chip chip-src"'); // (the CSS rule is always shipped)
   expect(html).not.toContain("Regraded");
   expect(html).not.toContain("Sharded review");
+  expect(html).not.toContain('class="chip chip-class"');
+  expect(html).not.toContain("cls-card");
 });
 
 test("scorecardCard falls back to SCORE.na for a malformed status", () => {

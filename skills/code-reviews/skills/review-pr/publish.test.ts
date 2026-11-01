@@ -1,7 +1,7 @@
 // Tests for the GitHub-publishing pipeline: diff anchoring, GFM degradation,
 // and review-payload assembly. Run: bun test  (from this directory)
 import { test, expect } from "bun:test";
-import { parseDiffAnchors, toGfm, buildReview, blastRadiusLine, resolveEvent, checkPrMismatch, gistGuardError, reviewFooter, fmtStamp, pagesReportName, pagesGuardError } from "./publish.ts";
+import { parseDiffAnchors, toGfm, buildReview, blastRadiusLine, classesLine, resolveEvent, checkPrMismatch, gistGuardError, reviewFooter, fmtStamp, pagesReportName, pagesGuardError } from "./publish.ts";
 
 // ---- --gist visibility guard (round 19: the private-source leak vector) ----
 test("gistGuardError refuses non-public repos unless forced", () => {
@@ -389,4 +389,23 @@ test("buildReview puts the blast-radius line in the body before the sections", (
   expect(p.body.indexOf("Blast radius")).toBeLessThan(p.body.indexOf("New env var needed"));
   const without = buildReview(REPORT, anchors, { event: "COMMENT" });
   expect(without.body).not.toContain("Blast radius");
+});
+
+test("classesLine lists the marked findings; buildReview puts it in the body and tags the body block", () => {
+  const anchors = parseDiffAnchors(DIFF);
+  const marked = {
+    ...REPORT,
+    findings: REPORT.findings.map((f) =>
+      f.id === "first-five-2" ? { ...f, classEvidence: "also review-debt #12" } : f
+    ),
+  };
+  const line = classesLine(marked as any);
+  expect(line).toContain("**1 class — fix the class, not the instance**");
+  expect(line).toContain("**Out-of-diff finding** · `src/pay/charge.ts:999` — also review-debt #12");
+  expect(line).not.toContain("Wrong Stripe method"); // unmarked findings stay out
+  const p = buildReview(marked as any, anchors, { event: "COMMENT" });
+  expect(p.body.indexOf("fix the class, not the instance")).toBeLessThan(p.body.indexOf("#### Findings"));
+  expect(p.body).toContain("> **Class** — also review-debt #12"); // the body block carries the mark too
+  expect(classesLine(REPORT)).toBe("");
+  expect(buildReview(REPORT, anchors, { event: "COMMENT" }).body).not.toContain("fix the class");
 });

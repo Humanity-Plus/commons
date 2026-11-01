@@ -129,6 +129,7 @@ a reference for every skill.
 | [review-issues](skills/code-reviews/skills/review-issues/SKILL.md) | Files a review's non-blocking nitpicks as grouped, deduplicated GitHub issues for a scheduled fixer to drain. |
 | [map-primitives](skills/code-reviews/skills/map-primitives/SKILL.md) | Maps your system's building blocks into `docs/primitives.md` + `primitives.yaml`, the config the review uses to spot when a change re-invents an existing shape. |
 | [create-verify-skill](skills/code-reviews/skills/create-verify-skill/SKILL.md) | Generates a repo-local `verify-<app>` skill that drives the real app the way a user does, plus a feature map with source paths and seeded personas; the review, the fixer, and loops built on them then drive the features a change touched. Refresh mode keeps the map honest. |
+| [fix-the-class](skills/code-reviews/skills/fix-the-class/SKILL.md) | Makes a repeated agent mistake impossible at the highest level that works — architecture, types, a check whose error names the fix, a test, prose last — proven red on a past instance, with a table in AGENTS.md of each rule and what enforces it. `resolve-review` runs it for the findings a review marked as a class. |
 
 **Make it yours.** The toolkit works out of the box, but its real configuration is
 four repo-owned artifacts: a `REVIEW.md` with the facts a diff can't tell a reviewer,

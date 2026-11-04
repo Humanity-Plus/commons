@@ -203,8 +203,7 @@ For each task, smallest blast radius first:
 1. After each fix (or a small group in one file), run the repo's **existing** checks
    that cover the files you touched —
    **pick gates from CI, and prove each one covers the changed files**
-   (`review-pr`'s baseline rule, its one statement; a CI `lint:ci` has caught
-   what workspace `lint` skipped): typecheck, lint, and the
+   (`review-pr`'s baseline rule, its one statement): typecheck, lint, and the
    **targeted** tests for the touched area (prefer a focused test run over the
    whole suite for speed). **In monorepos, invoke checks through
    the workspace's own runner** (`turbo run check-types`, `nx …`, `bun run <script>`)
@@ -316,7 +315,9 @@ For each task, smallest blast radius first:
    is **commit-level or operational** (a rebase, a migration, a deploy step): this
    skill structurally can't apply those, and they're often the only findings that
    actually bite on merge, so they must not read like an appendix below the
-   fixed-count. When Phase 0 found the branch behind base, open with that fact
+   fixed-count. A changed file the gate pairing left uncovered (the gate rule's
+   hole) is an over-to-you item too: a green run that never looked at the file
+   is not a pass. When Phase 0 found the branch behind base, open with that fact
    ("N commits behind `<base>` — rebase is the operative remediation") before
    anything else. **Name every sibling you left alone**: when a fix has siblings
    outside this branch's scope (Phase 2 step 5), list each one by `file:line` in

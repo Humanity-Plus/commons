@@ -47,7 +47,8 @@ the code under review.
    report-only `review-pr` it may run the repo's **existing** check scripts. Do it
    before reviewing: the gates CI runs —
    **pick gates from CI, and prove each one covers the changed files** (the rule
-   lives in `review-pr`'s baseline paragraph) — in monorepos use the workspace runner (`turbo …`/`nx …`/`bun run <script>`),
+   lives in `review-pr`'s baseline paragraph) — in monorepos through the
+   workspace runner (`turbo …`/`nx …`/`bun run <script>`),
    never bare tools, since per-package configs make root invocations lie.
    **Distrust the local environment before you trust a failure** — differential
    baseline: a failing check is ground truth about the PR **only if the same check
@@ -87,7 +88,9 @@ the code under review.
    will actually bite on merge; they must not read like an appendix. Then the
    resolution table — counts by status (`fixed`/`partial`/`skipped`/`failed`), what
    changed per finding (with `file:line`), the rest of the **"over to you"** list,
-   and `git diff --stat`. **Call out the below-threshold leftovers explicitly**: a
+   and `git diff --stat`, plus any changed file the baseline's gate pairing left
+   uncovered (a hole, never a pass). **Call out the below-threshold leftovers
+   explicitly**: a
    repo whose `REVIEW.md` caps craft findings at `low` (common, correct) means
    conventions findings are *never* in the default fix set — say "N conventions
    findings below the fix threshold: file them with `review-issues`, or re-run

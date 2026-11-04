@@ -10,9 +10,11 @@ import { join } from "node:path";
 const skills = join(import.meta.dir, "..");
 const read = (p: string) => readFileSync(join(skills, p), "utf8");
 // Prose reflows: a contract phrase that wraps across a line break is still the
-// same text (field: three phrase checks went red on a wrapped line, twice).
-// Phrase checks match on whitespace-collapsed text; regexes over line structure
-// (the ladder row) keep the raw file.
+// same text (field: three phrase checks went red on a wrapped line, twice), so
+// phrase checks — positive and negative — match on whitespace-collapsed text.
+// Strings an agent copies into a shell (the detection command, the pid path, the
+// evidence roots) and regexes over line structure (the ladder row) read the raw
+// file: there a line break is a defect.
 const flat = (s: string) => s.replace(/\s+/g, " ");
 const generator = read("create-verify-skill/SKILL.md");
 const consumers = { "resolve-review": read("resolve-review/SKILL.md"), "review-pr": read("review-pr/SKILL.md") };
@@ -20,10 +22,10 @@ const consumers = { "resolve-review": read("resolve-review/SKILL.md"), "review-p
 const DETECTION = "find . -path '*/skills/verify-*/SKILL.md' -not -path '*/node_modules/*'";
 
 test("the verify-skill detection rule is one text, in the generator and every consumer", () => {
-  expect(flat(generator)).toContain(DETECTION);
+  expect(generator).toContain(DETECTION);
   for (const [name, text] of Object.entries(consumers)) {
-    expect(flat(text), name).toContain(DETECTION);
-    expect(text, `${name} must not fall back to a shell glob`).not.toMatch(/at `\*\/skills\/verify-\*\/SKILL\.md`/);
+    expect(text, name).toContain(DETECTION);
+    expect(flat(text), `${name} must not fall back to a shell glob`).not.toMatch(/at `\*\/skills\/verify-\*\/SKILL\.md`/);
   }
 });
 
@@ -39,9 +41,9 @@ test("every feature-file section a consumer cites is one the generator mandates"
 });
 
 test("the evidence root and the phase-scoped layout are shared text", () => {
-  expect(flat(generator)).toContain("review-report/verify/<feature>/<phase>-<sha7>/");
-  expect(flat(consumers["resolve-review"])).toContain("review-report/verify/<feature>/resolve-<sha7>/");
-  expect(flat(consumers["review-pr"])).toContain("review-report/verify/<feature>/review-<sha7>/");
+  expect(generator).toContain("review-report/verify/<feature>/<phase>-<sha7>/");
+  expect(consumers["resolve-review"]).toContain("review-report/verify/<feature>/resolve-<sha7>/");
+  expect(consumers["review-pr"]).toContain("review-report/verify/<feature>/review-<sha7>/");
 });
 
 // The light-tier predicate lives in exactly one place: the ladder row. Every
@@ -64,9 +66,9 @@ test("the light-tier predicate is stated once, in the ladder row", () => {
 // with another PR's findings while the server was still up.
 test("the verify-skill runtime-state path is one text, in the generator and check-clean.sh", () => {
   const PIDS = "$(git rev-parse --git-dir)/verify/.pids";
-  expect(flat(generator)).toContain(PIDS);
-  expect(flat(read("review-pr/check-clean.sh"))).toContain(PIDS);
-  expect(generator).not.toContain("review-report/verify/.pids");
+  expect(generator).toContain(PIDS);
+  expect(read("review-pr/check-clean.sh")).toContain(PIDS);
+  expect(flat(generator)).not.toContain("review-report/verify/.pids");
 });
 
 // The shared-file rule narrows the Paths join by symbol. It is the generator's
@@ -118,10 +120,22 @@ test("the guide keeps no hand-kept counts and its skills table lists every skill
 
 // Gate selection is one rule: CI's set, each gate shown to cover the changed
 // files (field: a workspace `lint` passed while CI's `lint:ci` failed on script
-// formatting it never scanned). review-pr states it; the fix phase and the
-// one-pass loop cite it by its opening words.
-test("the gate-selection rule is review-pr's, cited by the fix phase and review-fix", () => {
+// formatting it never scanned). review-pr states it once; the fix phase and the
+// one-pass loop cite it by its opening words, and nobody still discovers gates
+// by package-script name.
+test("the gate-selection rule is review-pr's one statement, cited by the fix phase and review-fix", () => {
   const RULE = "pick gates from CI, and prove each one covers the changed files";
-  expect(flat(consumers["review-pr"])).toContain(`**${RULE[0].toUpperCase()}${RULE.slice(1)}.**`);
+  const heading = `**${RULE[0].toUpperCase()}${RULE.slice(1)}.**`;
+  const all = { ...consumers, "review-fix": read("review-fix/SKILL.md") };
+  const statements = Object.values(all).map(flat).join("\n").split(heading).length - 1;
+  expect(statements, "the rule is stated once, in review-pr").toBe(1);
+  const pr = flat(consumers["review-pr"]);
+  expect(pr).toContain(heading);
+  for (const clause of ["never the nearest-sounding `package.json` script", "A changed file no gate covers is a hole", 'per "pick gates from CI" below']) {
+    expect(pr, clause).toContain(clause);
+  }
   for (const rel of ["resolve-review/SKILL.md", "review-fix/SKILL.md"]) expect(flat(read(rel)), rel).toContain(`**${RULE}**`);
+  for (const [name, text] of Object.entries(all)) {
+    expect(flat(text), `${name} still discovers gates by script name`).not.toMatch(/discover(ed)? (them )?from (its own )?`package\.json`/);
+  }
 });

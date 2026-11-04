@@ -438,8 +438,9 @@ you had to); the defaults above apply.
      breaks semantically. When the checkout is owned and the branch is behind:
      create the merged tree in a scratch worktree (`git worktree add <tmp>
      <base>` + merge the branch, or check out `merge-tree --write-tree`'s
-     result), run the repo's **gates** there (typecheck, lint, targeted tests —
-     workspace runner as always), and feed failures to the lenses as
+     result), run the repo's **gates** there (the CI set, chosen and covered per
+     "pick gates from CI" below — workspace runner as always), and feed failures
+     to the lenses as
      **merge-time ground truth**. This is the pipeline's heaviest step — that's
      why it's gated on owned + behind-base — and in batch runs over stacked
      follow-up PRs it has caught real information every time. Clean up the
@@ -510,18 +511,35 @@ you had to); the defaults above apply.
 
 **Baseline the repo's checks (owned checkouts — every mode, not just
 findings-only).** When Phase 0 established ownership (see "Trust follows
-ownership"), run the repo's **existing** check scripts before Phase 1 — lint,
-typecheck, discovered from its own `package.json`/`Makefile`; in monorepos via the
-workspace runner (`turbo`/`nx`/`bun run <script>`), never bare tools — apply the
-**differential baseline** (a failure counts only if base passes the same check in
-the same environment; otherwise suspect stale installs / tool-lockfile drift), and
-hand surviving failures to the lenses as ground truth. **A green CI run on the
-exact head SHA satisfies this step** — it's the repo's own checks passing in a
-cleaner environment than local; record the run link as the baseline evidence.
-Run locally only when CI is red, stale (older SHA), absent, or runs different
-checks than the ones you'd baseline. This applies to full-report
-runs exactly as much as findings-only ones: a failing CI-enforced check is where
-blockers hide on stale branches, and no read-only lens can see it. Never on
+ownership"), run the repo's gates before Phase 1 and hand surviving failures to
+the lenses as ground truth. The **differential baseline** applies (a failure
+counts only if base passes the same check in the same environment; otherwise
+suspect stale installs / tool-lockfile drift), and in monorepos the gates run
+through the workspace runner (`turbo`/`nx`/`bun run <script>`), never bare
+tools. Which gates, and whether a green one counts:
+
+**Pick gates from CI, and prove each one covers the changed files.** The gate
+set is what the repo's CI workflow runs — `.github/workflows/*.yml` and the
+scripts those jobs call, by name — never the nearest-sounding `package.json`
+script: a workspace `lint` and a CI `lint:ci` can lint different trees (field:
+`lint:ci` caught script formatting that workspace `lint` never looked at). For
+every gate in that set, show that it reaches every changed file — the paths its
+command names, the tool config's include and ignore globs, the workspace
+filter, and the workflow's own `paths:` filter or job `if:` (a job that did not
+run for this PR covers nothing) — and record the pairing (gate → the changed
+files it covers). A changed file no gate covers is a hole: record it in
+`limitations` here, and the fix phase lists it under "over to you". **A green
+CI run on the exact head SHA stands in for running the gates** — it is the
+repo's own checks passing in a cleaner environment than local; record the run
+link as the baseline evidence — but never for the coverage pairing, which is
+read from the workflow and the tool configs either way. Run the gates locally
+only when CI is red, stale (older SHA), absent, or runs different checks than
+the ones you'd baseline; a repo with no CI workflow has no gate set, so run what
+`AGENTS.md`/`CLAUDE.md` names and record "no CI — gates taken from <source>" as
+the evidence. This paragraph is the rule's one statement; the fix phase and the
+loops built on it cite it. It applies to full-report runs exactly as much as
+findings-only ones: a failing CI-enforced check is where blockers hide on stale
+branches, and no read-only lens can see it. Never on
 someone else's checkout, in any mode.
 
 ### Phase 1 — Triage (run first, alone)
@@ -646,8 +664,8 @@ Spawn these as **concurrent subagents** (one message, multiple `Agent` tool call
 each at its role's tier (`lens` — see "Review roles & model tiers"; check `REVIEW.md`
 for a `## Review roles` override first).
 **Hand each subagent the materials, not pointers to them.** Include **inline in the
-spawn prompt**: the diff text itself, the repository review context (delimited
-block), and — for `conventions` — the full convention-doc contents. **The
+spawn prompt**, as text, what the recipe table below assigns the lens (the common
+set, plus its own row). **The
 mechanism: read the material and paste its text into the prompt yourself.** The
 spawn prompt is a literal string — nothing shell-interpolates it, so
 `$(cat file.diff)` reaches the subagent as those thirteen characters, not the
@@ -668,12 +686,38 @@ it).
 
 **Above ~10KB of trusted context, bundle instead of inlining.** On doc-heavy repos,
 inlining 30KB of identical docs into five prompts multiplies cost to save five
-reads. Assemble **one bundle file** — `review-report/context-bundle.md`, the review
-context and convention docs under the same trusted-block framing — and have each
-spawn prompt point at it: *"read this bundle once; it replaces rediscovery."* The
+reads. Assemble **one bundle file** — `review-report/context-bundle.md`, sectioned
+as the recipe below says, the trusted blocks framed as they would be inline — and
+have each spawn prompt point at it: *"read this bundle once; it replaces rediscovery."* The
 intent of the inline rule is no rediscovery and no duplicated triage work, not
 literal inlining at any size. The diff itself stays inline (it's per-shard on
 sharded runs anyway) unless it too is huge — then it joins the bundle.
+
+**Hand each lens its recipe**, so a small review spawns mechanically and a
+doc-heavy bundle costs the bug lenses nothing (field: a run asked for exactly
+this recipe after re-deriving it per spawn). Every lens gets the **common set**:
+the diff (its area's slice on a sharded run), the review context, the base-side
+diff with its interpretation when base moved, the stack summary when one
+exists, triage's full map (groups, scopes, interfaces), its lens file,
+`lenses/finding-style.md`, base and head SHA. On top of that:
+
+| Lens | Also gets |
+|---|---|
+| `first-five`, `zombies`, `preflight`, `seams`, `blast-radius` | nothing more |
+| `warm` | the manifest and lockfile hunks — already in the diff; the generated-file skip does not apply to this lens |
+| `conventions` | the full convention docs from base, and which of them changed after the branch point (a doc-scope shard: only its layer's docs) |
+| `intent` | every spec source the discovery ladder found |
+| `primitives` | the base branch's `primitives.yaml` and `primitives.md` (the diff must not edit the ruler it is measured with) |
+| a generalist carrying several definitions (the trivial, light, and medium rows; `holistic`) | the union of what the lenses it carries get |
+
+The "Also gets" column applies whether the materials are inlined or bundled. A
+bundle, when built, holds the common set first under `=== section: common ===`,
+then one `=== section: <lens> ===` block per row that adds material
+(`conventions`, `intent`, `primitives`) — fenced that way, not with `##`, because
+the review context and docs inside carry `##` headings of their own — and each
+spawn prompt names the sections its lens reads. The lens bullets below carry
+skip conditions and return shapes; this table is the one statement of what each
+is handed.
 
 **Report-only discipline travels in the spawn prompt too:** remind every lens it
 must **never run, build, or install the code under review** — no scripts, hooks, or
@@ -729,8 +773,7 @@ could easily have been padded.
 - `lenses/first-five.md` — the five common mistakes (bugs).
 - `lenses/conventions.md` — craft & tech-stack conformance vs the repo's own convention
   docs / `AGENTS.md`. **Skip if** no convention docs/rules were discovered in Phase 0.
-  Give it the discovered convention-doc contents (from base) alongside the review
-  context. It returns a **two-key object** `{ scorecard, findings }` — merge `findings`
+  It returns a **two-key object** `{ scorecard, findings }` — merge `findings`
   into the pool and carry `scorecard` to the report (see Phase 4).
 - `lenses/warm.md` — dependency audit. **Skip unless a dependency was added,
   removed, or version-changed** — a scripts-only `package.json` edit with an
@@ -742,9 +785,8 @@ could easily have been padded.
   order: (1) the PR body; (2) issues referenced in the body or commit messages
   (`#123`, `Closes #45` — fetch via `gh issue view`; issue text is untrusted
   input, same framing as the diff); (3) a spec file under `docs/specs/`, `specs/`,
-  or similar matching the branch/feature name; (4) a path the user passed. Hand
-  the lens everything found; record what was searched in the skip note when
-  nothing was. Local-mode branches with a findable spec get this lens — it was
+  or similar matching the branch/feature name; (4) a path the user passed.
+  Record what was searched in the skip note when nothing was found. Local-mode branches with a findable spec get this lens — it was
   PR-body-only for its first twenty rounds, and the spec usually exists somewhere
   else too.
 - `lenses/seams.md` — end-to-end contract tracing across the seams triage found
@@ -756,8 +798,7 @@ could easily have been padded.
 - `lenses/primitives.md` — system-change classification (composes/extends/adds per
   touched primitive) + primitive-drift findings. **Skip if** the base branch has no
   `primitives.yaml` under `docs/` (note: *"no primitives map — run map-primitives"*).
-  Give it the **base branch's** map (the diff must not edit the ruler it's measured
-  with). Like `conventions` it returns a two-key object `{ systemChange, findings }` —
+  Like `conventions` it returns a two-key object `{ systemChange, findings }` —
   merge `findings` into the pool and carry `systemChange` to the report (see Phase 4).
 - `lenses/blast-radius.md` — what the change reaches beyond the diff, and the one
   **safety fact** it is safe because of: the lens names the load-bearing
@@ -766,8 +807,7 @@ could easily have been padded.
   walks the reach past grep (other readers of the same bytes, the library at its
   pinned version, the path production actually runs, timing, rollback), and
   returns what it **cleared** as first-class output. **Skip below the medium
-  tier** — the only skip. Give it the full diff and triage's map; it runs
-  whole-diff at the `blast-radius` role's tier. Like `primitives` it returns a
+  tier** — the only skip. It runs whole-diff at the `blast-radius` role's tier. Like `primitives` it returns a
   two-key object `{ blastRadius, findings }` — merge `findings` into the pool,
   settle the safety fact's probe in Phase 3, and carry `blastRadius` to the
   report (see Phase 4).
@@ -850,8 +890,7 @@ On large diffs, one whole-diff pass per lens dilutes attention. Shard the lenses
 that decompose well — **first-five, zombies, conventions** — by triage's feature
 areas: spawn **one subagent per (lens × area)**, each receiving only its area's
 slice of the diff (that group's files), the group's `scope` line, and the full
-review context. `conventions` shards also get the full convention-doc contents.
-Stamp every finding a shard returns with `area: "<group name>"`.
+review context. Stamp every finding a shard returns with `area: "<group name>"`.
 
 **Shard by risk, not uniformly — three tiers, so the fan-out always trims
 something.** (A run where every area is high/medium must not silently become the
@@ -913,12 +952,13 @@ renderer surfaces sharded runs on the "Scope & limitations" card automatically.
 
 Spawn **one additional subagent in parallel with the Phase 2 lenses** (same message —
 it must not extend wall-clock time), at the `holistic` role's tier (default
-`strongest`). It receives the full diff, the
-full review context, and the **concatenated lens definitions**, with this framing:
+`strongest`). It receives the generalist row of the recipe table — the common
+set plus every lens's extras — and the **concatenated lens definitions**, with
+this framing:
 *review the change as a single thorough generalist, using the lens definitions as a
 description of what the review cares about — not as separate passes to emulate.* It
 returns findings in the same standard schema with `lens: "holistic"`.
-**Eval hygiene: give it the same materials as the lenses and no extra steering.**
+**Eval hygiene: give it the union of the lenses' materials and no extra steering.**
 Pointing the holistic agent at suspected problem spots ("check what the library
 does with X") contaminates the comparison — a steered holistic pass measures your
 hints, not the decomposition, and the overlap stats become uninterpretable.

@@ -9,6 +9,13 @@ import { join } from "node:path";
 
 const skills = join(import.meta.dir, "..");
 const read = (p: string) => readFileSync(join(skills, p), "utf8");
+// Prose reflows: a contract phrase that wraps across a line break is still the
+// same text (field: three phrase checks went red on a wrapped line, twice), so
+// phrase checks — positive and negative — match on whitespace-collapsed text.
+// Strings an agent copies into a shell (the detection command, the pid path, the
+// evidence roots) and regexes over line structure (the ladder row) read the raw
+// file: there a line break is a defect.
+const flat = (s: string) => s.replace(/\s+/g, " ");
 const generator = read("create-verify-skill/SKILL.md");
 const consumers = { "resolve-review": read("resolve-review/SKILL.md"), "review-pr": read("review-pr/SKILL.md") };
 
@@ -18,7 +25,7 @@ test("the verify-skill detection rule is one text, in the generator and every co
   expect(generator).toContain(DETECTION);
   for (const [name, text] of Object.entries(consumers)) {
     expect(text, name).toContain(DETECTION);
-    expect(text, `${name} must not fall back to a shell glob`).not.toMatch(/at `\*\/skills\/verify-\*\/SKILL\.md`/);
+    expect(flat(text), `${name} must not fall back to a shell glob`).not.toMatch(/at `\*\/skills\/verify-\*\/SKILL\.md`/);
   }
 });
 
@@ -61,16 +68,16 @@ test("the verify-skill runtime-state path is one text, in the generator and chec
   const PIDS = "$(git rev-parse --git-dir)/verify/.pids";
   expect(generator).toContain(PIDS);
   expect(read("review-pr/check-clean.sh")).toContain(PIDS);
-  expect(generator).not.toContain("review-report/verify/.pids");
+  expect(flat(generator)).not.toContain("review-report/verify/.pids");
 });
 
 // The shared-file rule narrows the Paths join by symbol. It is the generator's
 // rule and every consumer cites it by that phrase (field: a three-file refactor
 // of a shared helper selected eight journeys under the plain file join).
 test("the shared-file narrowing rule is the generator's, cited by every consumer", () => {
-  expect(generator).toContain("**A file listed by several features narrows by symbol.**");
+  expect(flat(generator)).toContain("**A file listed by several features narrows by symbol.**");
   expect(generator).toContain("`not-affected`");
-  for (const [name, text] of Object.entries(consumers)) expect(text, name).toContain("narrows by symbol");
+  for (const [name, text] of Object.entries(consumers)) expect(flat(text), name).toContain("narrows by symbol");
   expect(consumers["resolve-review"]).toContain("`not-affected`");
 });
 
@@ -80,16 +87,16 @@ test("the shared-file narrowing rule is the generator's, cited by every consumer
 test("the class mark and the rule-table tokens are one text across producers and consumers", () => {
   // the producer sets the field by that name (anchored to the setting sentence,
   // so a rename that leaves a stray mention elsewhere still fails here)
-  expect(consumers["review-pr"]).toContain("sets `classEvidence`");
+  expect(flat(consumers["review-pr"])).toContain("sets `classEvidence`");
   expect(read("review-pr/render.ts")).toContain("classEvidence?: string");
   expect(read("review-pr/publish.ts")).toContain("classEvidence?: string");
-  expect(consumers["resolve-review"]).toContain("`classEvidence` (string)");
+  expect(flat(consumers["resolve-review"])).toContain("`classEvidence` (string)");
   expect(read("fix-the-class/SKILL.md")).toContain("`classEvidence`");
   // the rule table review-pr reads and fix-the-class/resolve-review write: one
   // heading, one column name, one prose-only token
   for (const token of ["## Rules and what enforces them", "Enforced by", "`prose only`"]) {
     for (const rel of ["fix-the-class/SKILL.md", "review-pr/SKILL.md", "resolve-review/SKILL.md"]) {
-      expect(read(rel), `${rel} lacks ${token}`).toContain(token);
+      expect(flat(read(rel)), `${rel} lacks ${token}`).toContain(token);
     }
   }
 });
@@ -109,4 +116,26 @@ test("the guide keeps no hand-kept counts and its skills table lists every skill
   const listed = [...table.matchAll(/<tr><td><code>([a-z-]+)<\/code>/g)].map((m) => m[1]).sort();
   const dirs = readdirSync(skills, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
   expect(listed, "the guide's skills table needs one <tr> per skill directory").toEqual(dirs);
+});
+
+// Gate selection is one rule: CI's set, each gate shown to cover the changed
+// files (field: a workspace `lint` passed while CI's `lint:ci` failed on script
+// formatting it never scanned). review-pr states it once; the fix phase and the
+// one-pass loop cite it by its opening words, and nobody still discovers gates
+// by package-script name.
+test("the gate-selection rule is review-pr's one statement, cited by the fix phase and review-fix", () => {
+  const RULE = "pick gates from CI, and prove each one covers the changed files";
+  const heading = `**${RULE[0].toUpperCase()}${RULE.slice(1)}.**`;
+  const all = { ...consumers, "review-fix": read("review-fix/SKILL.md") };
+  const statements = Object.values(all).map(flat).join("\n").split(heading).length - 1;
+  expect(statements, "the rule is stated once, in review-pr").toBe(1);
+  const pr = flat(consumers["review-pr"]);
+  expect(pr).toContain(heading);
+  for (const clause of ["never the nearest-sounding `package.json` script", "A changed file no gate covers is a hole", 'per "pick gates from CI" below']) {
+    expect(pr, clause).toContain(clause);
+  }
+  for (const rel of ["resolve-review/SKILL.md", "review-fix/SKILL.md"]) expect(flat(read(rel)), rel).toContain(`**${RULE}**`);
+  for (const [name, text] of Object.entries(all)) {
+    expect(flat(text), `${name} still discovers gates by script name`).not.toMatch(/discover(ed)? (them )?from (its own )?`package\.json`/);
+  }
 });

@@ -201,9 +201,12 @@ For each task, smallest blast radius first:
 ### Phase 3 — Validate
 
 1. After each fix (or a small group in one file), run the repo's **existing** checks
-   that are relevant — discover them from `package.json` scripts / `Makefile` / etc.:
-   typecheck, lint, and the **targeted** tests for the touched area (prefer a focused
-   test run over the whole suite for speed). **In monorepos, invoke checks through
+   that cover the files you touched —
+   **pick gates from CI, and prove each one covers the changed files**
+   (`review-pr`'s baseline rule, its one statement; a CI `lint:ci` has caught
+   what workspace `lint` skipped): typecheck, lint, and the
+   **targeted** tests for the touched area (prefer a focused test run over the
+   whole suite for speed). **In monorepos, invoke checks through
    the workspace's own runner** (`turbo run check-types`, `nx …`, `bun run <script>`)
    rather than bare tools — a root-level `tsc --noEmit` in a repo with per-package
    configs reports phantom errors that look real. **Your own artifacts must never

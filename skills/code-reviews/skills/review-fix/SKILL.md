@@ -45,8 +45,9 @@ the code under review.
 
 1. **Baseline the repo's checks.** This skill runs on a branch you own, so unlike
    report-only `review-pr` it may run the repo's **existing** check scripts. Do it
-   before reviewing: lint and typecheck, discovered from the repo's own scripts —
-   in monorepos use the workspace runner (`turbo …`/`nx …`/`bun run <script>`),
+   before reviewing: the gates CI runs —
+   **pick gates from CI, and prove each one covers the changed files** (the rule
+   lives in `review-pr`'s baseline paragraph) — in monorepos use the workspace runner (`turbo …`/`nx …`/`bun run <script>`),
    never bare tools, since per-package configs make root invocations lie.
    **Distrust the local environment before you trust a failure** — differential
    baseline: a failing check is ground truth about the PR **only if the same check

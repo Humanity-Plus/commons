@@ -73,10 +73,11 @@ severity arbiter before it reaches you.
 ## Install
 
 As a Claude Code plugin (managed bundle, skills namespaced as
-`/humanity-plus-review:review-pr` etc.):
+`/review-toolkit:review-pr` etc.):
 
 ```bash
-claude plugin install humanity-plus-review --marketplace Humanity-Plus/commons
+claude plugin marketplace add Humanity-Plus/commons
+claude plugin install review-toolkit@humanity-plus
 ```
 
 Or as editable files for any agent with the skills CLI, as the

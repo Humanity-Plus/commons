@@ -1,16 +1,12 @@
 {
-  "name": "humanity-plus-review",
+  "name": "review-toolkit",
   "description": "AI code-review loop for PRs and branches: a multi-lens reviewer that produces an HTML report, a fixer that safely resolves the findings, a publisher that posts the review to GitHub, a review-debt filer, a primitives-map generator, a verify-skill generator, and a class hardener.",
   "version": "0.4.0",
   "author": {
     "name": "Humanity Plus",
-    "url": "https://humanityplus.solutions"
+    "url": "https://github.com/Humanity-Plus"
   },
-  "icon": "./.claude-plugin/icon.png",
-  "homepage": "https://www.humanityplus.solutions/commons/plugins",
-  "documentationUrl": "https://www.humanityplus.solutions/commons/plugins#review-setup",
-  "supportUrl": "https://github.com/Humanity-Plus/commons/issues",
-  "privacyPolicyUrl": "https://www.humanityplus.solutions/commons/plugins/privacy",
+  "homepage": "https://github.com/Humanity-Plus/commons",
   "repository": "https://github.com/Humanity-Plus/commons",
   "license": "MIT"
 }

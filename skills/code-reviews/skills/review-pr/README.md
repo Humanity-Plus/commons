@@ -114,7 +114,7 @@ npx skills add Humanity-Plus/commons --skill review-pr -g
 Or run `npx skills add Humanity-Plus/commons` without `--skill` to pick from the whole
 toolkit interactively. Claude Code users can instead install the whole toolkit as a
 managed plugin (`claude plugin marketplace add Humanity-Plus/commons`, then
-`claude plugin install humanity-plus-review@humanity-plus`) — pick one lane, not both.
+`claude plugin install review-toolkit@humanity-plus`) — pick one lane, not both.
 See `../../review-toolkit.html` for the full setup guide and skill reference.
 
 **Fixing the findings.** `review-pr` is report-only. Its companion `resolve-review`

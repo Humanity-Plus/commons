@@ -46,16 +46,16 @@ claude plugin marketplace add Humanity-Plus/commons
 ```
 
 ```bash
-claude plugin install review-toolkit@humanity-plus
+claude plugin install hp-review-toolkit@humanity-plus
 ```
 
 ```bash
-claude plugin install code-publish@humanity-plus
+claude plugin install hp-code-publish@humanity-plus
 ```
 
 (Inside a session: `/plugin marketplace add Humanity-Plus/commons`, then
 `/plugin install <name>@humanity-plus`.) Plugin skills are namespaced, invoke
-them as `/review-toolkit:review-pr`, `/code-publish:create-pr`, and so on.
+them as `/hp-review-toolkit:review-pr`, `/hp-code-publish:create-pr`, and so on.
 The design systems skills are CLI-only for now.
 
 Plugins are versioned: installed plugins stay on their version until we cut a
@@ -74,8 +74,8 @@ third-party marketplace like this one needs the marketplace pre-approved in
 ```json
 {
   "enabledPlugins": {
-    "code-publish@humanity-plus": true,
-    "review-toolkit@humanity-plus": true
+    "hp-code-publish@humanity-plus": true,
+    "hp-review-toolkit@humanity-plus": true
   },
   "extraKnownMarketplaces": {
     "humanity-plus": {
@@ -116,8 +116,8 @@ in one pass before opening a PR, publish the review to GitHub as inline comments
 or file the leftover nitpicks as tracked issues so they get fixed later instead of
 dying with the report.
 
-**[Read the full guide](https://htmlpreview.github.io/?https://github.com/Humanity-Plus/commons/blob/main/skills/code-reviews/review-toolkit.html)**
-([source](skills/code-reviews/review-toolkit.html)), setup, how a review runs, and
+**[Read the full guide](https://www.humanityplus.solutions/commons/plugins/review-toolkit)**:
+setup, how a review runs, and
 a reference for every skill.
 
 | Skill | What it does |
@@ -138,7 +138,7 @@ of your system's building blocks, and a `verify-<app>` skill that knows how to r
 your app and prove its features. All four can be drafted by an agent, then
 **review and curate them yourself**; they're trusted context, and a wrong line
 suppresses real findings. The
-[guide's configuration section](https://htmlpreview.github.io/?https://github.com/Humanity-Plus/commons/blob/main/skills/code-reviews/review-toolkit.html#configure)
+[guide's configuration section](https://www.humanityplus.solutions/commons/plugins/review-toolkit#configure)
 walks through each file.
 
 Requires [bun](https://bun.sh) to render the HTML report, and the
@@ -152,7 +152,7 @@ until a fresh review has run against the code being PR'd.
 Three skills for the moment work leaves your machine and lands on GitHub. They
 share one philosophy: **disclose who wrote it, and make what was written easy to
 read** — the opposite of skills that try to make agent output pass as human.
-Also installable as the `code-publish` plugin
+Also installable as the `hp-code-publish` plugin
 ([bundle README](skills/code-publish/README.md)).
 
 **[write-clearly](skills/code-publish/skills/write-clearly/SKILL.md)**

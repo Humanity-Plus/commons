@@ -73,11 +73,11 @@ severity arbiter before it reaches you.
 ## Install
 
 As a Claude Code plugin (managed bundle, skills namespaced as
-`/review-toolkit:review-pr` etc.):
+`/hp-review-toolkit:review-pr` etc.):
 
 ```bash
 claude plugin marketplace add Humanity-Plus/commons
-claude plugin install review-toolkit@humanity-plus
+claude plugin install hp-review-toolkit@humanity-plus
 ```
 
 Or as editable files for any agent with the skills CLI, as the
@@ -104,6 +104,13 @@ you every skill twice.
   repository so its GitHub Pages site serves it. Neither will put a non-public
   repository's report where anyone can read it unless you pass `--force-gist` or
   `--force-pages`.
+- **On your own checkouts, when you set them up or ask:** a `verify-<app>` skill
+  from `create-verify-skill` builds, seeds, and starts your app locally and signs
+  in as seeded test personas, never against a shared, staging, or production
+  deployment. `interrogate` runs adversaries that execute the change in scratch
+  worktrees; when the Codex CLI is on your `PATH`, one of them runs through
+  `codex exec`, so that seat's brief, the diff, and what it reads in its worktree
+  go to OpenAI under your own Codex login.
 - **When you open the report:** `report.html` loads its fonts from Google Fonts.
 - **Nowhere else.** No telemetry and no other servers, and no token or key is ever
   read: GitHub access goes through your existing `gh` login.
@@ -125,7 +132,7 @@ The [setup guide](https://www.humanityplus.solutions/commons/plugins#review-setu
 
 ## Guide & internals
 
-- **[review-toolkit.html](review-toolkit.html)** — the full user guide: command
+- **[The full guide](https://www.humanityplus.solutions/commons/plugins/review-toolkit)** — setup, command
   reference, scenarios, safety model.
 - **[EVOLUTION.md](EVOLUTION.md)** — why the SKILL.md reads like a flight log: the
   field-feedback loop this toolkit is built by, and how to contribute a change.

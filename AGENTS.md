@@ -26,6 +26,11 @@ the Releasing section in `README.md`.
 - Never edit `version` in any `plugin.json` by hand. It is stamped from
   `package.json` by `scripts/sync-plugin-version.mjs` during a release, and CI
   fails PRs where the two drift.
+- The plugins are published from humanityplus.solutions/commons/plugins, with
+  the review guide at `/commons/plugins/review-toolkit`; its source is
+  `apps/marketing/lib/plugins.ts` in Humanity-Plus/humanity-plus. A PR that
+  adds, renames, or removes a skill or plugin ships with a website PR, and CI's
+  `check-website-plugins` step stays red until that one is deployed.
 - Every distributable skill lives at `skills/<bundle>/skills/<name>/SKILL.md`.
   Both lanes discover skills at that path (the plugin loader from each
   bundle's root, the skills CLI by walking `skills/`) — don't move or rename
@@ -49,7 +54,7 @@ the Releasing section in `README.md`.
 
 | Rule | Enforced by |
 |---|---|
-| The user guide's intros carry no hand-kept counts, and its skills table lists every skill directory | `bun test skills/code-reviews/skills/review-pr/contracts.test.ts` ("the guide keeps no hand-kept counts…") |
+| The website's plugins page and guide list every skill directory and name only plugins the marketplace lists | `bun run check-website-plugins` (CI, against the live site; `WEBSITE_URL` for a preview) |
 | A test added for a review finding is seen red under the mutation that names its regression, never only a coarser one | prose only: no mutation runner here; `resolve-review` Phase 3 step 2 is the procedure (PR #44: three class-mark tests stayed green under the fine mutations after passing coarse ones) |
 
 ## Known Issues

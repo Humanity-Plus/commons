@@ -1,5 +1,5 @@
 {
-  "name": "code-publish",
+  "name": "hp-code-publish",
   "description": "Skills for shipping work to GitHub: clear prose deliverables, outcome-led PRs with problem-first descriptions, and attribution headers that keep agent-authored comments distinguishable from the account owner's own words.",
   "version": "0.4.0",
   "author": {

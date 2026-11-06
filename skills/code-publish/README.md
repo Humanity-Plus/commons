@@ -19,11 +19,11 @@ Built for Claude Code: `create-pr` and `github-comment-attribution` run `git` an
 ## Install
 
 As a Claude Code plugin (managed bundle, skills namespaced as
-`/code-publish:create-pr` etc.):
+`/hp-code-publish:create-pr` etc.):
 
 ```bash
 claude plugin marketplace add Humanity-Plus/commons
-claude plugin install code-publish@humanity-plus
+claude plugin install hp-code-publish@humanity-plus
 ```
 
 Or as editable files via the skills CLI (any agent):

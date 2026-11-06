@@ -1379,8 +1379,7 @@ function page(r: Report): string {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* "Midnight" visual language — shared with the toolkit guide
-     (skills/code-reviews/review-toolkit.html) so the toolkit feels like one product. */
+  /* "Midnight" visual language. */
   :root{
     --bg:#08090c; --panel:#101116; --panel2:#16171e; --border:#24262f; --border2:#31343f;
     --text:#e2e3e9; --head:#f7f8fa; --muted:#9a9daa; --accent:#828fff; --accent2:#5e6ad2;

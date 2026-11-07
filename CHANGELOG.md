@@ -1,5 +1,38 @@
 # humanity-plus-commons
 
+## 0.5.0
+
+### Minor Changes
+
+- [#44](https://github.com/Humanity-Plus/commons/pull/44) [`67c41a6`](https://github.com/Humanity-Plus/commons/commit/67c41a63378b4323e314dcce009afc5c52bda6ac) Thanks [@Paalt](https://github.com/Paalt)! - The review flow now detects mistake classes and hardens them instead of patching them again, and the feature-map join stops over-selecting journeys.
+
+  - **`fix-the-class` joins the toolkit** (adapted from pstack's `correct`): after a correction the repo has seen before, or as a hardening pass, find the mistake classes from the repo's own record and make each impossible at the highest level that works — architecture, types, a check whose error names the fix, a test, prose last — proven red on a real past instance, with an `AGENTS.md` table of rules and what enforces them.
+  - **`review-pr` marks classes mechanically** (Phase 4, after the arbiter): a finding gets `classEvidence` when it has several sites in the diff, cites a rule the rules table marks `prose only` or does not list, or matches a defect an archived review or an open `review-debt` issue already recorded. The report gains a `class` chip and a **Classes** card; the published review body lists the classes before the sections.
+  - **`resolve-review` hardens class findings** instead of only patching them: every site fixed, then `fix-the-class` at the guard levels (types, check, test) proven red on the instance just fixed, a rules-table row added or raised, architecture moves handed back as their own PR, and every sibling left outside the branch's scope named by `file:line`. The ledger gains a Classes block.
+  - **The feature-map join narrows by symbol.** A changed file listed by several features keeps a feature only when another of its changed Paths matched directly or one of its Paths references an export the diff changed; a file with no exports drives every feature that lists it (field: a three-file refactor of a shared helper selected eight journeys). Features set aside are recorded as `not-affected`; the Driven-features block gains that word.
+  - **Launch works from a fresh worktree.** `create-verify-skill` requires Launch to name what a worktree lacks (gitignored env files, per-checkout deployments, caches) and the repo's own setup command that provides them; refresh re-audits it.
+  - Contract tests pin the `classEvidence` field name, the rules-table heading, and the narrowing phrase across producers and consumers.
+
+- [#47](https://github.com/Humanity-Plus/commons/pull/47) [`2f92589`](https://github.com/Humanity-Plus/commons/commit/2f92589aa9f1f9a65f2c06a2c038e0e099fb8f4e) Thanks [@Paalt](https://github.com/Paalt)! - **The plugins are renamed `hp-review-toolkit` and `hp-code-publish`, and their home is now [humanityplus.solutions/commons/plugins](https://www.humanityplus.solutions/commons/plugins).** The Claude directory listing the `humanity-plus-*` names were made for isn't happening, so the plugins are published through this repo's marketplace. If you installed either plugin, swap it:
+
+  ```bash
+  claude plugin uninstall humanity-plus-review@humanity-plus
+  claude plugin marketplace update humanity-plus
+  claude plugin install hp-review-toolkit@humanity-plus
+  ```
+
+  Do the same for `humanity-plus-publish@humanity-plus` → `hp-code-publish@humanity-plus`. If you are still on the names before those (`review-toolkit@humanity-plus`, `code-publish@humanity-plus`), uninstall those instead. Add `--scope project` (or `local`) to the uninstall if you installed there. If your settings list the plugins under `enabledPlugins`, rename those keys. Slash commands move too, for example `/hp-review-toolkit:review-pr`. The skills CLI lane is unchanged.
+
+  The Review Toolkit's full guide moves from `review-toolkit.html` in this repo to [its own page](https://www.humanityplus.solutions/commons/plugins/review-toolkit), and the READMEs link there. The toolkit README's "What it runs and sends" now covers the verify skill, which reviews and fixes on your own checkouts use to start your app, and `interrogate`, whose external seat (today Codex) sends its brief to that provider under your own login. The bundle READMEs go back to the two-step marketplace install.
+
+### Patch Changes
+
+- [#46](https://github.com/Humanity-Plus/commons/pull/46) [`0e81d10`](https://github.com/Humanity-Plus/commons/commit/0e81d10cc6a090281bdf940ddf350f48b58e4fda) Thanks [@Paalt](https://github.com/Paalt)! - Gate selection proves coverage, and every lens has a materials recipe.
+
+  - **Pick gates from CI, and prove each one covers the changed files.** The baseline and the fix phase take the gate set from the CI workflow, by name, never the nearest-sounding package script, and record which changed files each gate reaches — the tool's globs and the workflow's own path filters and job conditions, so a job that did not run covers nothing (field: a workspace `lint` passed while CI's `lint:ci` caught script formatting it never scanned). A green CI run still stands in for running the gates, never for that pairing; a changed file no gate covers is recorded as a hole in the review's limitations and the fixer's over-to-you list. Stated once in `review-pr`; `resolve-review` and `review-fix` cite it, and a contract test keeps the three in step and refuses any return to script-name discovery.
+  - **Per-lens materials recipe.** `review-pr` states in one table what every lens, and a generalist carrying several lenses, is handed beyond the common set; the context bundle is fenced by section so a doc-heavy bundle costs the bug lenses nothing and a small review spawns mechanically.
+  - Contract phrase checks match on whitespace-collapsed text; the strings an agent copies into a shell still must sit on one line.
+
 ## 0.4.0
 
 ### Minor Changes

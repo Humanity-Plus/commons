@@ -27,10 +27,12 @@ the Releasing section in `README.md`.
   `package.json` by `scripts/sync-plugin-version.mjs` during a release, and CI
   fails PRs where the two drift.
 - The plugins are published from humanityplus.solutions/commons/plugins, with
-  the review guide at `/commons/plugins/review-toolkit`; its source is
-  `apps/marketing/lib/plugins.ts` in Humanity-Plus/humanity-plus. A PR that
-  adds, renames, or removes a skill or plugin ships with a website PR, and CI's
-  `check-website-plugins` step stays red until that one is deployed.
+  the review guide at `/commons/plugins/review-toolkit`; the site keeps its
+  plugin list in `lib/plugins.ts` in the website repo. A PR that adds, renames,
+  or removes a skill or plugin needs that list changed too: open the PR here,
+  merge and deploy the website change, re-run this PR's "Website" workflow, and
+  merge straight away. Between the two merges, other PRs that touch skills
+  fail that workflow.
 - Every distributable skill lives at `skills/<bundle>/skills/<name>/SKILL.md`.
   Both lanes discover skills at that path (the plugin loader from each
   bundle's root, the skills CLI by walking `skills/`) — don't move or rename
@@ -54,7 +56,8 @@ the Releasing section in `README.md`.
 
 | Rule | Enforced by |
 |---|---|
-| The website's plugins page and guide list every skill directory and name only plugins the marketplace lists | `bun run check-website-plugins` (CI, against the live site; `WEBSITE_URL` for a preview) |
+| The website's plugins page and guide list every skill directory and name only plugins the marketplace lists | `.github/workflows/website.yml` (`bun run check-website-plugins` against the live site on PRs that touch skills or plugin manifests, and weekly; `WEBSITE_URL` for another deployment) |
+| What the READMEs and the website say runs your code, and where it sends it, matches the skills: `interrogate` and the safety-fact probe run on owned checkouts or under `## Trust`, the verify skill only on owned checkouts, and an external runner receives a seat's materials | prose only: the execution gates are prose in `review-pr`'s SKILL.md, with nothing machine-readable to check against (PR #47 and the website's privacy notice both said "only on your own checkouts")
 | A test added for a review finding is seen red under the mutation that names its regression, never only a coarser one | prose only: no mutation runner here; `resolve-review` Phase 3 step 2 is the procedure (PR #44: three class-mark tests stayed green under the fine mutations after passing coarse ones) |
 
 ## Known Issues

@@ -191,7 +191,10 @@ two can't drift (CI checks this on every PR).
   "chore: version plugins" PR that accumulates pending changesets.
 - Merging that PR is the release: the version bumps everywhere, `CHANGELOG.md`
   updates, and a GitHub Release is tagged. Plugin users receive changes at that
-  moment; skills CLI users track `main` and get each change as it merges.
+  moment; skills CLI users track `main` and get each change as it merges. A
+  renamed or removed plugin is the exception: the marketplace reads its list
+  from `main`, so that change reaches plugin users on merge. Merge the version
+  PR right after it, so its release notes arrive with it.
 
 ## License
 

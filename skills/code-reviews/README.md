@@ -104,13 +104,18 @@ you every skill twice.
   repository so its GitHub Pages site serves it. Neither will put a non-public
   repository's report where anyone can read it unless you pass `--force-gist` or
   `--force-pages`.
-- **On your own checkouts, when you set them up or ask:** a `verify-<app>` skill
-  from `create-verify-skill` builds, seeds, and starts your app locally and signs
-  in as seeded test personas, never against a shared, staging, or production
-  deployment. `interrogate` runs adversaries that execute the change in scratch
-  worktrees; when the Codex CLI is on your `PATH`, one of them runs through
-  `codex exec`, so that seat's brief, the diff, and what it reads in its worktree
-  go to OpenAI under your own Codex login.
+- **Your app, on your own checkouts:** once the repo has a `verify-<app>` skill
+  (from `create-verify-skill`), reviews and fixes on your own checkouts use it
+  without asking: it builds, seeds, and starts the app and signs in as seeded
+  test personas. Generated skills are written to run only against a local or
+  disposable instance, never a shared, staging, or production deployment, and
+  the verify skill never runs on anyone else's PR.
+- **Your change, when you pass `interrogate`:** adversaries execute it in
+  scratch worktrees, on your own checkouts or on collaborators' PRs when
+  `REVIEW.md` opts in under `## Trust`. When another agent runner is available
+  (today the Codex CLI on your `PATH`, or a delegation tool your harness
+  provides), one seat runs there, so that seat's brief, the diff, and what it
+  reads in its worktree go to that provider under your own login.
 - **When you open the report:** `report.html` loads its fonts from Google Fonts.
 - **Nowhere else.** No telemetry and no other servers, and no token or key is ever
   read: GitHub access goes through your existing `gh` login.

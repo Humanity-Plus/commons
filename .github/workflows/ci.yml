@@ -23,6 +23,9 @@ jobs:
       - name: Check plugin names match across manifests and docs
         run: bun run check-plugin-names
 
+      - name: Test the manifest scripts
+        run: node --test scripts/*.test.mjs
+
   skill-tests:
     name: Skill tests
     runs-on: ubuntu-latest

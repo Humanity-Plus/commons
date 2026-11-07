@@ -5,35 +5,25 @@
 // exempt, since it records names as they were.
 
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { installRef as installRefFor, namespacedSkill, readPlugins, repo } from "./plugins.mjs";
 
-const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
-const readJson = (path) => JSON.parse(readFileSync(join(repo, path), "utf8"));
-
-const marketplace = readJson(".claude-plugin/marketplace.json");
+const { marketplace, plugins: entries } = readPlugins();
 const errors = [];
 const plugins = new Map();
 
-for (const entry of marketplace.plugins) {
-  const manifest = readJson(join(entry.source, ".claude-plugin/plugin.json"));
+for (const { entry, manifest, skills } of entries) {
   if (manifest.name !== entry.name) {
     errors.push(
       `.claude-plugin/marketplace.json lists "${entry.name}", but ${entry.source}/.claude-plugin/plugin.json is named "${manifest.name}".`,
     );
   }
-  const skills = readdirSync(join(repo, entry.source, "skills"), {
-    withFileTypes: true,
-  })
-    .filter((dirent) => dirent.isDirectory())
-    .map((dirent) => dirent.name);
   plugins.set(entry.name, new Set(skills));
 }
 
 const allSkills = new Set([...plugins.values()].flatMap((skills) => [...skills]));
-const installRef = new RegExp(`\\b([a-z0-9-]+)@${marketplace.name}\\b`, "g");
-const namespacedSkill = /\/([a-z0-9-]+):([a-z0-9-]+)/g;
+const installRef = installRefFor(marketplace.name);
 
 const docs = execFileSync("git", ["ls-files", "*.md", "*.html", "*.json"], {
   cwd: repo,

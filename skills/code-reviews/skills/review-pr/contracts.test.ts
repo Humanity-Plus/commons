@@ -4,7 +4,7 @@
 // the generator mandates. A rename in one file fails here instead of in the field.
 // Run: bun test  (from this directory)
 import { test, expect } from "bun:test";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const skills = join(import.meta.dir, "..");
@@ -53,7 +53,7 @@ test("the light-tier predicate is stated once, in the ladder row", () => {
   const skill = consumers["review-pr"];
   expect(skill.match(/^\| \*\*light\*\* \|/gm)?.length).toBe(1);
   const restated = /light \(\d+ files?|single file under|one file under/i;
-  for (const rel of ["review-pr/README.md", "../README.md", "../../../README.md", "../review-toolkit.html", "review-fix/SKILL.md"]) {
+  for (const rel of ["review-pr/README.md", "../README.md", "../../../README.md", "review-fix/SKILL.md"]) {
     expect(read(rel), rel).not.toMatch(restated);
   }
   expect(skill.replace(/^\| \*\*light\*\* \|.*$/m, "")).not.toMatch(restated);
@@ -99,23 +99,6 @@ test("the class mark and the rule-table tokens are one text across producers and
       expect(flat(read(rel)), `${rel} lacks ${token}`).toContain(token);
     }
   }
-});
-
-// A hand-kept count in the guide drifted from the table under it twice, in two
-// PRs ("four artifacts" over three rows, "seven skills" over eight). The guide
-// states no counts, and its skills table lists every skill directory.
-test("the guide keeps no hand-kept counts and its skills table lists every skill directory", () => {
-  const guide = read("../review-toolkit.html");
-  const intro = (id: string) => {
-    const from = guide.indexOf(`<h2 id="${id}"`);
-    return guide.slice(from, guide.indexOf('<div class="table-scroll">', from));
-  };
-  const counted = /\b(two|three|four|five|six|seven|eight|nine|ten|\d+)\b[^.<]{0,20}\b(skills?|artifacts?|files?)\b/i;
-  for (const id of ["pieces", "configure"]) expect(intro(id), `${id}: state no count — the table below is the list`).not.toMatch(counted);
-  const table = guide.slice(guide.indexOf('<h2 id="pieces"'), guide.indexOf("How the pieces chain"));
-  const listed = [...table.matchAll(/<tr><td><code>([a-z-]+)<\/code>/g)].map((m) => m[1]).sort();
-  const dirs = readdirSync(skills, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
-  expect(listed, "the guide's skills table needs one <tr> per skill directory").toEqual(dirs);
 });
 
 // Gate selection is one rule: CI's set, each gate shown to cover the changed

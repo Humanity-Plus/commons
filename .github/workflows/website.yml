@@ -1,0 +1,29 @@
+name: Website
+
+# The plugins are published from humanityplus.solutions. This compares the
+# live pages with this repo's skill folders and plugin names. It runs only on
+# changes that can make them drift, so a site outage never blocks unrelated
+# PRs, and weekly to catch drift that starts on the website side.
+on:
+  pull_request:
+    paths:
+      - "skills/*/skills/**"
+      - ".claude-plugin/marketplace.json"
+      - "skills/*/.claude-plugin/plugin.json"
+      - "scripts/check-website-plugins.mjs"
+      - "scripts/plugins.mjs"
+      - ".github/workflows/website.yml"
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  website:
+    name: Website lists every plugin and skill
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compare the live pages with this checkout
+        run: node scripts/check-website-plugins.mjs

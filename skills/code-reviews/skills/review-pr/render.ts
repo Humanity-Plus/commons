@@ -22,7 +22,13 @@
  *     "interrogate"?: {          // per-seat ledger when the interrogate branch ran
  *       "adversaries": [{ "seat": string, "runner": string, "brief": string,
  *                         "findings": number, "kept": number, "dropped": number, "droppedWhy"?: string }],
- *       "interrogateOnly"?: number, "both"?: number }
+ *       "interrogateOnly"?: number, "both"?: number },
+ *     "panel"?: {                // per-seat ledger when the panel branch ran: one read-only
+ *                                // generalist seat per external runner (another model family)
+ *       "seats": [{ "runner": string, "model"?: string, "findings": number,
+ *                   "kept": number, "dropped": number, "droppedWhy"?: string,
+ *                   "failed"?: string }],  // failed = why a seat produced nothing
+ *       "panelOnly"?: number, "both"?: number }  // panelOnly = found by no host seat
  *   },
  *   "verdict": { "decision": "approve"|"comment"|"request-changes",
  *                "confidence": "high"|"medium"|"low", "summary": string },
@@ -56,7 +62,7 @@
  * A Finding: { id, lens, severity, category, file, line, title, evidence,
  *   suggestion, featureArea, verified? } — lens is one of: triage | first-five |
  *   conventions | warm | zombies | preflight | intent | seams | blast-radius | interrogate |
- *   holistic | merge (merge = Phase 0 conflict-probe findings; unlisted lens names render in the
+ *   holistic | panel | merge (merge = Phase 0 conflict-probe findings; unlisted lens names render in the
  *   generic Findings section). Plus, per lens:
  *   warm:        { warm:{worth,alive,rightSized,secure}, ecosystem, changeType, packageVerdict }
  *   zombies:     { zombiesLetter, partial }
@@ -77,7 +83,7 @@
  *   regradeNote?: string                  // arbiter's justification for a severity regrade
  *   folded?:      boolean                 // beyond the report budget — rendered in the
  *                                         //   collapsed "More findings" section, never dropped
- *   source?:      "lenses"|"holistic"|"interrogate"|"both"  // origin on --holistic / interrogate runs
+ *   source?:      "lenses"|"holistic"|"interrogate"|"panel"|"both"  // origin on holistic / interrogate / panel runs
  *   trackedIssue?: string                 // URL of the review-debt issue /review-issues
  *                                         //   filed for it — rendered as a linked chip;
  *                                         //   publish.ts posts a one-liner instead of prose
@@ -141,7 +147,7 @@ interface Finding {
   locations?: Array<{ file: string; line: number; note?: string }>;
   regradeNote?: string;
   folded?: boolean;
-  source?: "lenses" | "holistic" | "interrogate" | "both";
+  source?: "lenses" | "holistic" | "interrogate" | "panel" | "both";
   trackedIssue?: string;
   verifiedBy?: "mechanical" | "experiment" | "documentation" | "skeptic" | "advisory";
   classEvidence?: string;
@@ -187,6 +193,11 @@ interface Meta {
       droppedWhy?: string;
     }>;
     interrogateOnly?: number;
+    both?: number;
+  };
+  panel?: {
+    seats?: Array<{ runner: string; model?: string; findings?: number; kept?: number; dropped?: number; droppedWhy?: string; failed?: string }>;
+    panelOnly?: number;
     both?: number;
   };
 }
@@ -971,7 +982,7 @@ function findingCard(m: Meta, f: Finding): string {
     f.verified ? `<span class="chip chip-ok">✓ verified</span>` : "",
     // blast-radius lens: how likely the condition is to occur in production
     f.likelihood ? `<span class="chip chip-like">likelihood ${esc(f.likelihood)}</span>` : "",
-    // origin chip only when the --holistic comparison ran (source absent otherwise)
+    // origin chip on holistic, interrogate, and panel runs (source absent otherwise)
     f.source && f.source !== "lenses" ? `<span class="chip chip-src">${esc(f.source)}</span>` : "",
     f.locations?.length ? `<span class="chip chip-group">×${f.locations.length} occurrences</span>` : "",
     // Phase 4 class mark: the fix phase hardens this one, not just patches it
@@ -1300,23 +1311,29 @@ function foldedSection(m: Meta, findings: Finding[]): string {
     </details></section>`;
 }
 
+// The eval cards (holistic, interrogate, panel) share two pieces: a headline
+// number, and the list of findings only that branch produced.
+const evalStat = (n: unknown, lbl: string): string =>
+  `<div class="holi-stat"><div class="holi-num">${esc(n)}</div><div class="holi-lbl">${esc(lbl)}</div></div>`;
+const onlyList = (head: string, only: Finding[], empty: string): string =>
+  only.length
+    ? `<div class="holi-only"><div class="holi-only-head">${esc(head)}</div>
+      <ul class="holi-list">${only.map((f) => `<li><a href="#f-${esc(f.id)}">${esc(f.title)}</a></li>`).join("")}</ul></div>`
+    : `<p class="empty">${esc(empty)}</p>`;
+
 // Small comparison card rendered only when meta.holistic exists (--holistic runs):
 // how much the lens decomposition and a single full-context pass overlapped, and
 // which findings only the holistic pass caught (the lens-gap indicators).
 function holisticCard(r: Report): string {
   const h = r.meta?.holistic;
   if (!h) return "";
-  const stat = (n: number, lbl: string) =>
-    `<div class="holi-stat"><div class="holi-num">${esc(n)}</div><div class="holi-lbl">${esc(lbl)}</div></div>`;
-  const only = r.findings.filter((f) => f.source === "holistic");
-  const list = only.length
-    ? `<div class="holi-only"><div class="holi-only-head">Holistic-only findings (lens-decomposition gaps)</div>
-      <ul class="holi-list">${only
-        .map((f) => `<li><a href="#f-${esc(f.id)}">${esc(f.title)}</a></li>`)
-        .join("")}</ul></div>`
-    : `<p class="empty">No holistic-only findings — the lens decomposition covered everything the full-context pass caught.</p>`;
+  const list = onlyList(
+    "Holistic-only findings (lens-decomposition gaps)",
+    r.findings.filter((f) => f.source === "holistic"),
+    "No holistic-only findings — the lens decomposition covered everything the full-context pass caught."
+  );
   return `<section class="card"><h2>Holistic comparison <span class="section-tag">eval</span></h2>
-    <div class="holi-stats">${stat(h.lensesOnly, "lenses only")}${stat(h.both, "both")}${stat(
+    <div class="holi-stats">${evalStat(h.lensesOnly, "lenses only")}${evalStat(h.both, "both")}${evalStat(
       h.holisticOnly,
       "holistic only"
     )}</div>${list}</section>`;
@@ -1341,16 +1358,49 @@ function interrogateCard(r: Report): string {
     ? `<div class="table-scroll"><table class="irg-table"><thead><tr><th>Seat</th><th>Runner</th><th>Focus</th><th>Found</th><th>Kept</th><th>Dropped</th></tr></thead><tbody>${rows}</tbody></table></div>`
     : `<p class="empty">No adversary seats recorded.</p>`;
   const only = r.findings.filter((f) => f.source === "interrogate");
-  const list = only.length
-    ? `<div class="holi-only"><div class="holi-only-head">Interrogate-only findings (proven by a run, missed by every lens)</div>
-      <ul class="holi-list">${only.map((f) => `<li><a href="#f-${esc(f.id)}">${esc(f.title)}</a></li>`).join("")}</ul></div>`
-    : `<p class="empty">No interrogate-only findings — everything the adversaries proved, a lens had already found.</p>`;
-  const stat = (n: number, lbl: string) =>
-    `<div class="holi-stat"><div class="holi-num">${esc(n)}</div><div class="holi-lbl">${esc(lbl)}</div></div>`;
+  const list = onlyList(
+    "Interrogate-only findings (proven by a run, missed by every lens)",
+    only,
+    "No interrogate-only findings — everything the adversaries proved, a lens had already found."
+  );
   const families = new Set(seats.map((a) => (a.runner ?? "").split(/[\s:/]/)[0]).filter(Boolean));
   return `<section class="card"><h2>Interrogation <span class="section-tag">eval</span>
     <span class="head-total">${seats.length} seat${seats.length === 1 ? "" : "s"} · ${families.size} runner famil${families.size === 1 ? "y" : "ies"}</span></h2>
-    <div class="holi-stats irg-stats">${stat(ig.interrogateOnly ?? only.length, "interrogate only")}${stat(ig.both ?? 0, "both")}</div>
+    <div class="holi-stats irg-stats">${evalStat(ig.interrogateOnly ?? only.length, "interrogate only")}${evalStat(ig.both ?? 0, "both")}</div>
+    ${table}${list}</section>`;
+}
+
+// Panel (the panel arg): one row per external seat — the runner, its model,
+// findings returned vs kept after verify, or why the seat produced nothing —
+// plus what only the other family found. That count is the arg's whole point.
+// A panel finding a host seat also found carries that seat's source, so the
+// only-list is exactly the findings still tagged "panel".
+function panelCard(r: Report): string {
+  const p = r.meta?.panel;
+  if (!p) return "";
+  const seats = Array.isArray(p.seats) ? p.seats : [];
+  const rows = seats
+    .map((s) => {
+      const counts = s.failed
+        ? `<td colspan="3" class="irg-why">did not run: ${esc(s.failed)}</td>`
+        : `<td class="irg-n">${esc(s.findings ?? 0)}</td><td class="irg-n">${esc(s.kept ?? 0)}</td>
+        <td class="irg-n">${esc(s.dropped ?? 0)}${s.droppedWhy ? `<span class="irg-why">${esc(s.droppedWhy)}</span>` : ""}</td>`;
+      return `<tr><td class="irg-seat">${esc(s.runner)}</td><td>${esc(s.model ?? "")}</td>${counts}</tr>`;
+    })
+    .join("");
+  const table = seats.length
+    ? `<div class="table-scroll"><table class="irg-table"><thead><tr><th>Runner</th><th>Model</th><th>Found</th><th>Kept</th><th>Dropped</th></tr></thead><tbody>${rows}</tbody></table></div>`
+    : `<p class="empty">No panel seats recorded.</p>`;
+  const only = r.findings.filter((f) => f.source === "panel");
+  const list = onlyList(
+    "Panel-only findings (seen by another model family, by no host seat)",
+    only,
+    "No panel-only findings — everything the other family reported, a host seat had already found."
+  );
+  const ran = seats.filter((s) => !s.failed).length;
+  return `<section class="card"><h2>Panel <span class="section-tag">eval</span>
+    <span class="head-total">${ran} of ${seats.length} seat${seats.length === 1 ? "" : "s"} ran, on another model family</span></h2>
+    <div class="holi-stats irg-stats">${evalStat(p.panelOnly ?? only.length, "panel only")}${evalStat(p.both ?? 0, "both")}</div>
     ${table}${list}</section>`;
 }
 
@@ -1599,7 +1649,8 @@ function page(r: Report): string {
   .pf-verify-tag{flex:none;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
     color:#8ce8b8;background:color-mix(in srgb,#5fd39a 14%,var(--panel2));
     border:1px solid color-mix(in srgb,#5fd39a 32%,var(--border));border-radius:20px;padding:1px 8px}
-  .pf-verify code{font-size:11.5px;color:#d5d7e0}
+  /* a flex item will not shrink below its longest token: a probe or repro command with a long path overflowed the page */
+  .pf-verify code{font-size:11.5px;color:#d5d7e0;min-width:0;overflow-wrap:anywhere}
   .pf-note.md p{margin:0}
   .pf-note.md .md-pre{margin:6px 0 0}
 
@@ -1830,6 +1881,9 @@ function page(r: Report): string {
      tokens kept on one line on desktop wrap inside instead of widening the page */
   @media(max-width:720px){
     .md code.md-code,.md .md-file,.head-total{white-space:normal;overflow-wrap:anywhere}
+    /* file references outside .md (a finding's header, a test gap's ref): a long path must wrap, and its flex parent must be allowed to shrink */
+    a.ref{white-space:normal;overflow-wrap:anywhere}
+    .test-body,.finding-ref{min-width:0}
     .card h2{flex-wrap:wrap}
     /* flex rows with a pill + text: the text is an anonymous flex item, so its longest token must be allowed to break */
     .finding-rule,.finding-regrade,.finding-class{overflow-wrap:anywhere}
@@ -1867,7 +1921,7 @@ function page(r: Report): string {
     <section class="card"><h2>By section</h2>${composition(r.findings)}</section>
   </div>
   <section class="card"><h2>Risk by area</h2>${heatmap(r.triage.groups)}</section>
-  ${blastRadiusCard(r)}${classesCard(r)}${systemChangeCard(r)}${scorecardCard(r)}${holisticCard(r)}${interrogateCard(r)}
+  ${blastRadiusCard(r)}${classesCard(r)}${systemChangeCard(r)}${scorecardCard(r)}${holisticCard(r)}${interrogateCard(r)}${panelCard(r)}
 
   ${findingsSection(m, r.findings)}
   ${conventionsSection(m, r.findings)}

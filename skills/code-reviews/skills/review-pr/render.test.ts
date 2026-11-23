@@ -323,6 +323,12 @@ test("verifiable on a non-preflight finding renders a verify line on its card", 
   );
   expect(html).toContain('class="pf-verify"');
   expect(html).toContain("getTableCounts");
+  // a command with a long path must be able to wrap: as a flex item it otherwise widens the page
+  expect(html).toMatch(/\.pf-verify code\{[^}]*min-width:0;overflow-wrap:anywhere\}/);
+  // and at phone width so must a file reference outside .md (field: a 50-character path made a 375px page 520px wide)
+  const narrow = html.slice(html.lastIndexOf("@media(max-width:720px){"));
+  expect(narrow).toContain("a.ref{white-space:normal;overflow-wrap:anywhere}");
+  expect(narrow).toContain(".test-body,.finding-ref{min-width:0}");
   const without = page(baseReport({ findings: [mkFinding()] }));
   expect(without).not.toContain('class="pf-verify"');
 });
@@ -573,4 +579,87 @@ test("default path: no interrogation card and no repro block when the fields are
   const html = page(baseReport({ findings: [mkFinding()] }));
   expect(html).not.toContain("Interrogation");
   expect(html).not.toContain('class="repro"');
+});
+
+// ---- panel (the panel arg: a generalist seat on another vendor's runner) ----
+const panelReport = (panel: unknown, findings: unknown[], meta: Record<string, unknown> = {}) =>
+  baseReport({ meta: { title: "t", ...meta, panel }, findings });
+const panelCardOf = (html: string) => {
+  const start = html.indexOf("<h2>Panel ");
+  return html.slice(start, html.indexOf("</section>", start));
+};
+
+test("panel card renders the ledger, distinct counts, a failed seat, and only the panel-only findings; all escaped", () => {
+  const html = page(
+    panelReport(
+      {
+        seats: [
+          { runner: "agy", model: "<b>neon</b>", findings: 7, kept: 5, dropped: 2, droppedWhy: "<i>refuted</i> by the source" },
+          { runner: "<u>codex</u>", findings: 0, kept: 0, dropped: 0, failed: "not <signed> in" },
+        ],
+        panelOnly: 3,
+        both: 5,
+      },
+      [
+        mkFinding({ id: "panel-agy-1", lens: "panel", source: "panel", title: "Only the other <em>family</em> saw this" }),
+        mkFinding({ id: "first-five-1", source: "both", title: "Both saw this" }),
+        mkFinding({ id: "first-five-2", source: "lenses", title: "Lenses only" }),
+      ]
+    )
+  );
+  const card = panelCardOf(html);
+  expect(card).toContain("1 of 2 seats ran, on another model family");
+  expect(card).toMatch(/<div class="holi-num">3<\/div><div class="holi-lbl">panel only<\/div>/); // meta's totals, not the list length
+  expect(card).toMatch(/<div class="holi-num">5<\/div><div class="holi-lbl">both<\/div>/);
+  expect(card).toContain('<td class="irg-seat">agy</td><td>&lt;b&gt;neon&lt;/b&gt;</td>');
+  expect(card).toContain("&lt;i&gt;refuted&lt;/i&gt; by the source");
+  expect(card).toContain('<td class="irg-seat">&lt;u&gt;codex&lt;/u&gt;</td>');
+  expect(card).toContain('<td colspan="3" class="irg-why">did not run: not &lt;signed&gt; in</td>'); // a failed seat shows why, not zeros
+  expect(card).toContain('href="#f-panel-agy-1"');
+  expect(card).toContain("Only the other &lt;em&gt;family&lt;/em&gt; saw this");
+  expect(card).not.toMatch(/<(b|i|u|em)>/); // nothing from a seat reaches the page as markup
+  expect(card).not.toContain("Both saw this"); // merged findings are not panel-only
+  expect(card).not.toContain("Lenses only");
+  expect(html).toContain('class="chip chip-src">panel'); // origin chip on the finding card
+});
+
+test("panel card falls back when totals are omitted, and handles no seats", () => {
+  const derived = panelCardOf(
+    page(panelReport({ seats: [{ runner: "agy", findings: 3, kept: 3, dropped: 0 }] }, [
+      mkFinding({ id: "panel-agy-1", source: "panel" }),
+      mkFinding({ id: "panel-agy-2", source: "panel" }),
+      mkFinding({ id: "first-five-1", source: "both" }),
+    ]))
+  );
+  expect(derived).toMatch(/<div class="holi-num">2<\/div><div class="holi-lbl">panel only<\/div>/); // counted from the findings
+  expect(derived).toMatch(/<div class="holi-num">0<\/div><div class="holi-lbl">both<\/div>/);
+  expect(derived).toContain("1 of 1 seat ran");
+  for (const panel of [{ seats: [] }, { panelOnly: 0 }]) {
+    const empty = panelCardOf(page(panelReport(panel, [mkFinding({ source: "both" })])));
+    expect(empty).toContain("0 of 0 seats ran");
+    expect(empty).toContain("No panel seats recorded.");
+    expect(empty).toContain("No panel-only findings");
+  }
+  expect(page(baseReport({ findings: [mkFinding()] }))).not.toContain("<h2>Panel ");
+});
+
+test("holistic beside panel: a finding the host generalist also found is holistic-only, never panel-only", () => {
+  const html = page(
+    panelReport(
+      { seats: [{ runner: "agy", findings: 3, kept: 3, dropped: 0 }], panelOnly: 1, both: 2 },
+      [
+        mkFinding({ id: "holistic-1", lens: "holistic", source: "holistic", title: "Generalist and panel, no lens" }),
+        mkFinding({ id: "panel-agy-2", lens: "panel", source: "panel", title: "Family only" }),
+        mkFinding({ id: "first-five-1", source: "both", title: "A lens and the panel" }),
+      ],
+      { holistic: { lensesOnly: 0, holisticOnly: 1, both: 0 } }
+    )
+  );
+  const card = panelCardOf(html);
+  expect(card).toContain("Family only");
+  expect(card).not.toContain("Generalist and panel, no lens");
+  const hStart = html.indexOf("<h2>Holistic comparison");
+  const holistic = html.slice(hStart, html.indexOf("</section>", hStart));
+  expect(holistic).toContain("Generalist and panel, no lens"); // a decomposition gap, shown where that is measured
+  expect(holistic).not.toContain("Family only");
 });

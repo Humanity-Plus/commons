@@ -115,7 +115,19 @@ you every skill twice.
   `REVIEW.md` opts in under `## Trust`. When another agent runner is available
   (today the Codex CLI on your `PATH`, or a delegation tool your harness
   provides), one seat runs there, so that seat's brief, the diff, and what it
-  reads in its worktree go to that provider under your own login.
+  reads in its worktree go to that provider under your own login. On a repo
+  that is not yours, that seat also needs the runner named on the `runners:`
+  line of the repo's `## Trust`.
+- **Your change, when you pass `panel=<runner>`:** each runner you name (the
+  Codex CLI, Antigravity's `agy`, a delegation tool your harness provides) gets
+  one seat in a scratch worktree holding the tracked files at the reviewed
+  commit, so its brief, the diff, and whatever tracked files it reads go to
+  that provider under your own login. Ignored files and the review's own
+  output are not in that worktree. A runner's reading mode stops edits, not
+  commands, so the seat runs only on your own checkouts or on collaborators'
+  PRs under `## Trust`; on a repo that is not yours the runner must also be
+  named on that section's `runners:` line. A vendor is always named: bare
+  `panel` is refused.
 - **When you open the report:** `report.html` loads its fonts from Google Fonts.
 - **Nowhere else.** No telemetry and no other servers, and no token or key is ever
   read: GitHub access goes through your existing `gh` login.
@@ -166,5 +178,9 @@ proven by observable end states — adding the paths join key and seeded
 personas that let this toolkit's review, fixer, and queue consume it; and
 `fix-the-class` adapts pstack's `correct` — the agent model, the level ladder,
 proof on a past mistake, and the rule table — with a scope guard on the ladder
-and an entry point from `resolve-review`'s class findings. The toolkit is
+and an entry point from `resolve-review`'s class findings. The `panel` arg
+takes its idea — reviewers from different providers reading the same change —
+from `council` in Theo Browne's MIT-licensed
+[tstack](https://github.com/t3dotgg/tstack), as a single verified round with
+the yield counted, without the score loop. The toolkit is
 MIT-licensed, like the rest of the Commons.

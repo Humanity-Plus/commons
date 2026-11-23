@@ -55,6 +55,9 @@ Phase 2   first-five, conventions,   [parallel subagents] → Finding[] each
           │  compact indexes in context
           ├─ `holistic` arg: + one whole-diff generalist in parallel,
           │  findings tagged source: lenses|holistic for overlap stats
+          ├─ `panel=<runner>` arg: + one generalist seat per named external runner
+          │  (another model family), in a scratch worktree; one round, panel-only
+          │  counts reported; owned / Trust checkouts only
           └─ `interrogate[=N]` arg: + N adversaries, each in a scratch worktree,
              briefed to break the change by running it; owned / Trust checkouts only
 Phase 3   verify — contradiction scan first, then per-claim triage:
@@ -95,12 +98,30 @@ when the orchestrator's **rerun in a fresh worktree** reproduces it (`repro`,
 `patch`, `observed`, `expected` travel with the finding). Adversaries execute
 code, so the arg is honored only on an owned checkout or under the repo's
 `## Trust` opt-in. Runners are detected, never assumed: seats run on the host's
-subagent mechanism, and when an external agent CLI is on `PATH` (today `codex`)
-one seat runs there so the adversaries span model families; with one family,
-diversity comes from the briefs and the report says so. An **Interrogation**
+subagent mechanism, and when an external agent CLI with a writing mode is
+available (today `codex`) one seat runs there so the adversaries span model
+families — on a repo that is not yours, only when its `REVIEW.md` names that
+runner on the `runners:` line of `## Trust`; with one family, diversity comes
+from the briefs and the report says so. An **Interrogation**
 card shows the per-seat ledger (found / kept / dropped) and the
 interrogate-only findings — the yield that decides whether the arg ever earns a
 tier. Off by default, like `holistic`.
+
+The **`panel=<runner>[:<model>][,…]` arg** asks a different question: what does
+**another model family** see in the same change? Each runner you name (an agent
+CLI from another vendor — `codex`, Antigravity's `agy` — or a delegation tool
+the harness provides) gets one generalist seat with the lenses' materials, in
+a scratch worktree that holds the tracked files at the reviewed commit and
+nothing else. Its findings are verified under the same rules as any lens's, and
+a **Panel** card reports the per-seat ledger and the panel-only findings: what
+no host seat found. It is one round, never a loop: the review's exit is its
+verdict, not a score and not a panel's satisfaction. Two things gate it. A
+runner's reading mode stops edits, not commands, so a seat runs only where an
+experiment may: your own checkout, or a PR the repo's `## Trust` covers. And
+its provider receives what the seat reads, so on a repo that is not yours the
+runner must also be named on the `runners:` line of that repo's `## Trust`.
+Off by default; pair it with `holistic` to tell what a second family found
+from what a generalist found.
 
 ## Installing
 
@@ -255,6 +276,10 @@ section of `REVIEW.md` (see `REVIEW.example.md`).
   checkout the orchestrator runs the probe, so the fact arrives proven or
   contradicted rather than argued; `publish.ts` puts the same line at the top of
   the GitHub review body, and `resolve-review` re-runs the probe after its fixes.
+- On `panel` runs, a **Panel** card lists every external seat (runner, model,
+  findings found / kept / dropped with the drop reason, or why the seat did not
+  run) and the panel-only findings: what another model family saw that no host
+  seat did.
 - On `interrogate` runs, an **Interrogation** card lists every adversary seat
   (runner, focus, findings found / kept / dropped with the drop reason) and the
   interrogate-only findings, and each surviving finding's card carries the run

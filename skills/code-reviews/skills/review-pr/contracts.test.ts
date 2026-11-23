@@ -122,3 +122,46 @@ test("the gate-selection rule is review-pr's one statement, cited by the fix pha
     expect(flat(text), `${name} still discovers gates by script name`).not.toMatch(/discover(ed)? (them )?from (its own )?`package\.json`/);
   }
 });
+
+// External runners are one rule for both branches that seat them, and the rule
+// is a safety gate: a runner's reading mode stops edits, not commands, and its
+// provider receives what the seat reads. Each sentence below is one a careless
+// edit could soften without any behaviour test noticing.
+test("the external-runner gate is stated once, both branches cite it, and its sentences hold", () => {
+  const raw = consumers["review-pr"];
+  const pr = flat(raw);
+  expect(pr.split("**Runners are detected, never assumed.**").length - 1).toBe(1);
+  const section = (heading: string) => {
+    const from = raw.indexOf(heading);
+    expect(from, `${heading} is missing`).toBeGreaterThan(-1);
+    const next = raw.slice(from + heading.length).search(/\n#{2,4} /);
+    expect(next, `${heading} has no following heading`).toBeGreaterThan(-1);
+    return flat(raw.slice(from, from + heading.length + next));
+  };
+  const runners = section("#### External runners");
+  for (const sentence of [
+    "**A reading form stops edits, not commands.**",
+    "An external seat runs only where an experiment may: an **owned checkout**, or a PR the repo's `## Trust` section covers",
+    "the seat also needs its runner named on a `runners:` line in the base branch's `## Trust` section",
+    "the seat is refused and noted",
+    "**Each seat gets a scratch worktree, never the review checkout.**",
+    "**The brief carries the report-only lines itself**",
+    "says the seat **has no shell**",
+    "never quietly rerun on the host",
+    "a reading seat is never handed a writing mode",
+  ]) expect(runners, sentence).toContain(sentence);
+  const panel = section("#### Panel branch");
+  const interrogate = section("#### Interrogate branch");
+  for (const [name, text] of [["Panel", panel], ["Interrogate", interrogate]] as const) expect(text, name).toContain('"External runners"');
+  expect(panel).toContain("**One round, never a loop.**");
+  expect(panel).toContain("bare `panel` is refused");
+  // the table rows, whole: each reading form carries its no-edit switch and says where the answer is
+  const row = (runner: string) => raw.split("\n").find((l) => l.startsWith(`| \`${runner}\``)) ?? "";
+  expect(row("codex")).toContain('`codex exec -C <seat-dir> -s read-only [-m <model>] -o <answer-file> "<prompt>"` — the answer is `<answer-file>`');
+  expect(row("agy")).toContain('`agy --print "<prompt>" --mode plan --sandbox [--model <id>] --print-timeout <seconds>s --output-format json`');
+  expect(row("agy")).toContain("only when its `status` is `SUCCESS` and there is no `denied_actions` entry");
+  expect(row("agy")).toContain("| none verified: reading seats only |"); // no writing form claimed for agy
+  // the template and both READMEs carry the owner's line
+  for (const rel of ["review-pr/README.md", "../README.md"]) expect(read(rel), rel).toContain("`runners:`");
+  expect(read("review-pr/REVIEW.example.md")).toMatch(/^<!-- runners: [a-z, ]+ -->$/m); // shipped commented out, like `execution:`
+});

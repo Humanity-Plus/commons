@@ -1649,7 +1649,8 @@ function page(r: Report): string {
   .pf-verify-tag{flex:none;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
     color:#8ce8b8;background:color-mix(in srgb,#5fd39a 14%,var(--panel2));
     border:1px solid color-mix(in srgb,#5fd39a 32%,var(--border));border-radius:20px;padding:1px 8px}
-  .pf-verify code{font-size:11.5px;color:#d5d7e0}
+  /* a flex item will not shrink below its longest token: a probe or repro command with a long path overflowed the page */
+  .pf-verify code{font-size:11.5px;color:#d5d7e0;min-width:0;overflow-wrap:anywhere}
   .pf-note.md p{margin:0}
   .pf-note.md .md-pre{margin:6px 0 0}
 
@@ -1880,6 +1881,9 @@ function page(r: Report): string {
      tokens kept on one line on desktop wrap inside instead of widening the page */
   @media(max-width:720px){
     .md code.md-code,.md .md-file,.head-total{white-space:normal;overflow-wrap:anywhere}
+    /* file references outside .md (a finding's header, a test gap's ref): a long path must wrap, and its flex parent must be allowed to shrink */
+    a.ref{white-space:normal;overflow-wrap:anywhere}
+    .test-body,.finding-ref{min-width:0}
     .card h2{flex-wrap:wrap}
     /* flex rows with a pill + text: the text is an anonymous flex item, so its longest token must be allowed to break */
     .finding-rule,.finding-regrade,.finding-class{overflow-wrap:anywhere}

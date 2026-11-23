@@ -323,6 +323,12 @@ test("verifiable on a non-preflight finding renders a verify line on its card", 
   );
   expect(html).toContain('class="pf-verify"');
   expect(html).toContain("getTableCounts");
+  // a command with a long path must be able to wrap: as a flex item it otherwise widens the page
+  expect(html).toMatch(/\.pf-verify code\{[^}]*min-width:0;overflow-wrap:anywhere\}/);
+  // and at phone width so must a file reference outside .md (field: a 50-character path made a 375px page 520px wide)
+  const narrow = html.slice(html.lastIndexOf("@media(max-width:720px){"));
+  expect(narrow).toContain("a.ref{white-space:normal;overflow-wrap:anywhere}");
+  expect(narrow).toContain(".test-body,.finding-ref{min-width:0}");
   const without = page(baseReport({ findings: [mkFinding()] }));
   expect(without).not.toContain('class="pf-verify"');
 });

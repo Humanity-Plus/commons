@@ -115,12 +115,19 @@ you every skill twice.
   `REVIEW.md` opts in under `## Trust`. When another agent runner is available
   (today the Codex CLI on your `PATH`, or a delegation tool your harness
   provides), one seat runs there, so that seat's brief, the diff, and what it
-  reads in its worktree go to that provider under your own login.
-- **Your diff, when you pass `panel`:** each external runner you name or that
-  is detected (the Codex CLI, Antigravity's `agy`, a delegation tool your
-  harness provides) gets one read-only seat, so the diff and what the seat reads
-  in the checkout go to that provider under your own login. On a repo that is
-  not yours the seat runs only when that repo's `REVIEW.md` names the runner.
+  reads in its worktree go to that provider under your own login. On a repo
+  that is not yours, that seat also needs the runner named on the `runners:`
+  line of the repo's `## Trust`.
+- **Your change, when you pass `panel=<runner>`:** each runner you name (the
+  Codex CLI, Antigravity's `agy`, a delegation tool your harness provides) gets
+  one seat in a scratch worktree holding the tracked files at the reviewed
+  commit, so its brief, the diff, and whatever tracked files it reads go to
+  that provider under your own login. Ignored files and the review's own
+  output are not in that worktree. A runner's reading mode stops edits, not
+  commands, so the seat runs only on your own checkouts or on collaborators'
+  PRs under `## Trust`; on a repo that is not yours the runner must also be
+  named on that section's `runners:` line. A vendor is always named: bare
+  `panel` is refused.
 - **When you open the report:** `report.html` loads its fonts from Google Fonts.
 - **Nowhere else.** No telemetry and no other servers, and no token or key is ever
   read: GitHub access goes through your existing `gh` login.

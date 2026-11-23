@@ -97,3 +97,16 @@ callbacks; avoid unchecked `as` casts outside a validation boundary.
 -->
 
 <!-- execution: collaborators -->
+
+<!--
+  A second, separate decision: `runners: agy, codex` names the other vendors'
+  agent runners that may read this repo's code as review seats (the review
+  skill's `panel` arg, and an `interrogate` seat on an external runner). Each
+  name is a provider that receives what its seat reads. Reviewers on their own
+  repos need no line; on this repo, a reviewer who is not its owner gets such a
+  seat only when the runner is named here. Read from the base branch only.
+  `execution:` does not imply it. To opt in, move the line below out of its
+  comment and keep only the runners you accept.
+-->
+
+<!-- runners: agy, codex -->

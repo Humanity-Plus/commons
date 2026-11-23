@@ -55,6 +55,8 @@ Phase 2   first-five, conventions,   [parallel subagents] → Finding[] each
           │  compact indexes in context
           ├─ `holistic` arg: + one whole-diff generalist in parallel,
           │  findings tagged source: lenses|holistic for overlap stats
+          ├─ `panel[=runner,…]` arg: + one read-only generalist seat per external
+          │  runner (another model family); one round, panel-only counts reported
           └─ `interrogate[=N]` arg: + N adversaries, each in a scratch worktree,
              briefed to break the change by running it; owned / Trust checkouts only
 Phase 3   verify — contradiction scan first, then per-claim triage:
@@ -101,6 +103,18 @@ diversity comes from the briefs and the report says so. An **Interrogation**
 card shows the per-seat ledger (found / kept / dropped) and the
 interrogate-only findings — the yield that decides whether the arg ever earns a
 tier. Off by default, like `holistic`.
+
+The **`panel[=runner,…]` arg** asks a different question: what does **another
+model family** see in the same diff? Each external runner that is available (an
+agent CLI from another vendor — `codex`, Antigravity's `agy` — or a delegation
+tool the harness provides) gets one read-only generalist seat with the lenses'
+materials; its findings are verified under the same rules as any lens's, and a
+**Panel** card reports the per-seat ledger and the panel-only findings. It is
+one round, never a loop: the review's exit is its verdict, not a score and not
+a panel's satisfaction. The seat's provider receives the diff, so on a repo
+that is not yours it runs only when the repo's `REVIEW.md` names the runner
+under `## Review roles`. Off by default; pair it with `holistic` to tell what a
+second family found from what a generalist found.
 
 ## Installing
 
@@ -205,7 +219,7 @@ tracked debt), labeled `review-debt`, ready for a scheduled fixer like the
 fixed pre-PR by `/review-fix`; debt flows through the tracker.
 
 **Model selection is role-based, not hardcoded:** every subagent fills a role
-(triage, lens, seams, blast-radius, adversary, verify, arbiter, holistic) mapped to a capability tier
+(triage, lens, seams, blast-radius, adversary, verify, arbiter, holistic, panel) mapped to a capability tier
 (`fast` / `balanced` / `strongest`) that resolves against whatever models the host
 tool offers — so nothing goes stale when models churn. Defaults live in `SKILL.md`
 ("Review roles & model tiers"); a repo can override them in a `## Review roles`
@@ -255,6 +269,9 @@ section of `REVIEW.md` (see `REVIEW.example.md`).
   checkout the orchestrator runs the probe, so the fact arrives proven or
   contradicted rather than argued; `publish.ts` puts the same line at the top of
   the GitHub review body, and `resolve-review` re-runs the probe after its fixes.
+- On `panel` runs, a **Panel** card lists every external seat (runner, model,
+  findings found / kept / dropped with the drop reason) and the panel-only
+  findings: what another model family saw that no lens did.
 - On `interrogate` runs, an **Interrogation** card lists every adversary seat
   (runner, focus, findings found / kept / dropped with the drop reason) and the
   interrogate-only findings, and each surviving finding's card carries the run

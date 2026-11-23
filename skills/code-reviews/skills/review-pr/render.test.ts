@@ -574,3 +574,46 @@ test("default path: no interrogation card and no repro block when the fields are
   expect(html).not.toContain("Interrogation");
   expect(html).not.toContain('class="repro"');
 });
+
+// ---- panel (the panel arg: a read-only generalist seat on another model family) ----
+const panelReport = (panel: unknown, findings: unknown[]) =>
+  baseReport({ meta: { title: "t", panel }, findings });
+
+test("panel card renders the per-seat ledger, the counts, and links only the panel-only findings", () => {
+  const html = page(
+    panelReport(
+      {
+        seats: [
+          { runner: "agy", model: "<b>neon</b>", findings: 4, kept: 2, dropped: 2, droppedWhy: "refuted by the source" },
+          { runner: "codex", findings: 0, kept: 0, dropped: 0, droppedWhy: "not signed in" },
+        ],
+        panelOnly: 1,
+        both: 1,
+      },
+      [
+        mkFinding({ id: "panel-1", lens: "panel", source: "panel", title: "Only the other family saw this" }),
+        mkFinding({ id: "first-five-1", source: "both", title: "Both saw this" }),
+        mkFinding({ id: "first-five-2", source: "lenses", title: "Lenses only" }),
+      ]
+    )
+  );
+  const start = html.indexOf("<h2>Panel ");
+  const card = html.slice(start, html.indexOf("</section>", start));
+  expect(card).toContain("2 seats from another model family");
+  expect(card).toMatch(/<div class="holi-num">1<\/div><div class="holi-lbl">panel only<\/div>/);
+  expect(card).toMatch(/<div class="holi-num">1<\/div><div class="holi-lbl">both<\/div>/);
+  expect(card).toContain('<td class="irg-seat">agy</td><td>&lt;b&gt;neon&lt;/b&gt;</td>'); // model is escaped
+  expect(card).toContain("refuted by the source");
+  expect(card).toContain("not signed in"); // a seat that never started still shows, with why
+  expect(card).toContain('href="#f-panel-1"');
+  expect(card).not.toContain("Both saw this"); // merged findings are not panel-only
+  expect(card).not.toContain("Lenses only");
+  expect(html).toContain('class="chip chip-src">panel'); // origin chip on the finding card
+});
+
+test("panel card with no panel-only finding says so; no meta.panel means no card", () => {
+  const html = page(panelReport({ seats: [{ runner: "agy", findings: 2, kept: 2, dropped: 0 }], panelOnly: 0, both: 2 }, [mkFinding({ source: "both" })]));
+  expect(html).toContain("1 seat from another model family");
+  expect(html).toContain("No panel-only findings");
+  expect(page(baseReport({ findings: [mkFinding()] }))).not.toContain("<h2>Panel ");
+});

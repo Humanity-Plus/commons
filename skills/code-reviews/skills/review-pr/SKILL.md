@@ -48,6 +48,13 @@ one finding schema, verify the findings, and render the report.
     refused with a note and the review runs without it. Off by default: an eval
     harness like `holistic`, promoted to a tier only if its interrogate-only
     counts earn it.
+  - `panel[=runner,…]` — also give **another model family** one read-only
+    generalist seat per external runner (an agent CLI from another vendor, or a
+    harness delegation tool; `panel=agy`, `panel=codex,agy`, or bare `panel` for
+    every runner detected) and report what only that family found (see "Panel
+    branch"). One round, never a loop. The seat's provider receives the diff, so
+    on a repo that is not yours it runs only when the repo's `REVIEW.md` names
+    the runner. Off by default: an eval harness like `holistic`.
   - `no-report` — findings-only mode without a fix phase: full pipeline, write
     `findings.json`, skip render/open (see "Findings-only mode" below). The
     review-without-fixing entry point — lets an unbiased fresh session review
@@ -69,7 +76,7 @@ understands this schema:
 ```jsonc
 {
   "id": "first-five-1",          // "<lens>-<n>", unique; sharded runs: "<lens>-<areaAbbrev>-<n>"
-  "lens": "first-five",          // triage | first-five | conventions | warm | zombies | preflight | intent | seams | blast-radius | interrogate | holistic | merge (Phase 0 conflict-probe findings)
+  "lens": "first-five",          // triage | first-five | conventions | warm | zombies | preflight | intent | seams | blast-radius | interrogate | panel | holistic | merge (Phase 0 conflict-probe findings)
   "severity": "high",            // critical | high | medium | low | nitpick
   "category": "External Calls",  // lens-specific subtype (see each lens)
   "file": "src/pay/charge.ts",   // repo-relative path; "" if not file-specific
@@ -110,8 +117,8 @@ all absent on the default small-PR path:
 - `regradeNote` (string) — the arbiter's justification when it changed a severity.
 - `folded` (boolean) — beyond the arbiter's report budget; the renderer shows these
   in a collapsed "More findings" section instead of omitting them.
-- `source` (`"lenses" | "holistic" | "interrogate" | "both"`) — origin tag, only on
-  `holistic` / `interrogate` runs.
+- `source` (`"lenses" | "holistic" | "interrogate" | "panel" | "both"`) — origin tag,
+  only on `holistic` / `interrogate` / `panel` runs.
 - `verifiedBy` (`"mechanical" | "experiment" | "documentation" | "skeptic" |
   "advisory"`) — which Phase 3 bucket settled the finding; set alongside
   `verified`. Travels into `resolve-review`, where it calibrates how much the
@@ -259,6 +266,7 @@ the host tool offers at run time. Never hardcode a model id in a prompt or lens 
 | `verify` | skeptic pass over a single finding | `fast` |
 | `arbiter` | global severity calibration, grouping, report budget | `strongest` |
 | `holistic` | whole-diff generalist (the `holistic` flag) | `strongest` |
+| `panel` | one read-only generalist seat on another model family (the `panel` arg) | the external runner's own default model |
 
 **Tier resolution — best-effort, never fatal.** `fast` = the host's cheapest /
 lowest-latency model class; `balanced` = the standard workhorse; `strongest` = the
@@ -279,7 +287,12 @@ rest of the file (base branch in PR mode). Example:
 - arbiter: strongest
 - verify: fast
 - holistic: claude-opus-4-8   # exact id — pinned deliberately, revisit on model churn
+- panel: agy:<model id>       # an external runner, optionally with its model
 ```
+
+The `panel` role is the one whose value names a **runner** rather than a tier, and
+naming a runner there is also the repo owner's consent for that vendor to read the
+repo's diffs (see "External runners").
 
 Unknown role names or unresolvable values are ignored (note it in `limitations` if
 you had to); the defaults above apply.
@@ -708,7 +721,7 @@ exists, triage's full map (groups, scopes, interfaces), its lens file,
 | `conventions` | the full convention docs from base, and which of them changed after the branch point (a doc-scope shard: only its layer's docs) |
 | `intent` | every spec source the discovery ladder found |
 | `primitives` | the base branch's `primitives.yaml` and `primitives.md` (the diff must not edit the ruler it is measured with) |
-| a generalist carrying several definitions (the trivial, light, and medium rows; `holistic`) | the union of what the lenses it carries get |
+| a generalist carrying several definitions (the trivial, light, and medium rows; `holistic`; a `panel` seat) | the union of what the lenses it carries get |
 
 The "Also gets" column applies whether the materials are inlined or bundled. A
 bundle, when built, holds the common set first under `=== section: common ===`,
@@ -948,6 +961,50 @@ Record the decision in `meta.sharding` — `{ "sharded": true|false, "threshold"
 "areas": [names] }` — and add a `seams` entry to `meta.lenses` whenever it ran. The
 renderer surfaces sharded runs on the "Scope & limitations" card automatically.
 
+#### External runners (shared by the `panel` and `interrogate` branches)
+
+**Runners are detected, never assumed.** A seat runs on the host's own subagent
+mechanism unless an **external runner** is objectively available: an agent CLI
+that runs one prompt non-interactively inside a directory, or a delegation tool
+the harness exposes in your tool list. A runner from another vendor is a second
+**model family**, and a second family is the cheapest blind-spot reducer there
+is: two copies of one model with one brief share blind spots; different briefs
+share fewer; different families fewest.
+
+| Runner | Detect | Read-only seat | Writing seat, in its own worktree |
+|---|---|---|---|
+| host subagents | always | the host's subagent tool | the same |
+| `codex` | `command -v codex` | `codex exec -C <dir> -s read-only "<prompt>"` | `codex exec -C <worktree> -s workspace-write "<prompt>"` |
+| `agy` (Antigravity; Gemini models) | `command -v agy`, else `~/.gemini/bin/agy` | `agy --print "<prompt>" --mode plan --sandbox --print-timeout <limit> --output-format json` — the answer is the JSON's `response` | none verified: read-only seats only |
+| a harness delegation tool | present in your tool list | as the tool documents | as the tool documents |
+
+Rules for every external seat:
+
+- **Confirm the flags before the first seat.** The invocations above are the
+  forms each CLI's own `--help` documented when this was written, and CLIs move.
+  Run `<cli> --help` once and check that every flag you are about to pass still
+  exists; a flag that is gone makes the runner unavailable — never improvise one.
+- **Detected is not signed in.** A CLI on the path with a lapsed subscription
+  fails at its first prompt. A seat that fails to start (the CLI errors, the
+  tool is refused, the time limit passes) is **dropped and noted**, never
+  quietly rerun on the host as if that had been the plan.
+- **The brief is a file, the prompt is a pointer.** Write the seat's whole brief
+  to `review-report/brief-<branch>-<runner>.md` and pass a one-line prompt that
+  names it: the lens files live outside the directory the runner is confined to,
+  and a shell argument is the wrong place for 30KB.
+- **The diff leaves for another vendor.** An external runner sends what it reads
+  to its provider. On an owned checkout the arg is the consent. On anyone else's
+  repo an external seat runs only when the base branch's `REVIEW.md` names that
+  runner under `## Review roles` — the repo owner's decision, read from base like
+  the rest of the file; otherwise the seat is refused and noted. Record every
+  provider that received the diff in `limitations`.
+- **Least privilege, as everywhere:** no tokens in the environment, no production
+  reach, and a reading seat stays read-only — never hand it a writing mode to
+  "let it check something".
+- Record each seat's runner, and its model when the runner reports one or was
+  told one, in the branch's `meta` ledger. With a single family available, say so
+  in `limitations`.
+
 #### Holistic branch (only with the `holistic` arg — an eval harness)
 
 Spawn **one additional subagent in parallel with the Phase 2 lenses** (same message —
@@ -977,6 +1034,45 @@ exactly the same rules — no special treatment**, or the comparison is invalid.
 purpose is to measure whether the specialized lens decomposition misses cross-cutting
 issues a single full-context pass catches; the comparison lands in `meta.holistic`
 (Phase 4) and the report's "Holistic comparison" card.
+
+#### Panel branch (only with the `panel[=runner,…]` arg — an eval harness)
+
+Every lens in a normal run is one model family reading one diff. The panel adds
+**one read-only generalist seat per external runner** (see "External runners";
+`panel=agy` or `panel=codex,agy` names them, optionally `runner:model`, and bare
+`panel` takes every runner detected, at most three) and measures what only
+another family saw. With no external runner available the arg is refused with a
+note: a panel of host subagents is `holistic` under another name.
+
+Each seat gets the generalist row of the recipe table and the **concatenated
+lens definitions**, framed as holistic's seat is — one thorough reviewer, the
+definitions describing what the review cares about — written to its brief file
+together with the return contract: the standard finding array as its whole
+answer, `lens: "panel"`. Start the seats alongside the Phase 2 lenses, in the
+review checkout, in the runner's read-only form, each under a time limit
+(default 15 minutes). Take the answer from the CLI's output, parse it as
+tolerantly as any lens's, and write it to `review-report/lenses/panel-<runner>.json`
+yourself — a read-only seat cannot. **Eval hygiene is holistic's rule**: the
+lenses' materials, no steering.
+
+Tag the findings `source: "panel"`. They pass Phase 3 under exactly the rules
+lens findings do — another vendor's confidence is not evidence — and dedupe
+merges a panel finding with a lens finding that one code change would resolve
+(`source: "both"`). `meta.panel` records per seat `{ runner, model?, findings,
+kept, dropped, droppedWhy? }` plus the totals `panelOnly` and `both`, and the
+report's "Panel" card shows them.
+
+**One round, never a loop.** The panel reads once. The review's exit is its
+verdict — no verified blocker — never a score, and never "until every member is
+satisfied": a fresh reader always finds something more, so a loop that waits on
+a panel's approval has no convergence guarantee and no budget.
+
+**Reading the number.** A panel-only finding is confounded: the seat differs
+from the lenses in family *and* in being a generalist. Run `holistic` beside it
+to separate the two — what the host's generalist also found is decomposition,
+what only the other family found is family. Whether the arg pays is what the
+count will show; the promotion rule is holistic's, and until a tier's
+panel-only count earns a place it stays an arg.
 
 #### Interrogate branch (only with the `interrogate[=N]` arg — an eval harness)
 
@@ -1011,23 +1107,13 @@ every seat the same text. Assign the three focuses from the brief file
 round-robin (A inputs and boundaries, B state and time, C environment and
 integration), so two seats cover A and B, three cover all, four start again.
 
-**Runners are detected, never assumed.** Every seat runs on the host's own
-subagent mechanism unless an **external runner** is objectively available: an
-agent CLI on `PATH` that runs non-interactively inside a directory — today
-`codex` (`command -v codex`; invoke as `codex exec -C <worktree> -s
-workspace-write "<brief>"`, the form its own `codex exec --help` documents) —
-or a delegation tool the harness exposes in your tool list. When one exists,
-give it **one** seat and keep the rest on the host, so the seats span model
-families; a second family is the cheapest blind-spot reducer there is. Record
-each seat's runner in `meta.interrogate.adversaries[].runner`. With a **single
-family, diversity comes from the brief, not the model** — the focuses above
-are that diversity — and `limitations` says `single-family adversaries`. Two
-copies of one model with one brief share blind spots; different briefs share
-fewer; different families fewest; say which you got. A seat that fails to
-start (the CLI errors, the tool is refused) is **dropped and noted**, never
-quietly rerun on the host as if it had been the plan. External runners get the
-same least-privilege environment as everything else: no tokens, no production
-reach.
+**Seats follow "External runners" above.** When a runner with a verified
+writing form exists, give it **one** seat, in that seat's worktree, and keep
+the rest on the host, so the seats span model families; record each seat's
+runner in `meta.interrogate.adversaries[].runner`. With a **single family,
+diversity comes from the brief, not the model** — the focuses above are that
+diversity — and `limitations` says `single-family adversaries`; say which you
+got.
 
 Each seat returns standard findings with `lens: "interrogate"` and the four
 extras (`repro`, `patch`, `observed`, `expected`). They enter the pool tagged
@@ -1247,12 +1333,12 @@ greenfield repo) or that a descendant PR already reverts/supersedes should be
 tries to *refute* the finding by re-reading the code. Mark `verified: true` if it
 survives, drop it if refuted, downgrade severity if weakened. Preflight/intent items
 are advisory — mark them `verified: true` without a refute pass unless they assert a
-code defect. On `holistic` runs, holistic-sourced findings go through this pass
+code defect. On `holistic` and `panel` runs, their findings go through this pass
 under the same rules as lens findings — no special treatment either way.
 
 ### Phase 3.5 — Severity arbiter (global calibration & grouping)
 
-After verify (and, on `holistic` runs, after holistic findings are merged into the
+After verify (and, on `holistic` and `panel` runs, after their findings are merged into the
 pool in the Phase 4 dedupe — run dedupe first, then the arbiter, so grouping and the
 budget apply to the combined pool), spawn **one** subagent with `lenses/arbiter.md`
 (the `arbiter` role — default `strongest` tier; it makes the report-wide judgment
@@ -1335,7 +1421,9 @@ contradiction between a lens's fetch and the stale Phase 0 measurement).
    applies (an interrogate finding and a lens finding that one code change would
    resolve merge with `source: "both"`, keeping the repro extras), and
    `meta.interrogate` records per seat `{ seat, runner, brief, findings, kept,
-   dropped, droppedWhy }` plus the totals `interrogateOnly` and `both`. Run the
+   dropped, droppedWhy }` plus the totals `interrogateOnly` and `both`. On `panel`
+   runs it applies too, and `meta.panel` records per seat `{ runner, model?,
+   findings, kept, dropped, droppedWhy? }` plus `panelOnly` and `both`. Run the
    Phase 3.5 arbiter after this dedupe.
 2. **Mark the classes — mechanically, after the arbiter.** A finding is a *class*
    when the repo will make the same mistake again unless something stops it, and
@@ -1432,7 +1520,9 @@ contradiction between a lens's fetch and the stale Phase 0 measurement).
        "sharding"?: { "sharded", "threshold", "areas" },
        "holistic"?: { "lensesOnly", "holisticOnly", "both" },
        "interrogate"?: { "adversaries": [{ "seat", "runner", "brief", "findings", "kept", "dropped", "droppedWhy"? }],
-                         "interrogateOnly", "both" }
+                         "interrogateOnly", "both" },
+       "panel"?: { "seats": [{ "runner", "model"?, "findings", "kept", "dropped", "droppedWhy"? }],
+                   "panelOnly", "both" }
      },
      "verdict": { "decision": "approve" | "comment" | "request-changes",
                   "confidence": "high" | "medium" | "low", "summary": "<markdown>" },
@@ -1454,7 +1544,8 @@ contradiction between a lens's fetch and the stale Phase 0 measurement).
    `meta.holistic` with the overlap stats from step 1, and on `interrogate` runs
    `meta.interrogate` with the per-seat ledger and totals (plus a
    `limitations` entry naming the trust level that allowed execution and
-   whether the seats spanned model families). Carry the run's `limitations`
+   whether the seats spanned model families), and on `panel` runs `meta.panel`
+   (plus a `limitations` entry naming every provider that received the diff). Carry the run's `limitations`
    here too — the renderer surfaces them as a visible "Scope & limitations" card, so
    this is the right place to record what the review did **not** cover (including
    anything the repository review context put out of scope; the sharding note is

@@ -122,3 +122,17 @@ test("the gate-selection rule is review-pr's one statement, cited by the fix pha
     expect(flat(text), `${name} still discovers gates by script name`).not.toMatch(/discover(ed)? (them )?from (its own )?`package\.json`/);
   }
 });
+
+// External runners are one rule for both branches that seat them. The panel
+// branch must stay a single round: a loop that waits on a panel's approval has
+// no convergence guarantee, which is the failure the arg was designed around.
+test("the external-runner rule is stated once and both branches cite it; the panel is one round", () => {
+  const pr = flat(consumers["review-pr"]);
+  expect(pr.split("**Runners are detected, never assumed.**").length - 1).toBe(1);
+  const branch = (name: string) => pr.slice(pr.indexOf(`#### ${name} branch`), pr.indexOf("####", pr.indexOf(`#### ${name} branch`) + 5));
+  for (const name of ["Panel", "Interrogate"]) expect(branch(name), name).toContain('"External runners"');
+  expect(branch("Panel")).toContain("**One round, never a loop.**");
+  // every invocation the table names carries its read-only switch
+  expect(consumers["review-pr"]).toContain('codex exec -C <dir> -s read-only "<prompt>"');
+  expect(consumers["review-pr"]).toContain('agy --print "<prompt>" --mode plan --sandbox');
+});

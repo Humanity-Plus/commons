@@ -116,6 +116,11 @@ you every skill twice.
   (today the Codex CLI on your `PATH`, or a delegation tool your harness
   provides), one seat runs there, so that seat's brief, the diff, and what it
   reads in its worktree go to that provider under your own login.
+- **Your diff, when you pass `panel`:** each external runner you name or that
+  is detected (the Codex CLI, Antigravity's `agy`, a delegation tool your
+  harness provides) gets one read-only seat, so the diff and what the seat reads
+  in the checkout go to that provider under your own login. On a repo that is
+  not yours the seat runs only when that repo's `REVIEW.md` names the runner.
 - **When you open the report:** `report.html` loads its fonts from Google Fonts.
 - **Nowhere else.** No telemetry and no other servers, and no token or key is ever
   read: GitHub access goes through your existing `gh` login.
@@ -166,5 +171,9 @@ proven by observable end states — adding the paths join key and seeded
 personas that let this toolkit's review, fixer, and queue consume it; and
 `fix-the-class` adapts pstack's `correct` — the agent model, the level ladder,
 proof on a past mistake, and the rule table — with a scope guard on the ladder
-and an entry point from `resolve-review`'s class findings. The toolkit is
+and an entry point from `resolve-review`'s class findings. The `panel` arg
+takes its idea — reviewers from different providers reading the same change —
+from `council` in Theo Browne's MIT-licensed
+[tstack](https://github.com/t3dotgg/tstack), as a single verified round with
+the yield counted, without the score loop. The toolkit is
 MIT-licensed, like the rest of the Commons.

@@ -22,7 +22,12 @@
  *     "interrogate"?: {          // per-seat ledger when the interrogate branch ran
  *       "adversaries": [{ "seat": string, "runner": string, "brief": string,
  *                         "findings": number, "kept": number, "dropped": number, "droppedWhy"?: string }],
- *       "interrogateOnly"?: number, "both"?: number }
+ *       "interrogateOnly"?: number, "both"?: number },
+ *     "panel"?: {                // per-seat ledger when the panel branch ran: one read-only
+ *                                // generalist seat per external runner (another model family)
+ *       "seats": [{ "runner": string, "model"?: string, "findings": number,
+ *                   "kept": number, "dropped": number, "droppedWhy"?: string }],
+ *       "panelOnly"?: number, "both"?: number }
  *   },
  *   "verdict": { "decision": "approve"|"comment"|"request-changes",
  *                "confidence": "high"|"medium"|"low", "summary": string },
@@ -77,7 +82,7 @@
  *   regradeNote?: string                  // arbiter's justification for a severity regrade
  *   folded?:      boolean                 // beyond the report budget — rendered in the
  *                                         //   collapsed "More findings" section, never dropped
- *   source?:      "lenses"|"holistic"|"interrogate"|"both"  // origin on --holistic / interrogate runs
+ *   source?:      "lenses"|"holistic"|"interrogate"|"panel"|"both"  // origin on holistic / interrogate / panel runs
  *   trackedIssue?: string                 // URL of the review-debt issue /review-issues
  *                                         //   filed for it — rendered as a linked chip;
  *                                         //   publish.ts posts a one-liner instead of prose
@@ -141,7 +146,7 @@ interface Finding {
   locations?: Array<{ file: string; line: number; note?: string }>;
   regradeNote?: string;
   folded?: boolean;
-  source?: "lenses" | "holistic" | "interrogate" | "both";
+  source?: "lenses" | "holistic" | "interrogate" | "panel" | "both";
   trackedIssue?: string;
   verifiedBy?: "mechanical" | "experiment" | "documentation" | "skeptic" | "advisory";
   classEvidence?: string;
@@ -187,6 +192,11 @@ interface Meta {
       droppedWhy?: string;
     }>;
     interrogateOnly?: number;
+    both?: number;
+  };
+  panel?: {
+    seats?: Array<{ runner: string; model?: string; findings?: number; kept?: number; dropped?: number; droppedWhy?: string }>;
+    panelOnly?: number;
     both?: number;
   };
 }
@@ -1354,6 +1364,36 @@ function interrogateCard(r: Report): string {
     ${table}${list}</section>`;
 }
 
+// Panel (the panel arg): one row per external seat — the runner, its model,
+// findings returned vs kept after verify — plus what only the other family
+// found. That count is the arg's whole point, so the card leads with it.
+function panelCard(r: Report): string {
+  const p = r.meta?.panel;
+  if (!p) return "";
+  const seats = Array.isArray(p.seats) ? p.seats : [];
+  const rows = seats
+    .map(
+      (s) => `<tr><td class="irg-seat">${esc(s.runner)}</td><td>${esc(s.model ?? "")}</td>
+        <td class="irg-n">${esc(s.findings ?? 0)}</td><td class="irg-n">${esc(s.kept ?? 0)}</td>
+        <td class="irg-n">${esc(s.dropped ?? 0)}${s.droppedWhy ? `<span class="irg-why">${esc(s.droppedWhy)}</span>` : ""}</td></tr>`
+    )
+    .join("");
+  const table = seats.length
+    ? `<div class="table-scroll"><table class="irg-table"><thead><tr><th>Runner</th><th>Model</th><th>Found</th><th>Kept</th><th>Dropped</th></tr></thead><tbody>${rows}</tbody></table></div>`
+    : `<p class="empty">No panel seats recorded.</p>`;
+  const only = r.findings.filter((f) => f.source === "panel");
+  const list = only.length
+    ? `<div class="holi-only"><div class="holi-only-head">Panel-only findings (seen by another model family, missed by every lens)</div>
+      <ul class="holi-list">${only.map((f) => `<li><a href="#f-${esc(f.id)}">${esc(f.title)}</a></li>`).join("")}</ul></div>`
+    : `<p class="empty">No panel-only findings — everything the other family reported, a lens had already found.</p>`;
+  const stat = (n: number, lbl: string) =>
+    `<div class="holi-stat"><div class="holi-num">${esc(n)}</div><div class="holi-lbl">${esc(lbl)}</div></div>`;
+  return `<section class="card"><h2>Panel <span class="section-tag">eval</span>
+    <span class="head-total">${seats.length} seat${seats.length === 1 ? "" : "s"} from another model family</span></h2>
+    <div class="holi-stats irg-stats">${stat(p.panelOnly ?? only.length, "panel only")}${stat(p.both ?? 0, "both")}</div>
+    ${table}${list}</section>`;
+}
+
 // ---------- page ----------
 function page(r: Report): string {
   const m = r.meta;
@@ -1867,7 +1907,7 @@ function page(r: Report): string {
     <section class="card"><h2>By section</h2>${composition(r.findings)}</section>
   </div>
   <section class="card"><h2>Risk by area</h2>${heatmap(r.triage.groups)}</section>
-  ${blastRadiusCard(r)}${classesCard(r)}${systemChangeCard(r)}${scorecardCard(r)}${holisticCard(r)}${interrogateCard(r)}
+  ${blastRadiusCard(r)}${classesCard(r)}${systemChangeCard(r)}${scorecardCard(r)}${holisticCard(r)}${interrogateCard(r)}${panelCard(r)}
 
   ${findingsSection(m, r.findings)}
   ${conventionsSection(m, r.findings)}

@@ -27,8 +27,9 @@ counts. Report; never fix.
 
 ## What you receive
 
-- The full diff, the base branch, the head SHA, and the path to **your** scratch
-  worktree (checked out at the head SHA, hooks neutralized).
+- The full diff, the base branch, the reviewed commit's SHA, and the path to
+  **your** scratch worktree (checked out at that commit — the PR's head, or the
+  merge the review recorded as `meta.reviewedSha` — hooks neutralized).
 - The **intent restatement** — one to three lines, written by the orchestrator
   from the PR body, commits, and any spec source — stating what the change is
   supposed to do. A finding counts only when the failure **breaks this intent**.

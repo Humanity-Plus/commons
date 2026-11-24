@@ -62,7 +62,9 @@ the code under review.
    (Baseline **before** `review-report/` exists; for whole-repo checks later, run
    them through `<review-pr-skill-dir>/check-clean.sh <cmd…>` — it moves the
    artifact aside and trap-restores it, so a red check can neither point into
-   your own artifact nor strand it.)
+   your own artifact nor strand it. Exit 3 from it is not a failed gate: the
+   check passed but changed the working tree, which means a committed generated
+   file is stale. Run it before the lenses start, never while they run.)
 2. **Review (findings only).** Invoke the `review-pr` skill in **findings-only mode**:
    run the same full lens sequence as a normal review — triage → first-five, conventions,
    warm, zombies, preflight, intent → verify → arbiter — exactly as normal, write

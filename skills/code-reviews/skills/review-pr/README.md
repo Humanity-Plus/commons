@@ -45,7 +45,7 @@ Phase 2   first-five, conventions,   [parallel subagents] → Finding[] each
           ├─ tiered by triage: light (the ladder row in SKILL.md) → medium (single feature
           │  area under the shard threshold: combined bugs+tests generalist +
           │  conventions + globals) → full fan-out (multi-area) → sharded
-          ├─ materials inline (or one bundle file above ~10KB of trusted context)
+          ├─ materials inline (or the bundle/ files build-bundle.sh writes, above ~10KB)
           ├─ sharded, risk-tiered: high-risk areas get per-(lens × area) shards;
           │  medium-risk areas one combined bugs+tests generalist each; low-risk
           │  areas share one pass; conventions shards by doc scope;

@@ -88,7 +88,7 @@ a report), the pipeline owns the format, not you:
   isn't enough.
 - **Return only the compact index** as your final message — a raw JSON array with
   one entry per finding:
-  `{ id, severity, category, file, line, title, claim, mechanism, fix }`,
+  `{ id, lens, severity, category, file, line, title, claim, mechanism, fix }`,
   where `claim` is a single sentence stating the asserted defect **and includes a
   short quote of the offending code** (the anchor check greps for it),
   `mechanism` is one sentence on **why** it breaks, and `fix` is one sentence

@@ -43,7 +43,7 @@ write file refs as `` `path/file.ts:42` ``.
 - The **full diff** — you are whole-diff always: naming one safety fact needs the
   whole change in view, and a slice would name a slice's fact.
 - Triage's map: the feature-area groups, their risk, and the `interfaces` entries.
-- The repository review context (if any), the base branch, and the head SHA.
+- The repository review context (if any), the base branch, and the reviewed commit's SHA.
 
 ## Steps
 

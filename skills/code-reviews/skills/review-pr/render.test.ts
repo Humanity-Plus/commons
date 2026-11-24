@@ -1,6 +1,9 @@
 // Safety regression tests for the rich-content sanitizer.
 // Run: bun test  (from this directory)
 import { test, expect } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { sanitizeHtml, renderInline, renderRich, page, validateReport, normalizeReport } from "./render.ts";
 
 // ---- structural validation (the round-13 "undefined · undefined confidence" fix) ----
@@ -26,14 +29,46 @@ test("validateReport accepts valid reports and genuinely absent sections", () =>
 });
 
 test("severities are normalized where the spelling is unambiguous and refused where it is not", () => {
-  const sev = (severity: unknown) => ({ findings: [{ id: "a-1", severity }] });
-  const fixed = normalizeReport(sev(" Nit "));
-  expect(fixed.findings[0].severity).toBe("nitpick"); // the drift the field reported
+  const sev = (severity: unknown, id: unknown = "a-1") => ({ findings: [{ id, severity }] });
+  expect(normalizeReport(sev(" Nit ")).findings[0].severity).toBe("nitpick"); // the drift the field reported
+  expect(normalizeReport(sev("nitpicks")).findings[0].severity).toBe("nitpick");
   expect(normalizeReport(sev("HIGH")).findings[0].severity).toBe("high");
-  expect(validateReport(sev("nit"))).toEqual([]); // validation sees the normalized value
   expect(validateReport(sev("blocker")).join(" ")).toContain('finding a-1: severity "blocker" is not one of critical | high | medium | low | nitpick');
+  expect(validateReport(sev("blocker", null)).join(" ")).toContain("finding (no id): severity");
   expect(validateReport(sev(undefined)).join(" ")).toContain("finding a-1"); // a missing severity no longer renders as medium
-  expect(validateReport({ findings: "nope" }).join(" ")).toContain("findings must be an array"); // and the older check still wins
+  expect(validateReport({ findings: "nope" }).join(" ")).toContain("findings must be an array"); // the older check still wins
+  // shapes that are not findings are left for validation to name, never thrown on
+  expect(normalizeReport({ findings: "nope" } as any).findings).toBe("nope");
+  expect(() => normalizeReport({ findings: [null, "x", { id: "b-1", severity: "LOW" }] } as any)).not.toThrow();
+  expect(validateReport({ findings: [null] }).join(" ")).toContain("finding (no id)");
+});
+
+test("render.ts itself normalizes before it validates and renders", () => {
+  const dir = mkdtempSync(join(tmpdir(), "review-pr-render-"));
+  const report = (severity: string) =>
+    JSON.stringify(baseReport({ findings: [mkFinding({ severity, title: "Spelled loosely" })] }));
+  const render = (severity: string) => {
+    writeFileSync(join(dir, "f.json"), report(severity));
+    const r = Bun.spawnSync(["bun", "run", join(import.meta.dir, "render.ts"), join(dir, "f.json"), join(dir, "out.html")]);
+    return { code: r.exitCode, err: r.stderr.toString() };
+  };
+  expect(render(" Nit ").code).toBe(0);
+  expect(readFileSync(join(dir, "out.html"), "utf8")).toMatch(/⚪ Nitpick<\/span>/); // rendered as a nitpick, not as the medium fallback
+  const refused = render("blocker");
+  expect(refused.code).toBe(1);
+  expect(refused.err).toContain('severity "blocker" is not one of');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("an off-head review shows both commits and links no line", () => {
+  const meta = { mode: "pr", title: "t", repo: "acme/app", headSha: "aaaaaaa1111", filesChanged: 1, additions: 1, deletions: 0 };
+  const onHead = page(baseReport({ meta, findings: [mkFinding()] }));
+  expect(onHead).toContain('<a class="ref" href="https://github.com/acme/app/blob/aaaaaaa1111/src/a.ts#L10"');
+  expect(onHead).not.toContain("reviewed as merged at");
+  const off = page(baseReport({ meta: { ...meta, reviewedSha: "bbbbbbb2222" }, findings: [mkFinding()] }));
+  expect(off).toContain('<span class="ref">src/a.ts:10</span>'); // the reference stays, the link goes
+  expect(off).not.toContain("blob/aaaaaaa1111/src/a.ts");
+  expect(off).toContain("reviewed as merged at <b>bbbbbbb</b>");
 });
 
 test("injected-quote payload cannot smuggle an event handler", () => {

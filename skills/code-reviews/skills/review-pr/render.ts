@@ -294,7 +294,7 @@ const SEV_ORDER: Sev[] = ["critical", "high", "medium", "low", "nitpick"];
 // for "nitpick", which rendered as medium). Unambiguous spellings are mapped;
 // anything else is left for validateReport to refuse.
 const SEV_ALIASES: Record<string, Sev> = { nit: "nitpick", nitpicks: "nitpick" };
-export function normalizeSeverity(value: unknown): unknown {
+function normalizeSeverity(value: unknown): unknown {
   if (typeof value !== "string") return value;
   const v = value.trim().toLowerCase();
   return SEV_ALIASES[v] ?? v;
@@ -361,8 +361,16 @@ const safeUrl = (u: unknown): string => {
   return /^https?:\/\//i.test(s) ? s : "";
 };
 
+// True when the lenses read a commit other than the PR's head (a merge-forward
+// review). Line numbers then describe a tree no pushed commit has, so nothing
+// may link a line: the reference stays, the link goes. Shared with publish.ts.
+// An abbreviated SHA names the same commit as its full form, as it does for
+// reset-workspace.sh.
+export const offHead = (m: { headSha?: string; reviewedSha?: string }): boolean =>
+  !!m.reviewedSha && !!m.headSha && !m.reviewedSha.startsWith(m.headSha) && !m.headSha.startsWith(m.reviewedSha);
+
 function permalink(m: Meta, file: string, line: number): string {
-  if (!file || !m.repo || !m.headSha) return "";
+  if (!file || !m.repo || !m.headSha || offHead(m)) return "";
   const anchor = line > 0 ? `#L${line}` : "";
   return `https://github.com/${m.repo}/blob/${m.headSha}/${file}${anchor}`;
 }
@@ -1929,6 +1937,7 @@ function page(r: Report): string {
       <div class="meta-row">
         ${m.author ? `<span>by <b>${esc(m.author)}</b></span>` : ""}
         ${shaShort ? `<span><b>${esc(shaShort)}</b></span>` : ""}
+        ${offHead(m) ? `<span>reviewed as merged at <b>${esc((m.reviewedSha || "").slice(0, 7))}</b> — line numbers are that tree's, so references are not links</span>` : ""}
         <span><b>${esc(m.filesChanged)}</b> files</span>
         <span class="diffstat"><span class="add">+${esc(m.additions)}</span> <span class="del">−${esc(
     m.deletions

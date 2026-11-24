@@ -1,6 +1,9 @@
 // Tests for the GitHub-publishing pipeline: diff anchoring, GFM degradation,
 // and review-payload assembly. Run: bun test  (from this directory)
 import { test, expect } from "bun:test";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { parseDiffAnchors, toGfm, buildReview, blastRadiusLine, classesLine, checkReviewedSha, resolveEvent, checkPrMismatch, gistGuardError, reviewFooter, fmtStamp, pagesReportName, pagesGuardError } from "./publish.ts";
 
 // ---- --gist visibility guard (round 19: the private-source leak vector) ----
@@ -25,6 +28,68 @@ test("unwrapped block containers get paragraph breaks, spans stay inline", () =>
 });
 
 // ---- stale-artifact backstop (round 14) ----
+const HEAD = "aaaaaaa1111111111111111111111111111111aa";
+const MERGED = "bbbbbbb2222222222222222222222222222222bb";
+
+test("checkReviewedSha refuses when the lenses read a commit the PR does not have, unless nothing is anchored", () => {
+  expect(checkReviewedSha({ headSha: HEAD })).toBeNull(); // the ordinary review: one SHA
+  expect(checkReviewedSha({ headSha: HEAD, reviewedSha: HEAD })).toBeNull();
+  expect(checkReviewedSha({ reviewedSha: MERGED })).toBeNull(); // local mode: no PR head to disagree with
+  const refusal = checkReviewedSha({ headSha: HEAD, reviewedSha: MERGED });
+  expect(refusal).toContain("the lenses read bbbbbbb, but the PR's head was aaaaaaa");
+  expect(refusal).toContain("re-run the review");
+  expect(refusal).toContain("--body-only");
+  expect(checkReviewedSha({ headSha: HEAD, reviewedSha: MERGED }, true)).toBeNull(); // --body-only anchors nothing
+  expect(checkReviewedSha({ headSha: HEAD, reviewedSha: HEAD.slice(0, 12) })).toBeNull(); // an abbreviated SHA is the same commit
+  expect(checkReviewedSha({ headSha: HEAD.slice(0, 7), reviewedSha: HEAD })).toBeNull();
+});
+
+test("an off-head review links no line: toGfm leaves path:line as text", () => {
+  const meta = { repo: "acme/app", headSha: HEAD };
+  expect(toGfm("See `src/pay/charge.ts:42`.", meta)).toContain("](https://github.com/acme/app/blob/");
+  const off = toGfm("See `src/pay/charge.ts:42`.", { ...meta, reviewedSha: MERGED });
+  expect(off).toBe("See `src/pay/charge.ts:42`."); // the reference stays, the link goes
+});
+
+// The checks above are pure; these run the script itself, which is where they have to be wired.
+function publishMain(report: unknown, ...flags: string[]) {
+  const file = join(mkdtempSync(join(tmpdir(), "review-pr-publish-")), "findings.json");
+  writeFileSync(file, JSON.stringify(report));
+  const bin = emptyBin();
+  const r = Bun.spawnSync(["bun", "run", join(import.meta.dir, "publish.ts"), file, "--dry-run", ...flags], {
+    env: { ...process.env, PATH: `${bin}:/usr/bin:/bin:${dirname(process.execPath)}` }, // no gh reachable: a refusal must come first
+  });
+  for (const dir of [dirname(file), bin]) rmSync(dir, { recursive: true, force: true });
+  return { code: r.exitCode, err: r.stderr.toString() };
+}
+function emptyBin() {
+  const bin = mkdtempSync(join(tmpdir(), "review-pr-nogh-"));
+  writeFileSync(join(bin, "gh"), "#!/bin/sh\necho 'gh was reached' >&2\nexit 9\n");
+  chmodSync(join(bin, "gh"), 0o755);
+  return bin;
+}
+const finding = (severity: string) => ({ id: "a-1", lens: "first-five", severity, category: "c", file: "src/a.ts", line: 1, title: "t", evidence: "", suggestion: "", featureArea: "x" });
+const mainReport = (meta: Record<string, unknown>, severity = "high") => ({
+  meta: { repo: "acme/app", prNumber: 7, ...meta },
+  verdict: { decision: "comment", confidence: "high", summary: "s" },
+  findings: [finding(severity)],
+});
+
+test("publish.ts itself refuses a severity outside the enum and an off-head review, before it reaches GitHub", () => {
+  const bad = publishMain(mainReport({ headSha: HEAD }, "blocker"));
+  expect(bad.code).toBe(1);
+  expect(bad.err).toContain('finding a-1: severity "blocker" is not one of');
+  expect(bad.err).not.toContain("gh was reached");
+  const off = publishMain(mainReport({ headSha: HEAD, reviewedSha: MERGED }));
+  expect(off.code).toBe(1);
+  expect(off.err).toContain("the lenses read bbbbbbb");
+  expect(off.err).not.toContain("gh was reached");
+  const bodyOnly = publishMain(mainReport({ headSha: HEAD, reviewedSha: MERGED }, " Nit "), "--body-only");
+  expect(bodyOnly.err).not.toContain("the lenses read"); // --body-only gets past the refusal…
+  expect(bodyOnly.err).not.toContain("is not one of"); // …and ' Nit ' was normalized, not refused…
+  expect(bodyOnly.err).toContain("gh was reached"); // …so the script went on to GitHub
+});
+
 test("checkPrMismatch refuses another PR's findings, allows matches and unknowns", () => {
   expect(checkPrMismatch(154, "166")).toContain("describes PR #154");
   expect(checkPrMismatch(166, "166")).toBeNull();
@@ -77,17 +142,6 @@ test("nearest-anchor applies only to blockers and only within the distance cap",
 });
 
 // ---- self-review downgrade truth table (the round-6 422 bug) ----
-test("checkReviewedSha refuses inline anchors when the lenses read a commit the PR does not have", () => {
-  const head = "aaaaaaa1111111111111111111111111111111aa";
-  const merged = "bbbbbbb2222222222222222222222222222222bb";
-  expect(checkReviewedSha({ headSha: head })).toBeNull(); // the ordinary review: one SHA
-  expect(checkReviewedSha({ headSha: head, reviewedSha: head })).toBeNull();
-  expect(checkReviewedSha({ reviewedSha: merged })).toBeNull(); // local mode: no PR head to disagree with
-  const refusal = checkReviewedSha({ headSha: head, reviewedSha: merged });
-  expect(refusal).toContain("the lenses read bbbbbbb, but the PR's head is aaaaaaa");
-  expect(refusal).toContain("--body-only");
-});
-
 test("resolveEvent downgrades REQUEST_CHANGES to COMMENT on your own PR", () => {
   expect(resolveEvent("request-changes", "paal", "paal")).toEqual({
     event: "COMMENT",
@@ -275,6 +329,15 @@ test("buildReview: anchored → inline comment; unanchored + out-of-diff → bod
   expect(p.body).toContain("New env var needed");
   expect(p.body).toContain("Out-of-diff finding");
   expect(p.body).not.toContain("Wrong Stripe method"); // inline ones aren't duplicated
+});
+
+test("a review of a merged tree says so at the top of the body it posts", () => {
+  const anchors = parseDiffAnchors(DIFF);
+  const onHead = buildReview({ ...REPORT, meta: { ...REPORT.meta, headSha: HEAD } }, anchors, { event: "COMMENT", bodyOnly: true });
+  expect(onHead.body).not.toContain("Reviewed as merged");
+  const off = buildReview({ ...REPORT, meta: { ...REPORT.meta, headSha: HEAD, reviewedSha: MERGED } }, anchors, { event: "COMMENT", bodyOnly: true });
+  expect(off.body).toContain("Reviewed as merged at `bbbbbbb`, not at this PR's head");
+  expect(off.comments).toEqual([]);
 });
 
 test("buildReview: --body-only puts everything in the body; report link + downgrade note", () => {

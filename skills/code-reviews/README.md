@@ -88,7 +88,9 @@ you every skill twice.
 
 - **On your machine:** `git` and `gh` to read the diff and PR, check out the PR
   branch with git hooks disabled, fetch the base, and create scratch worktrees;
-  `bun` to render the HTML report and run the publish and recap scripts; and the
+  `bun` to render the HTML report and run the publish and recap scripts; `jq`,
+  when installed, so the workspace reset can tell a findings file that still
+  describes the checkout from a stale one (without it every file is archived); and the
   dependency lens's package-registry lookups and `npm audit`-style advisory queries. On your own branches it also runs
   the repo's tests and checks; it never executes, builds, or installs anyone else's
   checkout unless the repo's `REVIEW.md` opts in.

@@ -10,7 +10,19 @@
 #   check-clean.sh turbo run check-types
 #
 # The artifact is restored on ANY exit (trap), including a failing check, and
-# the check's exit code passes through untouched.
+# the check's exit code passes through untouched — with two exceptions, both
+# things a green check would otherwise hide:
+#
+#   exit 3  the check passed but changed the working tree (git status differs
+#           from before it ran): a committed generated file is stale, or the
+#           "check" rewrites files. Field: a stale api.d.ts no lens could see.
+#   exit 2  the script could not do its own job (see the messages below).
+#
+# Files written into review-report/ WHILE the check ran (a lens finishing late)
+# are merged into the restored original; only a path that exists on both sides
+# stops the restore. Better still: run no whole-repo check while lenses are in
+# flight. Field: the earlier fail-on-any-recreation stranded finished work in a
+# temp folder and exited non-zero for a check that had passed.
 #
 # A running verify-skill instance owns review-report/verify/ for its evidence,
 # so the check refuses while one is live. The instance's runtime state lives
@@ -35,6 +47,13 @@ if [[ -s "$pids" ]]; then
   done
 fi
 
+# What git sees before the check, to compare with what it sees after.
+tracked="" before=""
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  tracked=1
+  before="$(git status --porcelain 2>/dev/null)"
+fi
+
 moved=""
 if [[ -d review-report ]]; then
   tmp="$(mktemp -d)" || exit 2
@@ -49,10 +68,35 @@ restore() {
   local rc=$?
   if [[ -n "$moved" && -d "$moved" ]]; then
     if [[ -e review-report ]]; then
-      echo "check-clean: review-report/ was recreated while the check ran, so the original was NOT restored — the check exited $rc; merge it back by hand from where it is left at $moved" >&2
-      exit 2
+      local clash="" f
+      if [[ -d review-report ]]; then
+        while IFS= read -r -d '' f; do
+          if [[ -e "$moved/${f#review-report/}" ]]; then clash="${f#review-report/}"; break; fi
+        done < <(find review-report -type f -print0)
+      else
+        clash="review-report (recreated as a file)"
+      fi
+      if [[ -n "$clash" ]]; then
+        echo "check-clean: review-report/ was recreated while the check ran and '$clash' exists on both sides, so the original was NOT restored — the check exited $rc; merge it back by hand from where it is left at $moved" >&2
+        exit 2
+      fi
+      while IFS= read -r -d '' f; do
+        mkdir -p "$moved/$(dirname "${f#review-report/}")"
+        mv "$f" "$moved/${f#review-report/}"
+      done < <(find review-report -type f -print0)
+      rm -rf review-report
+      echo "check-clean: files written to review-report/ while the check ran were merged into the restored original" >&2
     fi
     mv "$moved" review-report
+  fi
+  if [[ -n "$tracked" ]]; then
+    local after
+    after="$(git status --porcelain 2>/dev/null)"
+    if [[ "$after" != "$before" ]]; then
+      echo "check-clean: the check changed the working tree — a committed generated file is stale, or the check rewrites files:" >&2
+      diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") | sed -n 's/^> /  /p' >&2
+      [[ $rc -eq 0 ]] && rc=3
+    fi
   fi
   exit "$rc"
 }

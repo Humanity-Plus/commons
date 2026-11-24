@@ -76,7 +76,10 @@ write file refs as `` `path/file.ts:42` ``.
    Climb as high as reading lets you, and record the `proof`: the quote, the
    trace, or the command and its output. Then write the **`probe`** — the exact
    command, test, or query that would settle the fact by execution (the same
-   shape as the `verifiable` field on a finding). `status` is `proven` only at
+   shape as the `verifiable` field on a finding). When the probe needs more
+   than a one-liner, write the file under `review-report/lenses/probes/` and
+   make `probe` the command that runs it; besides your findings file, that
+   folder is the one place you may write. `status` is `proven` only at
    rung 4 or 5, `unproven` below that, and `contradicted` when what you found
    says the fact is false — a contradicted safety fact is also your first
    finding.

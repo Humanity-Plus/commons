@@ -1,7 +1,7 @@
 // Tests for the GitHub-publishing pipeline: diff anchoring, GFM degradation,
 // and review-payload assembly. Run: bun test  (from this directory)
 import { test, expect } from "bun:test";
-import { parseDiffAnchors, toGfm, buildReview, blastRadiusLine, classesLine, resolveEvent, checkPrMismatch, gistGuardError, reviewFooter, fmtStamp, pagesReportName, pagesGuardError } from "./publish.ts";
+import { parseDiffAnchors, toGfm, buildReview, blastRadiusLine, classesLine, checkReviewedSha, resolveEvent, checkPrMismatch, gistGuardError, reviewFooter, fmtStamp, pagesReportName, pagesGuardError } from "./publish.ts";
 
 // ---- --gist visibility guard (round 19: the private-source leak vector) ----
 test("gistGuardError refuses non-public repos unless forced", () => {
@@ -77,6 +77,17 @@ test("nearest-anchor applies only to blockers and only within the distance cap",
 });
 
 // ---- self-review downgrade truth table (the round-6 422 bug) ----
+test("checkReviewedSha refuses inline anchors when the lenses read a commit the PR does not have", () => {
+  const head = "aaaaaaa1111111111111111111111111111111aa";
+  const merged = "bbbbbbb2222222222222222222222222222222bb";
+  expect(checkReviewedSha({ headSha: head })).toBeNull(); // the ordinary review: one SHA
+  expect(checkReviewedSha({ headSha: head, reviewedSha: head })).toBeNull();
+  expect(checkReviewedSha({ reviewedSha: merged })).toBeNull(); // local mode: no PR head to disagree with
+  const refusal = checkReviewedSha({ headSha: head, reviewedSha: merged });
+  expect(refusal).toContain("the lenses read bbbbbbb, but the PR's head is aaaaaaa");
+  expect(refusal).toContain("--body-only");
+});
+
 test("resolveEvent downgrades REQUEST_CHANGES to COMMENT on your own PR", () => {
   expect(resolveEvent("request-changes", "paal", "paal")).toEqual({
     event: "COMMENT",

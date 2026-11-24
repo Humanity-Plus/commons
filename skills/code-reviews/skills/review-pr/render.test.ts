@@ -1,7 +1,7 @@
 // Safety regression tests for the rich-content sanitizer.
 // Run: bun test  (from this directory)
 import { test, expect } from "bun:test";
-import { sanitizeHtml, renderInline, renderRich, page, validateReport } from "./render.ts";
+import { sanitizeHtml, renderInline, renderRich, page, validateReport, normalizeReport } from "./render.ts";
 
 // ---- structural validation (the round-13 "undefined · undefined confidence" fix) ----
 test("validateReport rejects malformed-but-present shapes", () => {
@@ -23,6 +23,17 @@ test("validateReport accepts valid reports and genuinely absent sections", () =>
       findings: [],
     })
   ).toEqual([]);
+});
+
+test("severities are normalized where the spelling is unambiguous and refused where it is not", () => {
+  const sev = (severity: unknown) => ({ findings: [{ id: "a-1", severity }] });
+  const fixed = normalizeReport(sev(" Nit "));
+  expect(fixed.findings[0].severity).toBe("nitpick"); // the drift the field reported
+  expect(normalizeReport(sev("HIGH")).findings[0].severity).toBe("high");
+  expect(validateReport(sev("nit"))).toEqual([]); // validation sees the normalized value
+  expect(validateReport(sev("blocker")).join(" ")).toContain('finding a-1: severity "blocker" is not one of critical | high | medium | low | nitpick');
+  expect(validateReport(sev(undefined)).join(" ")).toContain("finding a-1"); // a missing severity no longer renders as medium
+  expect(validateReport({ findings: "nope" }).join(" ")).toContain("findings must be an array"); // and the older check still wins
 });
 
 test("injected-quote payload cannot smuggle an event handler", () => {

@@ -10,6 +10,10 @@
  *     "mode": "pr" | "local",
  *     "title": string, "author": string,
  *     "base": string, "head": string, "headSha": string,
+ *     "reviewedSha"?: string,    // the commit the lenses read, when it is not headSha: a
+ *                                //   merge-forward review reads a merged tree. Anchors and
+ *                                //   resolve-review's freshness check follow it; permalinks
+ *                                //   and the published review stay on headSha
  *     "repo": string,            // "owner/name", for permalinks ("" if unknown)
  *     "prNumber": number | null, "url": string,
  *     "filesChanged": number, "additions": number, "deletions": number,
@@ -172,6 +176,7 @@ interface Meta {
   base?: string;
   head?: string;
   headSha?: string;
+  reviewedSha?: string;
   repo?: string; // "owner/name", for permalinks ("" / undefined if unknown)
   prNumber?: number | null;
   url?: string;
@@ -262,6 +267,12 @@ export function validateReport(r: any): string[] {
       errs.push('verdict.decision is missing — expected "approve" | "comment" | "request-changes"');
   }
   if (r.findings !== undefined && !Array.isArray(r.findings)) errs.push("findings must be an array");
+  else
+    for (const f of r.findings ?? []) {
+      const sev = normalizeSeverity(f?.severity);
+      if (!SEV_ORDER.includes(sev as Sev))
+        errs.push(`finding ${f?.id ?? "(no id)"}: severity "${f?.severity}" is not one of ${SEV_ORDER.join(" | ")}`);
+    }
   if (r.triage !== undefined && (!isObj(r.triage) || (r.triage.groups !== undefined && !Array.isArray(r.triage.groups))))
     errs.push("triage must be an object whose groups (if present) is an array");
   if (r.scorecard !== undefined && !Array.isArray(r.scorecard)) errs.push("scorecard must be an array");
@@ -278,6 +289,22 @@ export function validateReport(r: any): string[] {
 
 // ---------- constants ----------
 const SEV_ORDER: Sev[] = ["critical", "high", "medium", "low", "nitpick"];
+
+// Lenses drift on the one enum everything downstream switches on (field: "nit"
+// for "nitpick", which rendered as medium). Unambiguous spellings are mapped;
+// anything else is left for validateReport to refuse.
+const SEV_ALIASES: Record<string, Sev> = { nit: "nitpick", nitpicks: "nitpick" };
+export function normalizeSeverity(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const v = value.trim().toLowerCase();
+  return SEV_ALIASES[v] ?? v;
+}
+/** Applies the mechanical normalizations a report needs before anything reads it. */
+export function normalizeReport<T extends { findings?: unknown }>(report: T): T {
+  if (Array.isArray(report?.findings))
+    for (const f of report.findings) if (f && typeof f === "object") f.severity = normalizeSeverity(f.severity);
+  return report;
+}
 const SEV: Record<Sev, { label: string; color: string; dot: string }> = {
   critical: { label: "Critical", color: "#ff8589", dot: "🔴" },
   high: { label: "High", color: "#ffa057", dot: "🟠" },
@@ -1961,6 +1988,7 @@ if (import.meta.main) {
   }
   // Malformed-but-present shapes fail loudly; only genuinely absent sections
   // get the defensive defaults below.
+  normalizeReport(report);
   const problems = validateReport(report);
   if (problems.length) {
     console.error(`✗ ${inPath} is structurally malformed:`);

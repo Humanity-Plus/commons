@@ -168,7 +168,15 @@ grounded in what the interview found:
 - **Doctor.** One read-only check that answers "is this instance worth
   driving?" — process up, right build, port owned by us, auth valid, seed
   present — and it prints every identifier Launch derived, so a refusal
-  reads as one. An agent runs it first whenever anything looks off.
+  reads as one. "Right build" is checked two ways: the commit the instance
+  was launched from (the head Launch recorded) is the commit being driven,
+  and an edit on disk reaches the running instance. A backing deployment
+  that outlives a branch keeps the older branch's schema and data, and a
+  watcher can sit idle without picking a file up (field: an instance
+  launched on an older PR's branch failed a later schema push and lacked
+  seed data; another's watcher never started watching). When either check
+  fails, Doctor names the command that resets or re-pushes. An agent runs
+  it first whenever anything looks off.
 - **Personas.** One entry per seeded user state: a name, what state the seed
   puts them in, how to sign in as them (the seed file and key, by reference),
   and what they are for. The empty-state persona and the edge-case persona
@@ -310,7 +318,8 @@ keep it out of the corrections).
    personas added or removed since the map was written. Re-read the skill's
    own Launch, Doctor, and Cleanup against section 2's contract — pid file
    and runtime state in the git dir, bounded wait, the fresh-worktree setup
-   step, derived identifiers sanitized and printed by Doctor — a
+   step, derived identifiers sanitized and printed by Doctor, Doctor's
+   launched-from-this-commit and edits-reach-the-instance checks — a
    section written before a contract rule existed is harness drift, fixed
    under the helpers rule (field: a generated Launch kept deriving a
    deployment name from the raw checkout path after the generator learned to

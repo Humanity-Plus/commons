@@ -70,7 +70,8 @@ working tree, so the boundary moves:
    if there are unrelated uncommitted changes, warn that fixes will mix with them
    (offer to stash or branch); don't silently proceed on a messy tree.
 2. **Load findings.** Read `review-report/findings.json` (or use the in-session set).
-   **Check the file describes this checkout first:** when its `meta.headSha` isn't
+   **Check the file describes this checkout first:** when the commit it reviewed —
+   `meta.reviewedSha` when the review recorded one, else `meta.headSha` — isn't
    `git rev-parse HEAD`, the code has moved since the review and its anchors may
    point at changed lines. Stop and ask whether to re-run the review or proceed
    anyway, rather than planning edits against code the findings never saw.
@@ -221,7 +222,12 @@ For each task, smallest blast radius first:
    ```
 
    Never "fix" the artifact, never count it as a failure, and never let it
-   contaminate the before/after comparison with the baseline.
+   contaminate the before/after comparison with the baseline. The guard also
+   compares `git status --porcelain` before and after the check and exits 3
+   when a passing check changed a file: a committed generated file is stale,
+   and regenerating and committing it is part of the fix (or a hand-back when
+   it is not yours to regenerate). Run no whole-repo check while another agent
+   is still writing into `review-report/`.
 2. **Mutation-test every `zombies` fix — required, not initiative.** A newly added
    test that passes proves nothing: it may not guard anything. After writing the
    test(s) for a test-gap finding, temporarily reintroduce the defect the test is

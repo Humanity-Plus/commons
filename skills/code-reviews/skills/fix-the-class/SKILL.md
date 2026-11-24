@@ -92,7 +92,7 @@ makes the mistake impossible:
 5. **Docs or an agent rule.** Last, and only for judgment calls that no check
    can decide. Nothing fails when an agent skips prose.
 
-Two guards on the ladder:
+Three guards on the ladder:
 
 - **Smallest change that makes the mistake impossible.** "Architecture first"
   is a priority, not a license to refactor. If the architecture move changes
@@ -103,6 +103,12 @@ Two guards on the ladder:
 - **Note why the higher levels did not work.** That reason goes in the report
   and, for a prose rule, in the rule table, so the next pass knows whether
   the level was a limit or a shortcut.
+- **Data already stored is out of a check's reach.** A guard stops new
+  writes; rows written under the old rule stay as they are, and no lint or
+  type can see them. Land the guard for new writes, then give the stored rows
+  two things: an entry under `## Always check` in the repo's `REVIEW.md`
+  naming the old shape a reader may still meet, and a backfill issue. The
+  rule table says both: `<the guard>; stored rows: backfill #<n>`.
 
 ## 3. Fix and prove
 

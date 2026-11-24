@@ -74,7 +74,7 @@
  */
 
 import { basename, dirname, join } from "node:path";
-import { isClass } from "./render.ts";
+import { isClass, normalizeReport } from "./render.ts";
 
 // ---------- types (subset of render.ts's schema) ----------
 type Sev = "critical" | "high" | "medium" | "low" | "nitpick";
@@ -99,6 +99,7 @@ interface Report {
     repo?: string;
     prNumber?: number | null;
     headSha?: string;
+    reviewedSha?: string; // the commit the lenses read, when not headSha — see checkReviewedSha()
     author?: string;
     generatedAt?: string;
     model?: string;
@@ -182,6 +183,19 @@ export function checkPrMismatch(
     `findings file describes PR #${metaPr}, but --pr ${argPr} was given — refusing to publish ` +
     `another PR's findings. (Stale review-report/? Re-run the review for PR ${argPr}, or point ` +
     `at the right findings file.)`
+  );
+}
+
+// A merge-forward review reads a merged tree (meta.reviewedSha), but a review
+// can only be posted on a commit the PR has (meta.headSha). When they differ,
+// the findings' line numbers describe code GitHub would anchor somewhere else.
+export function checkReviewedSha(meta: { headSha?: string; reviewedSha?: string }): string | null {
+  if (!meta.reviewedSha || !meta.headSha || meta.reviewedSha === meta.headSha) return null;
+  return (
+    `the lenses read ${meta.reviewedSha.slice(0, 7)}, but the PR's head is ${meta.headSha.slice(0, 7)} — ` +
+    `the findings' line numbers describe a tree the PR does not have. Push the reviewed commit ` +
+    `to the PR (then re-run the review, which records one SHA), or pass --body-only to post ` +
+    `the review without inline comments.`
   );
 }
 
@@ -602,7 +616,7 @@ if (import.meta.main) {
     process.exit(1);
   }
 
-  const report: Report = JSON.parse(await Bun.file(findingsPath).text());
+  const report: Report = normalizeReport(JSON.parse(await Bun.file(findingsPath).text()));
   report.meta ??= {};
   report.verdict ??= { decision: "comment", confidence: "low", summary: "" };
   report.findings ??= [];
@@ -621,6 +635,11 @@ if (import.meta.main) {
   const mismatch = checkPrMismatch(report.meta.prNumber, opts["pr"] as string | undefined);
   if (mismatch) {
     console.error(`✗ ${mismatch}`);
+    process.exit(1);
+  }
+  const offHead = opts["body-only"] ? null : checkReviewedSha(report.meta);
+  if (offHead) {
+    console.error(`✗ ${offHead}`);
     process.exit(1);
   }
   const minSeverity = opts["min-severity"] as Sev | undefined;

@@ -165,3 +165,25 @@ test("the external-runner gate is stated once, both branches cite it, and its se
   for (const rel of ["review-pr/README.md", "../README.md"]) expect(read(rel), rel).toContain("`runners:`");
   expect(read("review-pr/REVIEW.example.md")).toMatch(/^<!-- runners: [a-z, ]+ -->$/m); // shipped commented out, like `execution:`
 });
+
+// The bundle's file names are a contract between the script that writes them
+// and the skill text that tells each lens which to read.
+test("the bundle files the skill names are the ones build-bundle.sh writes", () => {
+  const script = read("review-pr/build-bundle.sh");
+  const written = [...script.matchAll(/>"\$out\/([a-z]+)\.md"/g)].map((m) => `${m[1]}.md`).sort();
+  expect(written).toEqual(["common.md", "conventions.md", "intent.md", "primitives.md"]);
+  const pr = flat(consumers["review-pr"]);
+  for (const file of written) expect(pr, file).toContain(`\`${file}\``);
+  expect(pr).toContain("<this-skill-dir>/build-bundle.sh");
+  expect(pr).not.toContain("context-bundle.md"); // the single-file bundle is gone, everywhere
+  expect(pr).not.toContain("=== section:");
+});
+
+// meta.reviewedSha is read by four programs and written by one procedure.
+test("the reviewed-commit field is one name across the skill, the fixer, and the scripts", () => {
+  for (const rel of ["review-pr/SKILL.md", "resolve-review/SKILL.md", "review-pr/reset-workspace.sh", "review-pr/publish.ts", "review-pr/render.ts"]) {
+    expect(read(rel), rel).toContain("reviewedSha");
+  }
+  expect(flat(consumers["review-pr"])).toContain("record that commit as `meta.reviewedSha`");
+  expect(flat(consumers["review-pr"])).toContain("`{ id, lens, severity, category, file, line, title, claim, mechanism, fix }`");
+});

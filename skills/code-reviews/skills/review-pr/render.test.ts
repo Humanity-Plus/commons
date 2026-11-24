@@ -53,7 +53,9 @@ test("render.ts itself normalizes before it validates and renders", () => {
     return { code: r.exitCode, err: r.stderr.toString() };
   };
   expect(render(" Nit ").code).toBe(0);
-  expect(readFileSync(join(dir, "out.html"), "utf8")).toMatch(/⚪ Nitpick<\/span>/); // rendered as a nitpick, not as the medium fallback
+  const nitHtml = readFileSync(join(dir, "out.html"), "utf8");
+  expect(nitHtml).toMatch(/Nitpick<\/span>/); // rendered as a nitpick, not as the medium fallback
+  expect(nitHtml).not.toMatch(/Medium<\/span>/);
   const refused = render("blocker");
   expect(refused.code).toBe(1);
   expect(refused.err).toContain('severity "blocker" is not one of');

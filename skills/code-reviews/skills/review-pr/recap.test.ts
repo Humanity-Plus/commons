@@ -93,6 +93,26 @@ test("buildBlock with only unmapped additions keeps the diagram and the adds row
   expect(block).not.toContain("classification only");
 });
 
+test("buildBlock reflects mapped additions, duplication check, and derives ADDS overall when added is non-empty", () => {
+  const mapped = {
+    ...report,
+    systemChange: {
+      ...report.systemChange,
+      overall: "composes",
+      mapUpdated: true,
+      summary: "Adds carrier rate lookup using existing shipping options.",
+      duplicationCheck: { status: "clean", summary: "Reuses existing shipping tiers." },
+      added: [{ name: "Rate lookup", mapped: true, files: ["convex/rates.ts"] }],
+    },
+  };
+  const block = buildBlock(mapped);
+  expect(block).toContain("<b>ADDS</b>");
+  expect(block).toContain("Adds carrier rate lookup using existing shipping options.");
+  expect(block).toContain("✓ **No duplicate primitives**: Reuses existing shipping tiers.");
+  expect(block).toContain("| Rate lookup | — | **adds (mapped)** | convex/rates.ts |");
+  expect(block).not.toContain("adds (unmapped)");
+});
+
 test("buildBlock throws without a systemChange section", () => {
   expect(() => buildBlock({ verdict: { decision: "comment" } })).toThrow("no systemChange");
 });

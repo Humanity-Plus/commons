@@ -46,17 +46,21 @@
  *   "systemChange"?: {                                    // primitives lens
  *     "mapPath"?: string, "overall"?: "composes"|"extends"|"adds",
  *     "mapUpdated"?: boolean,
+ *     "summary"?: string,                                 // plain-English system-change overview
+ *     "duplicationCheck"?: { "status": "clean"|"duplicated", "summary"?: string, "duplicates"?: string[] },
  *     "primitives": [{ "id", "name", "area"?, "classification",
- *                      "files"?, "invariantsTouched"?, "relatesTo"?, "note"? }],
- *     "added"?: [{ "name", "files"?, "note"? }]
+ *                      "files"?, "invariantsTouched"?, "invariantsViolated"?, "relatesTo"?, "note"? }],
+ *     "added"?: [{ "name", "mapped"?, "files"?, "note"? }]
  *   },
  *   "blastRadius"?: {                                     // blast-radius lens
- *     "summary"?: string,                                 // the change in behavior terms
- *     "safetyFact": { "claim": string,                    // the load-bearing assumption
- *                     "evidence": "advisory"|"documentation"|"skeptic"|"mechanical"|"experiment",
- *                     "status": "proven"|"unproven"|"contradicted",
- *                     "proof"?: string, "probe"?: string },
- *     "cleared"?: [{ "what": string, "how"?: string }],   // risks checked and found to hold
+ *     "impact"?: "contained"|"side-effects"|"breaking",   // collateral impact on existing system
+ *     "summary"?: string,                                 // the intended change in behavior terms
+ *     "sideEffects"?: [{ "area": string, "effect": string, "severity"?: "high"|"medium"|"low", "findingId"?: string }],
+ *     "safetyFact"?: { "claim": string,                   // optional load-bearing assumption + probe
+ *                      "evidence": "advisory"|"documentation"|"skeptic"|"mechanical"|"experiment",
+ *                      "status": "proven"|"unproven"|"contradicted",
+ *                      "proof"?: string, "probe"?: string },
+ *     "cleared"?: [{ "what": string, "how"?: string }],   // areas checked and confirmed unaffected
  *     "preMerge"?: string                                 // the cheapest check before merge
  *   },
  *   "findings": Finding[],       // standard schema + lens-specific extras
@@ -216,6 +220,7 @@ interface SystemChangePrimitive {
   classification: Classification;
   files?: string[];
   invariantsTouched?: string[];
+  invariantsViolated?: string[];
   relatesTo?: string[];
   note?: string;
 }
@@ -224,15 +229,30 @@ interface SystemChange {
   mapPath?: string;
   overall?: Classification;
   mapUpdated?: boolean;
+  summary?: string;
+  duplicationCheck?: {
+    status: "clean" | "duplicated";
+    summary?: string;
+    duplicates?: string[];
+  };
   primitives: SystemChangePrimitive[];
-  added?: Array<{ name: string; files?: string[]; note?: string }>;
+  added?: Array<{ name: string; mapped?: boolean; files?: string[]; note?: string }>;
 }
 
 type Evidence = "advisory" | "documentation" | "skeptic" | "mechanical" | "experiment";
 type FactStatus = "proven" | "unproven" | "contradicted";
+type BlastImpact = "contained" | "side-effects" | "breaking";
+interface BlastSideEffect {
+  area: string;
+  effect: string;
+  severity?: "high" | "medium" | "low";
+  findingId?: string;
+}
 interface BlastRadius {
+  impact?: BlastImpact;
   summary?: string;
-  safetyFact: { claim: string; evidence?: Evidence; status?: FactStatus; proof?: string; probe?: string };
+  sideEffects?: BlastSideEffect[];
+  safetyFact?: { claim: string; evidence?: Evidence; status?: FactStatus; proof?: string; probe?: string };
   cleared?: Array<{ what: string; how?: string }>;
   preMerge?: string;
 }
@@ -281,8 +301,19 @@ export function validateReport(r: any): string[] {
       errs.push("systemChange must be an object whose primitives is an array");
   }
   if (r.blastRadius !== undefined) {
-    if (!isObj(r.blastRadius) || !isObj(r.blastRadius.safetyFact) || typeof r.blastRadius.safetyFact.claim !== "string")
-      errs.push("blastRadius must be an object whose safetyFact is an object with a string claim");
+    if (!isObj(r.blastRadius))
+      errs.push("blastRadius must be an object");
+    else if (r.blastRadius.safetyFact !== undefined) {
+      if (!isObj(r.blastRadius.safetyFact) || typeof r.blastRadius.safetyFact.claim !== "string")
+        errs.push("blastRadius.safetyFact must be an object with a string claim");
+    } else if (
+      r.blastRadius.impact === undefined &&
+      r.blastRadius.summary === undefined &&
+      !Array.isArray(r.blastRadius.sideEffects) &&
+      !Array.isArray(r.blastRadius.cleared)
+    ) {
+      errs.push("blastRadius must include impact, summary, sideEffects, cleared, or safetyFact");
+    }
   }
   return errs;
 }
@@ -332,6 +363,11 @@ const FACT_STATUS: Record<FactStatus, { label: string; color: string }> = {
   proven: { label: "Proven", color: "#5fd39a" },
   unproven: { label: "Unproven", color: "#f2c063" },
   contradicted: { label: "Contradicted", color: "#ff8589" },
+};
+const BLAST_IMPACT: Record<BlastImpact, { label: string; color: string }> = {
+  contained: { label: "Contained", color: "#5fd39a" },
+  "side-effects": { label: "Side effects", color: "#f2c063" },
+  breaking: { label: "Breaking reach", color: "#ff8589" },
 };
 const MARK: Record<Mark, { g: string; c: string }> = {
   pass: { g: "✓", c: "#5fd39a" },
@@ -463,8 +499,9 @@ function sanitizeAttrs(raw: string, tag: string): string {
     if (name.startsWith("on")) continue; // never allow event handlers
     if (name === "href") {
       if (tag !== "a") continue;
-      const u = /^#[\w-]+$/.test(val) ? val : safeUrl(val.replace(/&amp;/g, "&"));
-      if (u) out.push(`href="${esc(u)}" target="_blank" rel="noopener nofollow"`);
+      const isHash = /^#[\w-]+$/.test(val);
+      const u = isHash ? val : safeUrl(val.replace(/&amp;/g, "&"));
+      if (u) out.push(isHash ? `href="${esc(u)}"` : `href="${esc(u)}" target="_blank" rel="noopener nofollow"`);
       continue;
     }
     const ok = OK_ATTR.has(name) || /^(data|aria)-[a-z][\w-]*$/.test(name);
@@ -588,9 +625,11 @@ function mdInlineFmt(raw: string, m: Meta, tok: Tok): string {
       if (i % 2 === 1) return tok(inlineCode(esc(seg), m)); // code span: escaped + protected
       let out = seg.replace(/\*\*([^*]+)\*\*/g, (_x, c) => `<strong>${c}</strong>`);
       out = out.replace(/\*([^*\n]+)\*/g, (_x, c) => `<em>${c}</em>`);
-      out = out.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_x, t, u) =>
-        safeUrl(String(u)) ? `<a href="${safeUrl(String(u))}">${t}</a>` : `[${t}](${u})`
-      );
+      out = out.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_x, t, u) => {
+        const s = String(u);
+        if (/^#[\w-]+$/.test(s)) return `<a href="${esc(s)}">${t}</a>`;
+        return safeUrl(s) ? `<a href="${safeUrl(s)}">${t}</a>` : `[${t}](${u})`;
+      });
       return out;
     })
     .join("");
@@ -732,91 +771,39 @@ const LENS_SECTION: Record<string, SectionKey> = {
 };
 const sectionOf = (f: Finding): SectionKey => LENS_SECTION[f.lens] ?? "findings";
 
-// ---------- charts ----------
-function donut(counts: Record<Sev, number>): string {
-  const total = SEV_ORDER.reduce((a, s) => a + counts[s], 0);
-  const R = 52, C = 2 * Math.PI * R, cx = 70, cy = 70;
-  if (total === 0) {
-    return `<svg viewBox="0 0 140 140" class="donut" role="img" aria-label="No findings">
-      <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#24262f" stroke-width="16"/>
-      <text x="${cx}" y="${cy - 2}" class="donut-num">0</text>
-      <text x="${cx}" y="${cy + 16}" class="donut-lbl">findings</text></svg>`;
-  }
-  let offset = 0;
-  const segs = SEV_ORDER.filter((s) => counts[s] > 0)
-    .map((s) => {
-      const frac = counts[s] / total;
-      const len = frac * C;
-      const seg = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none"
-        stroke="${SEV[s].color}" stroke-width="16"
-        stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-offset}"
-        transform="rotate(-90 ${cx} ${cy})"><title>${SEV[s].label}: ${counts[s]}</title></circle>`;
-      offset += len;
-      return seg;
-    })
+// Compact inline overview bar: severity pills on the left, jump links to
+// non-empty sections on the right — keeps Summary, System change, and Blast
+// radius above the fold instead of burying them under dashboard charts.
+function statsBar(r: Report, counts: Record<Sev, number>): string {
+  const total = r.findings.length;
+  const sevPills = SEV_ORDER.filter((s) => counts[s] > 0)
+    .map(
+      (s) =>
+        `<span class="stat-pill" style="--sc:${SEV[s].color}">${SEV[s].dot} <b>${counts[s]}</b> ${SEV[s].label.toLowerCase()}</span>`
+    )
     .join("");
-  return `<svg viewBox="0 0 140 140" class="donut" role="img" aria-label="Findings by severity">
-    <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#24262f" stroke-width="16"/>
-    ${segs}
-    <text x="${cx}" y="${cy - 2}" class="donut-num">${total}</text>
-    <text x="${cx}" y="${cy + 16}" class="donut-lbl">findings</text></svg>`;
-}
+  const sevPart = sevPills
+    ? `<div class="stat-sevs"><span class="stat-total"><b>${total}</b> finding${total === 1 ? "" : "s"}</span>${sevPills}</div>`
+    : `<div class="stat-sevs"><span class="stat-total stat-clean">✓ 0 findings</span></div>`;
 
-function severityLegend(counts: Record<Sev, number>): string {
-  return `<ul class="legend">${SEV_ORDER.map(
-    (s) =>
-      `<li><span class="swatch" style="background:${SEV[s].color}"></span>
-        <span class="legend-lbl">${SEV[s].label}</span>
-        <span class="legend-num">${counts[s]}</span></li>`
-  ).join("")}</ul>`;
-}
-
-// Breakdown of findings by destination section — answers "where do the N total
-// findings actually live?" so a big donut number doesn't imply N code findings.
-function composition(findings: Finding[]): string {
-  const rows = (Object.keys(SECTIONS) as SectionKey[])
+  const jumps = (Object.keys(SECTIONS) as SectionKey[])
     .map((key) => {
       const meta = SECTIONS[key];
-      const items = findings.filter((f) => sectionOf(f) === key);
-      const n = items.length;
-      const sevs = SEV_ORDER.filter((s) => items.some((f) => f.severity === s))
-        .map((s) => {
-          const c = items.filter((f) => f.severity === s).length;
-          return `<span class="mini-sev" style="--c:${SEV[s].color}" title="${c} ${SEV[s].label}">${c}</span>`;
-        })
-        .join("");
-      return `<a class="comp-row${n ? "" : " comp-empty"}" href="#${meta.anchor}">
-        <span class="comp-count">${n}</span>
-        <span class="comp-body">
-          <span class="comp-name">${meta.label}${
-        meta.tag ? ` <span class="comp-tag">${esc(meta.tag)}</span>` : ""
-      }</span>
-          <span class="comp-desc">${esc(meta.desc)}</span>
-        </span>
-        <span class="comp-sevs">${n ? sevs : `<span class="comp-none">none</span>`}</span>
-      </a>`;
+      const n = r.findings.filter((f) => sectionOf(f) === key && !f.folded).length;
+      if (!n) return "";
+      return `<a class="stat-jump" href="#${meta.anchor}">${meta.label} <span>${n}</span></a>`;
     })
+    .filter(Boolean)
     .join("");
-  return `<div class="composition">${rows}</div>`;
+
+  return `<nav class="stats-bar" aria-label="Review summary">${sevPart}${
+    jumps ? `<div class="stat-jumps">${jumps}</div>` : ""
+  }</nav>`;
 }
 
 // small pill showing a section's finding count next to its <h2>
 const countBadge = (n: number): string =>
   `<span class="head-count"${n ? "" : ` data-zero="1"`}>${n}</span>`;
-
-function heatmap(groups: any[]): string {
-  if (!groups.length) return `<p class="empty">No feature areas.</p>`;
-  return `<div class="heatmap">${groups
-    .map((g) => {
-      const c = RISK[g.risk] ?? "#8b8d98";
-      return `<div class="heat-cell" style="--risk:${c}">
-        <div class="heat-risk">${esc(g.risk)}</div>
-        <div class="heat-name">${esc(g.name)}</div>
-        <div class="heat-files">${g.files.length} file${g.files.length === 1 ? "" : "s"}</div>
-      </div>`;
-    })
-    .join("")}</div>`;
-}
 
 function zombiesMatrix(findings: Finding[], groups: any[]): string {
   const zf = findings.filter((f) => f.lens === "zombies" && !f.folded);
@@ -868,46 +855,113 @@ function verdictBadge(v: Report["verdict"]): string {
   </div>`;
 }
 
-// System change (primitives lens): which primitives the diff touches, how hard
-// (composes/extends/adds), and which invariants are in play. `adds` entries are
-// the "did the agent invent a new shape?" alarm and render loudest.
+// System change (primitives lens): plain-language summary of how the system
+// changes, an explicit primitive duplication check, and the touched/added
+// primitives. Keeps satisfied invariants quiet and distinguishes newly mapped
+// primitives from unmapped ones.
 function systemChangeCard(r: Report): string {
   const sc = r.systemChange;
   if (!sc) return "";
-  const overall = CLASSIFICATION[(sc.overall ?? "composes") as Classification] ?? CLASSIFICATION.composes;
+  const m = r.meta;
   const prims = Array.isArray(sc.primitives) ? sc.primitives : [];
   const added = Array.isArray(sc.added) ? sc.added : [];
+  const order: Classification[] = ["adds", "extends", "composes"];
 
-  const pill = (c: Classification) => {
+  // Overall classification is never weaker than what is actually in the lists.
+  const worstRank = Math.min(
+    sc.overall && order.includes(sc.overall) ? order.indexOf(sc.overall) : 2,
+    added.length ? 0 : 2,
+    ...prims.map((p) => (order.includes(p.classification) ? order.indexOf(p.classification) : 2))
+  );
+  const overallKey = order[worstRank] ?? "composes";
+  const overall = CLASSIFICATION[overallKey];
+
+  const pillLabel: Record<Classification, string> = {
+    composes: "Uses",
+    extends: "Extends",
+    adds: "Adds",
+  };
+  const pill = (c: Classification, labelOverride?: string) => {
     const k = CLASSIFICATION[c] ?? CLASSIFICATION.composes;
-    return `<span class="sc-pill" style="--pc:${k.color}">${k.label}</span>`;
+    return `<span class="sc-pill" style="--pc:${k.color}">${esc(labelOverride ?? pillLabel[c] ?? k.label)}</span>`;
   };
 
-  const order: Classification[] = ["adds", "extends", "composes"];
+  // Explicit duplication check — prefer lens-authored check, else infer cleanly from findings.
+  const dupFindings = r.findings.filter(
+    (f) => f.lens === "primitives" && /re-?declared|duplicat/i.test(f.category || "")
+  );
+  const dup = sc.duplicationCheck ?? {
+    status: dupFindings.length ? ("duplicated" as const) : ("clean" as const),
+    summary: dupFindings.length
+      ? `${dupFindings.length} existing primitive${dupFindings.length === 1 ? "" : "s"} re-declared inline instead of reused.`
+      : "No duplicate primitives detected — existing domain shapes are reused.",
+    duplicates: dupFindings.map((f) => f.title),
+  };
+  const dupClean = dup.status !== "duplicated";
+  const dupList =
+    !dupClean && dup.duplicates?.length
+      ? `<ul class="sc-dup-list">${dup.duplicates.map((d) => `<li>${renderInline(d, m)}</li>`).join("")}</ul>`
+      : "";
+  const dupBanner = `<div class="sc-dup ${dupClean ? "sc-dup-ok" : "sc-dup-bad"}">
+    <div class="sc-dup-head">${dupClean ? "✓ No duplicate primitives" : "⚠ Duplicates an existing primitive"}</div>
+    ${dup.summary ? `<div class="sc-dup-text">${renderInline(dup.summary, m)}</div>` : ""}${dupList}
+  </div>`;
+
+  const renderFiles = (files?: string[]) => {
+    if (!files?.length) return "";
+    const joined = files.map(esc).join(" · ");
+    if (files.length <= 2) return `<div class="sc-files-line">${joined}</div>`;
+    return `<details class="sc-files-fold"><summary>${files.length} files</summary><div class="sc-files-line">${joined}</div></details>`;
+  };
+
   const rows = [...prims]
     .sort((a, b) => order.indexOf(a.classification) - order.indexOf(b.classification))
     .map((p) => {
-      const inv = (p.invariantsTouched ?? [])
-        .map((i) => `<li class="sc-inv">⚠ ${esc(i)}</li>`)
+      const violated = (p.invariantsViolated ?? [])
+        .map((i) => `<li class="sc-inv sc-inv-warn">⚠ ${esc(i)}</li>`)
+        .join("");
+      const touched = (p.invariantsTouched ?? [])
+        .map((i) => `<li class="sc-inv sc-inv-ok">✓ Checked invariant: ${esc(i)}</li>`)
         .join("");
       return `<div class="sc-row" style="--pc:${(CLASSIFICATION[p.classification] ?? CLASSIFICATION.composes).color}">
         <div class="sc-head">${pill(p.classification)}<span class="sc-name">${esc(p.name || p.id)}</span>
-          ${p.area ? `<span class="comp-tag">${esc(p.area)}</span>` : ""}
-          ${p.files?.length ? `<code class="sc-files">${p.files.map(esc).join(" · ")}</code>` : ""}</div>
-        ${p.note ? `<div class="sc-note">${esc(p.note)}</div>` : ""}
-        ${inv ? `<ul class="sc-invs">${inv}</ul>` : ""}
+          ${p.area ? `<span class="comp-tag">${esc(p.area)}</span>` : ""}</div>
+        ${p.note ? `<div class="sc-note">${renderInline(p.note, m)}</div>` : ""}
+        ${violated || touched ? `<ul class="sc-invs">${violated}${touched}</ul>` : ""}
+        ${renderFiles(p.files)}
       </div>`;
     })
     .join("");
 
-  const addedBlock = added.length
+  // Split new primitives into mapped (informational) vs unmapped (warning).
+  const hasUnmappedFinding = r.findings.some(
+    (f) => f.lens === "primitives" && /unmapped/i.test(f.category || "")
+  );
+  const isMapped = (a: { mapped?: boolean }) =>
+    a.mapped !== undefined ? a.mapped : sc.mapUpdated === true && !hasUnmappedFinding;
+  const mappedAdded = added.filter(isMapped);
+  const unmappedAdded = added.filter((a) => !isMapped(a));
+
+  const mappedAddedBlock = mappedAdded.length
+    ? `<div class="sc-added sc-added-mapped"><div class="sc-added-head sc-added-head-ok">New primitives (mapped in this PR)</div>
+       ${mappedAdded
+         .map(
+           (a) => `<div class="sc-row" style="--pc:#7ec2ff">
+             <div class="sc-head"><span class="sc-pill" style="--pc:#7ec2ff">New · mapped</span><span class="sc-name">${esc(a.name)}</span></div>
+             ${a.note ? `<div class="sc-note">${renderInline(a.note, m)}</div>` : ""}
+             ${renderFiles(a.files)}</div>`
+         )
+         .join("")}</div>`
+    : "";
+
+  const unmappedAddedBlock = unmappedAdded.length
     ? `<div class="sc-added"><div class="sc-added-head">⚠ New primitives not in the map</div>
-       ${added
+       ${unmappedAdded
          .map(
            (a) => `<div class="sc-row" style="--pc:${CLASSIFICATION.adds.color}">
-             <div class="sc-head">${pill("adds")}<span class="sc-name">${esc(a.name)}</span>
-             ${a.files?.length ? `<code class="sc-files">${a.files.map(esc).join(" · ")}</code>` : ""}</div>
-             ${a.note ? `<div class="sc-note">${esc(a.note)}</div>` : ""}</div>`
+             <div class="sc-head">${pill("adds", "Adds · unmapped")}<span class="sc-name">${esc(a.name)}</span></div>
+             ${a.note ? `<div class="sc-note">${renderInline(a.note, m)}</div>` : ""}
+             ${renderFiles(a.files)}</div>`
          )
          .join("")}</div>`
     : "";
@@ -916,20 +970,22 @@ function systemChangeCard(r: Report): string {
     sc.mapUpdated === undefined
       ? ""
       : sc.mapUpdated
-        ? `<span class="chip chip-ok">map updated in this PR</span>`
-        : prims.some((p) => p.classification !== "composes") || added.length
+        ? `<span class="chip chip-ok">map updated</span>`
+        : prims.some((p) => p.classification !== "composes") || unmappedAdded.length
           ? `<span class="chip sc-stale">map NOT updated</span>`
           : "";
 
   const body =
     prims.length || added.length
-      ? `${rows}${addedBlock}`
-      : `<div class="empty">No mapped primitive touched — the change composes entirely outside the map.</div>`;
+      ? `${rows}${mappedAddedBlock}${unmappedAddedBlock}`
+      : `<div class="empty">No mapped primitive touched — the change stays outside existing system primitives.</div>`;
 
   return `<section class="card"><h2>System change
     <span class="sc-pill sc-overall" style="--pc:${overall.color}">${overall.label}</span>
     ${mapBadge}
     ${sc.mapPath ? `<span class="head-total">${esc(sc.mapPath)}</span>` : ""}</h2>
+    ${sc.summary ? `<p class="sc-summary">${renderInline(sc.summary, m)}</p>` : ""}
+    ${dupBanner}
     ${body}</section>`;
 }
 
@@ -954,56 +1010,98 @@ function classesCard(r: Report): string {
     <ul class="cls-list">${items}</ul></section>`;
 }
 
-// Blast radius (blast-radius lens): the one assumption the change is safe
-// because of — with how far up the evidence ladder it got — what the lens
-// cleared, the open risks (its findings, linked), and the cheapest pre-merge
-// check. The status pill is the headline: a contradicted fact renders loudest.
+// Blast radius (blast-radius lens): answers whether this PR affects parts of
+// the system outside its stated goal in an unintended way. Unintended effects
+// lead the card; cleared checks and any optional runtime assumption/probe stay
+// collapsed unless contradicted.
 function blastRadiusCard(r: Report): string {
   const br = r.blastRadius;
   if (!br) return "";
   const m = r.meta;
-  const sf = br.safetyFact ?? { claim: "" };
-  const status = FACT_STATUS[(sf.status ?? "unproven") as FactStatus] ?? FACT_STATUS.unproven;
-  const ev = EVIDENCE[(sf.evidence ?? "advisory") as Evidence] ?? EVIDENCE.advisory;
-  const ladder = [1, 2, 3, 4, 5]
-    .map((n) => `<span class="br-rung${n <= ev.rung ? " br-rung-on" : ""}"></span>`)
-    .join("");
+  const sf = br.safetyFact;
+  const sfContradicted = sf?.status === "contradicted";
   const risks = r.findings.filter((f) => f.lens === "blast-radius");
-  const riskList = risks.length
-    ? `<ul class="br-list">${risks
-        .map((f) => {
-          const sev = SEV[f.severity] ?? SEV.medium;
-          return `<li><a href="#f-${esc(f.id)}">${sev.dot} ${esc(f.title)}</a>${
-            f.likelihood ? `<span class="br-like">likelihood ${esc(f.likelihood)}</span>` : ""
-          }</li>`;
-        })
-        .join("")}</ul>`
-    : `<div class="empty">No open risks filed by the walk.</div>`;
-  const cleared = Array.isArray(br.cleared) ? br.cleared : [];
-  const clearedList = cleared.length
-    ? `<ul class="br-list br-cleared">${cleared
-        .map(
-          (c) =>
-            `<li>✓ ${renderInline(c.what, m)}${c.how ? `<span class="br-how">${renderInline(c.how, m)}</span>` : ""}</li>`
-        )
-        .join("")}</ul>`
-    : `<div class="empty">Nothing recorded as cleared.</div>`;
+  const sideEffects = Array.isArray(br.sideEffects) ? br.sideEffects : [];
+  const linkedFindingIds = new Set(sideEffects.map((s) => s.findingId).filter(Boolean));
+  const extraRisks = risks.filter((f) => !linkedFindingIds.has(f.id));
+  const totalEffects = sideEffects.length + extraRisks.length;
 
-  return `<section class="card br-card"><h2>Blast radius
-    <span class="sc-pill" style="--pc:${status.color}">${status.label}</span>
-    <span class="head-total">${risks.length} open risk${risks.length === 1 ? "" : "s"} · ${cleared.length} cleared</span></h2>
-    ${br.summary ? `<p class="br-summary">${renderInline(br.summary, m)}</p>` : ""}
-    <div class="br-fact" style="--pc:${status.color}">
-      <div class="br-fact-head"><span class="br-tag">Safety fact</span>
+  // Collateral impact headline: Contained | Side effects | Breaking reach.
+  const derivedImpact: BlastImpact = sfContradicted
+    ? "breaking"
+    : br.impact && br.impact in BLAST_IMPACT
+      ? br.impact
+      : risks.some((f) => f.severity === "critical" || f.severity === "high") ||
+          sideEffects.some((s) => s.severity === "high")
+        ? "breaking"
+        : totalEffects > 0
+          ? "side-effects"
+          : "contained";
+  const impact = BLAST_IMPACT[derivedImpact];
+
+  const effectItems = [
+    ...sideEffects.map((s) => {
+      const sev = SEV[(s.severity ?? "medium") as Sev] ?? SEV.medium;
+      const link = s.findingId ? ` <a class="br-link" href="#f-${esc(s.findingId)}">details ↓</a>` : "";
+      return `<li><span class="br-effect-area">${sev.dot} <b>${esc(s.area)}</b></span> — ${renderInline(s.effect, m)}${link}</li>`;
+    }),
+    ...extraRisks.map((f) => {
+      const sev = SEV[f.severity] ?? SEV.medium;
+      return `<li><a href="#f-${esc(f.id)}">${sev.dot} ${esc(f.title)}</a>${
+        f.likelihood ? `<span class="br-like">likelihood ${esc(f.likelihood)}</span>` : ""
+      }</li>`;
+    }),
+  ];
+
+  const effectsBlock = effectItems.length
+    ? `<div class="br-effects"><div class="br-tag">Unintended effects &amp; open risks</div><ul class="br-list">${effectItems.join("")}</ul></div>`
+    : `<div class="br-contained">✓ No unintended effects on existing system behavior.</div>`;
+
+  // Safety fact / runtime assumption: loud when contradicted, collapsed otherwise.
+  let factBlock = "";
+  if (sf?.claim) {
+    const status = FACT_STATUS[(sf.status ?? "unproven") as FactStatus] ?? FACT_STATUS.unproven;
+    const ev = EVIDENCE[(sf.evidence ?? "advisory") as Evidence] ?? EVIDENCE.advisory;
+    const ladder = [1, 2, 3, 4, 5]
+      .map((n) => `<span class="br-rung${n <= ev.rung ? " br-rung-on" : ""}"></span>`)
+      .join("");
+    const inner = `<div class="br-fact" style="--pc:${status.color}">
+      <div class="br-fact-head"><span class="br-tag">Verification assumption${
+        sfContradicted ? ` <span class="sc-pill sc-pill-sm" style="--pc:${status.color}">${status.label}</span>` : ""
+      }</span>
         <span class="br-ladder" title="evidence rung ${ev.rung} of 5 — ${esc(ev.label)}">${ladder}<span class="br-rung-lbl">${esc(ev.label)}</span></span></div>
       <div class="br-claim">${renderInline(sf.claim, m)}</div>
       ${sf.proof ? `<div class="br-proof md">${renderRich(sf.proof, m)}</div>` : ""}
       ${sf.probe ? `<div class="pf-verify"><span class="pf-verify-tag">probe</span><code>${esc(sf.probe)}</code></div>` : ""}
-    </div>
-    <div class="br-cols">
-      <div><div class="br-tag">Open risks</div>${riskList}</div>
-      <div><div class="br-tag">Cleared</div>${clearedList}</div>
-    </div>
+    </div>`;
+    factBlock = sfContradicted
+      ? inner
+      : `<details class="br-details"><summary>Verification assumption <span class="sc-pill sc-pill-sm" style="--pc:${status.color}">${status.label}</span> <span class="br-det-hint">${esc(ev.label)}</span></summary>${inner}</details>`;
+  }
+
+  const cleared = Array.isArray(br.cleared) ? br.cleared : [];
+  const clearedBlock = cleared.length
+    ? `<details class="br-details"><summary>Checked &amp; unaffected <span class="head-count">${cleared.length}</span></summary>
+        <ul class="br-list br-cleared">${cleared
+          .map(
+            (c) =>
+              `<li>✓ <b>${renderInline(c.what, m)}</b>${c.how ? `<span class="br-how">${renderInline(c.how, m)}</span>` : ""}</li>`
+          )
+          .join("")}</ul></details>`
+    : "";
+
+  const headerMeta = `${totalEffects ? `${totalEffects} unintended effect${totalEffects === 1 ? "" : "s"}` : "no unintended effects"}${
+    cleared.length ? ` · ${cleared.length} checked &amp; unaffected` : ""
+  }`;
+
+  return `<section class="card br-card"><h2>Blast radius
+    <span class="sc-pill" style="--pc:${impact.color}">${impact.label}</span>
+    <span class="head-total">${headerMeta}</span></h2>
+    ${br.summary ? `<p class="br-summary">${renderInline(br.summary, m)}</p>` : ""}
+    ${sfContradicted ? factBlock : ""}
+    ${effectsBlock}
+    ${clearedBlock}
+    ${!sfContradicted ? factBlock : ""}
     ${br.preMerge ? `<div class="br-premerge"><span class="br-tag">Before merge</span>${renderInline(br.preMerge, m)}</div>` : ""}
   </section>`;
 }
@@ -1132,24 +1230,15 @@ function scorecardCard(r: Report): string {
 
 function conventionsSection(m: Meta, findings: Finding[]): string {
   const conv = findings.filter((f) => sectionOf(f) === "conventions" && !f.folded);
+  if (!conv.length) return "";
   const head = `<h2>Conventions ${countBadge(conv.length)} <span class="section-tag">CRAFT</span></h2>`;
-  const body = !conv.length
-    ? `<p class="empty">No convention or craft issues — the change matches the
-      repository's own structure, readability, DRY, naming, and tech-stack rules
-      (or no convention docs were found to check against).</p>`
-    : severityGroups(m, conv);
-  return `<section id="conventions" class="card">${head}${body}</section>`;
+  return `<section id="conventions" class="card">${head}${severityGroups(m, conv)}</section>`;
 }
 
 function dependencySection(m: Meta, findings: Finding[]): string {
   const deps = findings.filter((f) => f.lens === "warm" && !f.folded);
+  if (!deps.length) return "";
   const head = `<h2>Dependencies ${countBadge(deps.length)} <span class="section-tag">WARM</span></h2>`;
-  if (!deps.length) {
-    return `<section id="deps" class="card">${head}
-      <p class="empty">No dependency manifest changed in this PR — the WARM audit
-      (<b>W</b>orth&nbsp;it · <b>A</b>live · <b>R</b>ight-sized · <b>M</b>aintained&nbsp;securely)
-      was skipped.</p></section>`;
-  }
   const mk = (x?: Mark) => {
     const d = MARK[x ?? "unknown"];
     return `<span class="mark" style="--mc:${d.c}">${d.g}</span>`;
@@ -1179,12 +1268,8 @@ function dependencySection(m: Meta, findings: Finding[]): string {
 
 function zombiesSection(m: Meta, findings: Finding[], groups: any[]): string {
   const zf = findings.filter((f) => f.lens === "zombies" && !f.folded);
-  const head = `<h2>Test gaps ${countBadge(zf.length)} <span class="section-tag">ZOMBIES</span></h2>`;
-  if (!zf.length) {
-    return `<section id="tests" class="card">${head}
-      <p class="empty">No high-value test gaps found — the changed code's Zero / One /
-      Many / Boundaries / Interface / Exceptions / Simple cases look adequately covered.</p></section>`;
-  }
+  if (!zf.length) return "";
+  const head = `<h2>Test gaps ${countBadge(zf.length)}</h2>`;
   const byArea = new Map<string, Finding[]>();
   for (const f of zf) {
     const a = f.featureArea || "General";
@@ -1196,37 +1281,35 @@ function zombiesSection(m: Meta, findings: Finding[], groups: any[]): string {
       items.sort((a, b) => ZLET.indexOf((a.zombiesLetter || "").toUpperCase()) - ZLET.indexOf((b.zombiesLetter || "").toUpperCase()));
       return `<div class="test-group"><h3>${esc(area)}</h3>
         ${items
-          .map(
-            (f) => `<div class="test-item">
-          <span class="zbadge" title="${zName((f.zombiesLetter || "").toUpperCase())}">${esc(
-              (f.zombiesLetter || "?").toUpperCase()
-            )}</span>
+          .map((f) => {
+            const letter = (f.zombiesLetter || "").toUpperCase();
+            const catLabel = zName(letter) !== letter ? zName(letter) : f.category || "Test";
+            return `<div class="test-item">
+          <span class="zcat" title="${esc(zDesc[letter] ?? catLabel)}">${esc(catLabel)}</span>
           <div class="test-body">
             <div class="test-title">${esc(f.title)}${
               f.partial ? ` <span class="partial-tag">partial</span>` : ""
             }</div>
             <div class="test-fix md">${renderRich(f.suggestion, m)}</div>
             ${f.file ? `<div class="test-ref">${fileRef(m, f.file, f.line)}</div>` : ""}
-          </div></div>`
-          )
+          </div></div>`;
+          })
           .join("")}
       </div>`;
     })
     .join("");
   return `<section id="tests" class="card">${head}
-    ${zombiesKey()}
-    ${zombiesMatrix(findings, groups)}
-    ${blocks}</section>`;
+    ${blocks}
+    <details class="br-details"><summary>Coverage matrix <span class="section-tag">ZOMBIES</span></summary>
+      ${zombiesKey()}
+      ${zombiesMatrix(findings, groups)}
+    </details></section>`;
 }
 
 function preflightSection(m: Meta, findings: Finding[]): string {
   const pf = findings.filter((f) => f.lens === "preflight" && !f.folded);
+  if (!pf.length) return "";
   const head = `<h2>Preflight checklist ${countBadge(pf.length)} <span class="section-tag">before merge</span></h2>`;
-  if (!pf.length) {
-    return `<section id="preflight" class="card">${head}
-      <p class="empty">No deploy-time actions detected — no migrations, new config/secrets,
-      infra, or post-deploy watch items implied by this diff.</p></section>`;
-  }
   const byCat = new Map<string, Finding[]>();
   for (const f of pf) {
     if (!byCat.has(f.category)) byCat.set(f.category, []);
@@ -1241,7 +1324,7 @@ function preflightSection(m: Meta, findings: Finding[]): string {
         <input type="checkbox" id="pf-${esc(cat)}-${i}">
         <div class="pf-main">
           <label for="pf-${esc(cat)}-${i}">
-            <span class="pf-conf pf-${esc(f.confidence ?? "medium")}">${esc(f.confidence ?? "")}</span>
+            ${f.confidence ? `<span class="pf-conf pf-${esc(f.confidence)}">${esc(f.confidence)}</span>` : ""}
             <span class="pf-title">${esc(f.title)}</span>
             ${f.file ? `<span class="pf-ref">${fileRef(m, f.file, f.line)}</span>` : ""}
           </label>
@@ -1260,33 +1343,44 @@ function preflightSection(m: Meta, findings: Finding[]): string {
 }
 
 function triageSection(m: Meta, triage: Report["triage"]): string {
-  if (!triage.groups?.length) return "";
-  const groups = triage.groups
-    .map(
-      (g) => `<details class="tri-group" open>
+  if (!triage.groups?.length && !triage.skipped?.length) return "";
+  const totalFiles =
+    (triage.groups ?? []).reduce((n, g) => n + (Array.isArray(g.files) ? g.files.length : 0), 0) +
+    (triage.skipped?.length ?? 0);
+  const renderTriageFile = (f: any) => {
+    if (typeof f === "string") return `<li>${fileRef(m, f, 0)}</li>`;
+    const p = f?.path ?? f?.file ?? "";
+    const st = f?.status ?? "";
+    return `<li>${st ? `<span class="status status-${esc(st)}">${esc(st)}</span> ` : ""}${fileRef(m, p, 0)}</li>`;
+  };
+  const renderSkipped = (s: any) => {
+    if (typeof s === "string") return `<li><code>${esc(s)}</code></li>`;
+    const p = s?.file ?? s?.path ?? "";
+    const reason = s?.reason ? ` <span class="loc-note">${esc(s.reason)}</span>` : "";
+    return `<li><code>${esc(p)}</code>${reason}</li>`;
+  };
+  const groups = (triage.groups ?? [])
+    .map((g) => {
+      const desc = g.reason || g.scope || "";
+      const files = Array.isArray(g.files) ? g.files : [];
+      return `<details class="tri-group">
       <summary><span class="tri-risk" style="background:${RISK[g.risk] ?? "#8b8d98"}">${esc(
         g.risk
       )}</span> <span class="tri-name">${esc(g.name)}</span>
-        <span class="tri-count">${g.files.length}</span></summary>
-      ${g.reason ? `<p class="tri-reason">${renderInline(g.reason, m)}</p>` : ""}
-      <ul class="tri-files">${g.files
-        .map(
-          (f: any) =>
-            `<li><span class="status status-${esc(f.status)}">${esc(f.status)}</span> ${fileRef(
-              m,
-              f.path,
-              0
-            )}</li>`
-        )
-        .join("")}</ul></details>`
-    )
+        <span class="tri-count">${files.length}</span></summary>
+      ${desc ? `<p class="tri-reason">${renderInline(desc, m)}</p>` : ""}
+      <ul class="tri-files">${files.map(renderTriageFile).join("")}</ul></details>`;
+    })
     .join("");
   const skipped = triage.skipped?.length
     ? `<details class="tri-group"><summary><span class="tri-risk" style="background:#3a3d49">skip</span>
         <span class="tri-name">Auto-generated</span><span class="tri-count">${triage.skipped.length}</span></summary>
-        <ul class="tri-files">${triage.skipped.map((s) => `<li><code>${esc(s)}</code></li>`).join("")}</ul></details>`
+        <ul class="tri-files">${triage.skipped.map(renderSkipped).join("")}</ul></details>`
     : "";
-  return `<section class="card"><h2>Triage map</h2>${groups}${skipped}</section>`;
+  return `<section class="card"><details class="fold-details">
+    <summary>Files reviewed ${countBadge(totalFiles)}
+      <span class="fold-hint">${triage.groups?.length ?? 0} area${triage.groups?.length === 1 ? "" : "s"} — click to expand</span></summary>
+    ${groups}${skipped}</details></section>`;
 }
 
 const ALL_LENSES = ["triage", "first-five", "conventions", "intent", "warm", "zombies", "preflight"] as const;
@@ -1327,9 +1421,15 @@ function limitationsCard(r: Report): string {
       }; the seams lens covered cross-area contracts.`
     : "";
   const items = [...(shardNote ? [shardNote] : []), ...(r.limitations ?? [])];
-  if (!items.length) return "";
-  return `<section class="card limits-card"><h2>Scope &amp; limitations</h2>
-    <ul class="limits">${items.map((l) => `<li>${renderInline(l, r.meta)}</li>`).join("")}</ul></section>`;
+  const hasLenses = Array.isArray(r.meta?.lenses) && r.meta.lenses.length > 0;
+  if (!items.length && !hasLenses) return "";
+  const listHtml = items.length
+    ? `<ul class="limits">${items.map((l) => `<li>${renderInline(l, r.meta)}</li>`).join("")}</ul>`
+    : "";
+  return `<section class="card limits-card"><details class="fold-details">
+    <summary>Scope &amp; limitations ${items.length ? countBadge(items.length) : ""}
+      <span class="fold-hint">audit trail &amp; lenses run — click to expand</span></summary>
+    ${listHtml}${hasLenses ? lensesStrip(r) : ""}</details></section>`;
 }
 
 // Findings the arbiter marked `folded: true` (beyond the report budget) — shown in
@@ -1689,48 +1789,99 @@ function page(r: Report): string {
   .pf-note.md p{margin:0}
   .pf-note.md .md-pre{margin:6px 0 0}
 
+  /* compact stats bar */
+  .stats-bar{display:flex;justify-content:space-between;align-items:center;gap:12px 20px;flex-wrap:wrap;
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 18px;margin-bottom:16px}
+  .stat-sevs{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+  .stat-total{color:var(--head);font-weight:600;margin-right:4px}
+  .stat-clean{color:#5fd39a}
+  .stat-pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text);
+    background:var(--panel2);border:1px solid color-mix(in srgb,var(--sc) 35%,var(--border));
+    border-radius:20px;padding:2px 9px}
+  .stat-jumps{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .stat-jump{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
+    text-decoration:none;background:var(--panel2);border:1px solid var(--border);
+    border-radius:20px;padding:3px 10px;transition:border-color .12s,color .12s}
+  .stat-jump:hover{border-color:var(--accent);color:var(--head)}
+  .stat-jump span{font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+
   /* system change (primitives lens) */
+  .sc-summary{margin:0 0 12px;font-size:14px;color:var(--text)}
+  .sc-dup{border:1px solid var(--border);border-left:4px solid #5fd39a;border-radius:0 10px 10px 0;
+    background:var(--panel2);padding:10px 14px;margin-bottom:14px}
+  .sc-dup-ok{border-left-color:#5fd39a}
+  .sc-dup-ok .sc-dup-head{color:#8ce8b8}
+  .sc-dup-bad{border-left-color:#ff8589}
+  .sc-dup-bad .sc-dup-head{color:#ffb0b3}
+  .sc-dup-head{font-size:12.5px;font-weight:700;letter-spacing:.01em}
+  .sc-dup-text{font-size:13px;color:var(--muted);margin-top:3px}
+  .sc-dup-list{margin:6px 0 0;padding-left:18px;font-size:12.5px;color:var(--text)}
   .sc-pill{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
     color:#08090c;background:var(--pc);border-radius:20px;padding:2px 9px;flex:none}
+  .sc-pill-sm{font-size:9.5px;padding:1px 7px}
   .sc-overall{font-size:11px}
   .sc-stale{color:#ffb0b3;border-color:color-mix(in srgb,#ff8589 40%,transparent)}
   .sc-row{border:1px solid var(--border);border-left:4px solid var(--pc);border-radius:0 10px 10px 0;
     background:var(--panel2);padding:11px 14px;margin-bottom:8px}
   .sc-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .sc-name{font-weight:600;font-size:14px}
-  .sc-files{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
-  .sc-note{color:var(--muted);font-size:12.5px;margin-top:4px}
+  .sc-files-line{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;overflow-wrap:anywhere}
+  .sc-files-fold{margin-top:6px;font-size:11.5px;color:var(--muted)}
+  .sc-files-fold summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:5px}
+  .sc-files-fold summary::-webkit-details-marker{display:none}
+  .sc-files-fold summary::before{content:"▸";font-size:10px}
+  .sc-files-fold[open] summary::before{content:"▾"}
+  .sc-note{color:var(--text);font-size:13px;margin-top:5px}
   .sc-invs{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:3px}
-  .sc-inv{font-size:12.5px;color:#f7d494}
+  .sc-inv{font-size:12px}
+  .sc-inv-warn{color:#f7d494}
+  .sc-inv-ok{color:var(--muted)}
   .sc-added{margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)}
   .sc-added-head{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
     color:#ffb0b3;margin-bottom:8px}
+  .sc-added-head-ok{color:#a5d3ff}
 
   /* blast radius (blast-radius lens) */
   .br-summary{margin:0 0 12px;font-size:14px;color:var(--text)}
   .br-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}
+  .br-effects{margin-bottom:12px}
+  .br-contained{font-size:13.5px;color:#8ce8b8;padding:9px 13px;border-radius:8px;
+    background:color-mix(in srgb,#5fd39a 8%,var(--panel2));border:1px solid color-mix(in srgb,#5fd39a 25%,var(--border));
+    margin-bottom:12px}
+  .br-effect-area b{color:var(--head)}
+  .br-link{margin-left:6px;font-size:12px}
+  .br-details{margin-top:10px;border:1px solid var(--border);border-radius:8px;background:var(--panel2);padding:8px 13px}
+  .br-details summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;
+    font-size:12.5px;font-weight:600;color:var(--muted)}
+  .br-details summary::-webkit-details-marker{display:none}
+  .br-details summary::before{content:"▸";font-size:11px;color:var(--muted)}
+  .br-details[open] summary::before{content:"▾"}
+  .br-details[open] summary{margin-bottom:10px;color:var(--text)}
+  .br-det-hint{font-weight:400;font-size:11.5px;color:var(--muted)}
   .br-fact{border:1px solid var(--border);border-left:4px solid var(--pc);border-radius:0 10px 10px 0;
-    background:var(--panel2);padding:11px 14px;margin-bottom:12px}
+    background:var(--panel);padding:11px 14px;margin-bottom:4px}
   .br-fact-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
   .br-fact-head .br-tag{margin:0}
   .br-ladder{display:inline-flex;align-items:center;gap:3px}
   .br-rung{width:9px;height:9px;border-radius:50%;background:var(--border)}
   .br-rung-on{background:var(--accent)}
   .br-rung-lbl{font-size:11px;color:var(--muted);margin-left:6px}
-  .br-claim{font-size:14.5px;font-weight:600;line-height:1.45;margin:6px 0 4px;color:var(--head)}
+  .br-claim{font-size:14px;font-weight:600;line-height:1.45;margin:6px 0 4px;color:var(--head)}
   .br-proof{font-size:12.5px;color:var(--muted)}
-  .br-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  @media (max-width:720px){.br-cols{grid-template-columns:1fr}}
-  .br-list{list-style:none;margin:0;padding:0;display:grid;gap:5px}
-  .br-list li{font-size:13px}
+  .br-list{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+  .br-list li{font-size:13.5px;line-height:1.5}
   .br-list a{color:#7ec2ff;text-decoration:none}
   .br-list a:hover{text-decoration:underline}
-  .br-like,.br-how{display:block;font-size:12px;color:var(--muted);margin:1px 0 2px 20px}
-  .br-cleared li{color:#8ce8b8}
+  .br-like,.br-how{display:block;font-size:12px;color:var(--muted);margin:2px 0 0 18px}
+  .br-cleared li{color:#8ce8b8;font-size:13px}
+  .br-cleared li b{color:var(--text);font-weight:600}
   .br-cleared .br-how{color:var(--muted)}
   .br-premerge{margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);font-size:13px}
   .br-premerge .br-tag{display:inline;margin-right:8px}
   .chip-like{color:#f7d494;border-color:color-mix(in srgb,#f2c063 40%,transparent)}
+  .zcat{flex:none;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--accent);background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+    padding:3px 8px;height:fit-content;margin-top:1px}
 
   /* interrogate: the run that proves a finding, and the per-seat ledger card */
   .repro{margin-top:12px;border:1px solid var(--border);border-radius:8px;padding:10px 13px;background:var(--panel2)}
@@ -1947,23 +2098,19 @@ function page(r: Report): string {
     ${verdictBadge(r.verdict)}
   </div>
 
-  <div class="dash">
-    <section class="card summary-card"><h2>Summary</h2><div class="md summary-body">${renderRich(
-      r.verdict.summary,
-      m
-    )}</div>${lensesStrip(r)}</section>
-    <section class="card"><h2>By severity <span class="head-total">${r.findings.length} total</span></h2>
-      <div class="sev-split">${donut(counts)}${severityLegend(counts)}</div></section>
-    <section class="card"><h2>By section</h2>${composition(r.findings)}</section>
-  </div>
-  <section class="card"><h2>Risk by area</h2>${heatmap(r.triage.groups)}</section>
-  ${blastRadiusCard(r)}${classesCard(r)}${systemChangeCard(r)}${scorecardCard(r)}${holisticCard(r)}${interrogateCard(r)}${panelCard(r)}
+  ${statsBar(r, counts)}
+  <section class="card summary-card"><h2>Summary</h2><div class="md summary-body">${renderRich(
+    r.verdict.summary,
+    m
+  )}</div></section>
+  ${systemChangeCard(r)}${blastRadiusCard(r)}${classesCard(r)}
 
   ${findingsSection(m, r.findings)}
+  ${preflightSection(m, r.findings)}
   ${conventionsSection(m, r.findings)}
   ${zombiesSection(m, r.findings, r.triage.groups)}
-  ${preflightSection(m, r.findings)}
   ${dependencySection(m, r.findings)}${foldedSection(m, r.findings)}
+  ${scorecardCard(r)}${holisticCard(r)}${interrogateCard(r)}${panelCard(r)}
   ${triageSection(m, r.triage)}
   ${limitationsCard(r)}
 

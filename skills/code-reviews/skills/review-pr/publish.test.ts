@@ -450,6 +450,21 @@ test("blastRadiusLine: states the fact, its status, and the probe only while unp
   proven.blastRadius.safetyFact.evidence = "experiment";
   expect(blastRadiusLine(proven as any)).toContain("**proven** (experiment)");
   expect(blastRadiusLine(proven as any)).not.toContain("probe:");
+
+  const contained = {
+    ...base,
+    blastRadius: { impact: "contained", sideEffects: [], cleared: [{ what: "a" }] },
+  };
+  expect(blastRadiusLine(contained as any)).toContain("**Blast radius** — **contained** — no unintended effects on existing behavior · 1 risk cleared");
+
+  const withSideEffect = {
+    ...base,
+    blastRadius: {
+      impact: "side-effects",
+      sideEffects: [{ area: "Device restore", effect: "Drops unsynced offline photos" }],
+    },
+  };
+  expect(blastRadiusLine(withSideEffect as any)).toContain("**Blast radius** — **side effects** — Device restore: Drops unsynced offline photos");
 });
 
 test("buildReview puts the blast-radius line in the body before the sections", () => {

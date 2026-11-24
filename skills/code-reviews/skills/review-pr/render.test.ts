@@ -437,13 +437,56 @@ test("validateReport accepts a well-formed systemChange and rejects a malformed 
   expect(validateReport({ systemChange: [] }).join(" ")).toContain("systemChange");
 });
 
-test("systemChange card renders classification, invariants, and unmapped adds", () => {
+test("systemChange card renders summary, duplication check, mapped vs unmapped adds, and invariants", () => {
   const html = page(scReport as any);
   expect(html).toContain("System change");
   expect(html).toContain("Extends");
   expect(html).toContain("never approve");
   expect(html).toContain("retry-queue");
   expect(html).toContain("map NOT updated");
+  expect(html).toContain("No duplicate primitives");
+
+  // A newly added primitive that IS mapped in the same PR must not render as an unmapped warning,
+  // and `overall` must never downgrade to "Composes" when `added` is non-empty.
+  const mapped = {
+    meta: { title: "t" },
+    verdict: { decision: "comment", confidence: "high", summary: "ok" },
+    triage: { groups: [], skipped: [] },
+    findings: [],
+    systemChange: {
+      mapPath: "docs/primitives.yaml",
+      overall: "composes",
+      mapUpdated: true,
+      summary: "Adds carrier rate lookup during checkout using existing shipping options.",
+      duplicationCheck: {
+        status: "duplicated",
+        summary: "Re-declares shipping tier values inline.",
+        duplicates: ["<script>x</script>SHIPPING_TIER"],
+      },
+      primitives: [
+        {
+          id: "shipping-options",
+          name: "Shipping options",
+          classification: "composes",
+          invariantsViolated: ["Do not re-declare persisted values."],
+          note: "Reuses existing options.",
+        },
+      ],
+      added: [{ name: "Rate lookup", mapped: true, files: ["a.ts", "b.ts", "c.ts"], note: "Mapped in this PR." }],
+    },
+  };
+  const mappedHtml = page(mapped as any);
+  expect(mappedHtml).toContain("Adds carrier rate lookup during checkout");
+  expect(mappedHtml).toContain("Duplicates an existing primitive");
+  expect(mappedHtml).toContain("SHIPPING_TIER");
+  expect(mappedHtml).not.toContain("<script>x</script>");
+  expect(mappedHtml).toContain("New primitives (mapped in this PR)");
+  expect(mappedHtml).not.toContain("New primitives not in the map");
+  expect(mappedHtml).toContain("sc-inv-warn");
+  expect(mappedHtml).toContain("3 files"); // collapsed file list when > 2 files
+  // Header pill reflects Adds (not Composes) because `added` is non-empty.
+  const scHead = mappedHtml.slice(mappedHtml.indexOf("<h2>System change"), mappedHtml.indexOf("</h2>", mappedHtml.indexOf("<h2>System change")));
+  expect(scHead).toContain(">Adds<");
 });
 
 test("systemChange card escapes hostile primitive content", () => {
@@ -499,35 +542,130 @@ const brReport = {
   ],
 };
 
-test("validateReport accepts a well-formed blastRadius and rejects malformed ones", () => {
+test("validateReport accepts blastRadius with or without safetyFact, and rejects malformed ones", () => {
   expect(validateReport(brReport)).toEqual([]);
+  expect(validateReport({ blastRadius: { impact: "contained", summary: "Isolated to one screen." } })).toEqual([]);
   expect(validateReport({ blastRadius: [] }).join(" ")).toContain("blastRadius");
+  expect(validateReport({ blastRadius: {} }).join(" ")).toContain("blastRadius");
   expect(validateReport({ blastRadius: { safetyFact: "x" } }).join(" ")).toContain("blastRadius");
   expect(validateReport({ blastRadius: { safetyFact: { evidence: "skeptic" } } }).join(" ")).toContain("claim");
 });
 
-test("blast-radius card renders the fact, its rung, the probe, cleared risks, and links its findings", () => {
+test("blast-radius card leads with collateral impact, collapses cleared checks and optional probe, and links findings", () => {
   const html = page(brReport as any);
   expect(html).toContain("Blast radius");
+  expect(html).toContain("Breaking reach"); // derived from high blast-radius finding
   expect(html).toContain("Unproven");
-  expect(html).toContain("traced"); // rung 3 label
+  expect(html).toContain("traced"); // rung 3 label inside collapsed verification assumption
   expect(html).toContain("capture retry"); // the probe, escaped
-  expect(html).toContain("1 open risk · 1 cleared");
+  expect(html).toContain("1 unintended effect · 1 checked &amp; unaffected");
   expect(html).toContain('href="#f-blast-radius-1"'); // open risk links to its finding card
   expect(html).toContain("likelihood high"); // both in the card and as a chip
   expect(html).toContain('class="chip chip-like"');
   expect(html).toContain("Before merge");
   expect(html).toContain("which sums it");
   expect(html).toContain("Capture retries network errors");
+
+  // Contained PR without a safetyFact renders cleanly with no runtime lecture.
+  const contained = page(
+    baseReport({
+      blastRadius: {
+        impact: "contained",
+        summary: "Adds a read-only rate estimate button on the checkout form.",
+        sideEffects: [],
+        cleared: [{ what: "Existing order saves", how: "Unchanged save path." }],
+      },
+    })
+  );
+  expect(contained).toContain("Contained");
+  expect(contained).toContain("No unintended effects on existing system behavior");
+  expect(contained).not.toContain("Verification assumption");
+
+  // Explicit sideEffects render with area, effect, and finding deep-link; hostile markup is escaped.
+  const withSideEffect = page(
+    baseReport({
+      blastRadius: {
+        impact: "side-effects",
+        summary: "Excludes local cache folders from device backups.",
+        sideEffects: [
+          {
+            area: "Device restore",
+            effect: "Restoring a phone drops <script>bad()</script>unsynced drafts.",
+            severity: "medium",
+            findingId: "blast-radius-1",
+          },
+        ],
+      },
+    })
+  );
+  expect(withSideEffect).toContain("Side effects");
+  expect(withSideEffect).toContain("Device restore");
+  expect(withSideEffect).toContain('href="#f-blast-radius-1"');
+  expect(withSideEffect).not.toContain("<script>bad()");
 });
 
-test("blast-radius status pill follows status; unknown evidence falls back to the lowest rung", () => {
+test("blast-radius status pill follows status; contradicted assumption surfaces loudly and unknown evidence falls back to lowest rung", () => {
   const contradicted = JSON.parse(JSON.stringify(brReport));
   contradicted.blastRadius.safetyFact.status = "contradicted";
   contradicted.blastRadius.safetyFact.evidence = "guesswork";
   const html = page(contradicted as any);
+  expect(html).toContain("Breaking reach");
   expect(html).toContain("Contradicted");
   expect(html).toContain("asserted");
+});
+
+test("triage tolerates string files, scope descriptions, and object skipped entries without rendering [object Object]", () => {
+  const html = page(
+    baseReport({
+      triage: {
+        groups: [
+          {
+            name: "Shipping rates",
+            risk: "high",
+            scope: "Calls carrier API from a backend action.",
+            files: ["packages/backend/rates.ts"],
+          },
+        ],
+        skipped: [{ file: "convex/_generated/api.d.ts", reason: "generated" }],
+      },
+    })
+  );
+  expect(html).not.toContain("[object Object]");
+  expect(html).toContain("packages/backend/rates.ts");
+  expect(html).toContain("Calls carrier API from a backend action.");
+  expect(html).toContain("convex/_generated/api.d.ts");
+  expect(html).toContain("generated");
+});
+
+test("summary supports in-page #f- anchor links, empty optional sections are omitted, and preflight hides blank confidence", () => {
+  const html = page(
+    baseReport({
+      verdict: {
+        decision: "comment",
+        confidence: "medium",
+        summary: "See [the timeout bug](#f-first-five-1) before merging.",
+      },
+      findings: [
+        mkFinding({ id: "first-five-1" }),
+        {
+          id: "preflight-1",
+          lens: "preflight",
+          severity: "low",
+          category: "Operational",
+          file: "",
+          line: 0,
+          title: "Run pod install",
+          evidence: "e",
+          suggestion: "s",
+          featureArea: "Native",
+        },
+      ],
+    })
+  );
+  expect(html).toContain('<a href="#f-first-five-1">the timeout bug</a>');
+  expect(html).not.toContain('id="deps"'); // empty Dependencies card omitted
+  expect(html).not.toContain('id="tests"'); // empty Test gaps card omitted
+  expect(html).not.toContain('class="pf-conf'); // blank confidence does not render an empty pill
 });
 
 test("blast-radius card escapes hostile content", () => {

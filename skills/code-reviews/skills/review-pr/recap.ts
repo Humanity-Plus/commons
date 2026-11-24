@@ -50,7 +50,12 @@ function buildBlock(report: any, login = ""): string {
     (a, b) => ORDER.indexOf(a.classification) - ORDER.indexOf(b.classification)
   );
   const added: any[] = Array.isArray(sc.added) ? sc.added : [];
-  const overall: Classification = ORDER.includes(sc.overall) ? sc.overall : "composes";
+  const worstRank = Math.min(
+    ORDER.includes(sc.overall) ? ORDER.indexOf(sc.overall) : 2,
+    added.length ? 0 : 2,
+    ...prims.map((p) => (ORDER.includes(p.classification) ? ORDER.indexOf(p.classification) : 2))
+  );
+  const overall: Classification = ORDER[worstRank] ?? "composes";
   const verdict = plain(report.verdict?.decision || "");
   const sha = plain((report.meta?.headSha || "").slice(0, 7));
 
@@ -90,6 +95,7 @@ function buildBlock(report: any, login = ""): string {
     "```",
   ].join("\n");
 
+  const isMappedAdd = (a: any) => a?.mapped === true;
   const table = [
     "| Primitive | Area | Impact | Files |",
     "|---|---|---|---|",
@@ -99,20 +105,35 @@ function buildBlock(report: any, login = ""): string {
           (p.files || []).join(", ")
         )} |`
     ),
-    ...added.map((a) => `| ${plain(a.name)} | — | **adds (unmapped)** | ${plain((a.files || []).join(", "))} |`),
+    ...added.map(
+      (a) =>
+        `| ${plain(a.name)} | — | ${isMappedAdd(a) ? "**adds (mapped)**" : "**adds (unmapped)**"} | ${plain(
+          (a.files || []).join(", ")
+        )} |`
+    ),
   ].join("\n");
 
+  const dupLine = sc.duplicationCheck?.summary
+    ? `${sc.duplicationCheck.status === "duplicated" ? "⚠ **Duplicates an existing primitive**" : "✓ **No duplicate primitives**"}: ${plain(sc.duplicationCheck.summary)}`
+    : "";
+
   const invariants = prims
-    .flatMap((p) => (p.invariantsTouched || []).map((i: string) => `> ⚠ **${plain(p.name || p.id)}**: ${plain(i)}`))
+    .flatMap((p) => [
+      ...(p.invariantsViolated || []).map((i: string) => `> ⚠ **${plain(p.name || p.id)}**: ${plain(i)}`),
+      ...(p.invariantsTouched || []).map((i: string) => `> ⚠ **${plain(p.name || p.id)}**: ${plain(i)}`),
+    ])
     .join("\n");
 
-  const mapLine = sc.mapUpdated === false && (added.length || prims.some((p) => p.classification !== "composes"))
-    ? `\n**Map not updated in this PR** — ${plain(sc.mapPath || "primitives.yaml")} should change in the same PR as its primitives.\n`
-    : "";
+  const mapLine =
+    sc.mapUpdated === false && (added.some((a) => !isMappedAdd(a)) || prims.some((p) => p.classification !== "composes"))
+      ? `\n**Map not updated in this PR** — ${plain(sc.mapPath || "primitives.yaml")} should change in the same PR as its primitives.\n`
+      : "";
 
   // GitHub renders markdown inside <details> only with blank lines after
   // <summary> and around fenced blocks — the empty strings are load-bearing.
   const parts = [START, "<details>", `<summary>${summary}</summary>`, ""];
+  if (sc.summary) parts.push(plain(sc.summary), "");
+  if (dupLine) parts.push(dupLine, "");
   // An empty map and an empty table render as a broken diagram and a bare
   // header row; a classification-only change says so in one line instead.
   if (prims.length || added.length) parts.push(mermaid, "", table, "");

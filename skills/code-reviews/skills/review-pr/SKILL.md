@@ -750,6 +750,12 @@ It writes one file per section under `review-report/bundle/` — `common.md`,
 `conventions.md`, `intent.md`, `primitives.md`, each only when it has something
 to hold — reading the trusted material from `<base>`, and each spawn prompt
 names the files its lens reads: *"read these once; they replace rediscovery."*
+Every fence line in a bundle file ends with a token drawn for that run, and the
+file says so at its top: a line shaped like a fence without the token is part
+of the content around it, so a diff or PR body cannot close its own block or
+open one that claims to be trusted. `--spec` takes only a regular file inside
+the repository — a PR can commit a symlink, and a followed symlink would put a
+file from anywhere on your machine in front of every lens.
 Write your interpretation of the base-side diff where `common.md` leaves the
 line for it. The intent of the inline rule is no rediscovery and no duplicated
 triage work, not literal inlining at any size. The diff itself stays inline

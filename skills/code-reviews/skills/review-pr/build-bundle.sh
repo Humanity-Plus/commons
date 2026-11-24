@@ -27,7 +27,8 @@
 #
 # Two things keep untrusted text from borrowing that trust. Every fence line
 # carries a token made for this run, so a diff or PR body that contains a line
-# shaped like a fence cannot close its block or open a "trusted" one. And a
+# shaped like a fence cannot close its block or open a "trusted" one; a fence's
+# label never contains text the PR chose, such as a spec file's name. And a
 # --spec file must be a regular file inside the repository: a PR can commit a
 # symlink, and following it would copy a file from anywhere on this machine
 # into what the lenses (and any external seat) read.
@@ -158,11 +159,15 @@ if [[ -n "$pr" || ${#specs[@]} -gt 0 ]]; then
       gh pr view "$pr" --json title,body --jq '"# " + .title + "\n\n" + .body'
       close "PR body"
     fi
+    n=0
     for spec in ${specs[@]+"${specs[@]}"}; do
+      n=$((n + 1))
       echo
-      open "$spec"
+      # a fixed label: the path is the PR's to choose, and a fence must not say what it likes
+      open "spec file $n (UNTRUSTED)"
+      printf 'path: %s\n\n' "$spec"
       cat -- "$spec"
-      close "$spec"
+      close "spec file $n"
     done
   } >"$out/intent.md"
 fi

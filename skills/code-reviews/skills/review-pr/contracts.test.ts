@@ -165,3 +165,62 @@ test("the external-runner gate is stated once, both branches cite it, and its se
   for (const rel of ["review-pr/README.md", "../README.md"]) expect(read(rel), rel).toContain("`runners:`");
   expect(read("review-pr/REVIEW.example.md")).toMatch(/^<!-- runners: [a-z, ]+ -->$/m); // shipped commented out, like `execution:`
 });
+
+// The bundle's file names are a contract between the script that writes them
+// and the text that tells each lens which to read. Checked in both directions,
+// and across every doc that describes the materials: a contract this toolkit
+// replaces has outlived its replacement in a sibling doc three times in one
+// change (the bundle file, the index shape, the resolution log's name).
+test("the bundle files are the same set in the script and the skill, and no doc keeps the single-file bundle", () => {
+  const script = read("review-pr/build-bundle.sh");
+  const written = [...script.matchAll(/>"\$out\/([a-z0-9-]+)\.md"/g)].map((m) => `${m[1]}.md`).sort();
+  expect(written).toEqual(["common.md", "conventions.md", "diff.md", "intent.md", "primitives.md"]);
+  const pr = flat(consumers["review-pr"]);
+  for (const file of written) expect(pr, `the skill never names ${file}`).toContain(`\`${file}\``);
+  const named = [...new Set([...pr.matchAll(/`bundle\/([a-z0-9-]+\.md)`/g)].map((m) => m[1]))];
+  expect(named.length).toBeGreaterThan(0);
+  for (const file of named) expect(written, `the skill names bundle/${file}, which the script does not write`).toContain(file);
+  expect(pr).toContain("<this-skill-dir>/build-bundle.sh");
+  for (const rel of ["review-pr/SKILL.md", "review-pr/README.md", "../README.md", "review-fix/SKILL.md", "resolve-review/SKILL.md", "review-pr/lenses/finding-style.md"]) {
+    const text = flat(read(rel));
+    for (const gone of ["context-bundle.md", "=== section:", "one bundle file"]) expect(text, `${rel} still says "${gone}"`).not.toContain(gone);
+  }
+});
+
+// The commit the lenses read has one name and one meaning in every reader.
+test("the reviewed commit is one term across the skill, the fixer, and the scripts", () => {
+  const pr = flat(consumers["review-pr"]);
+  expect(pr).toContain("Record it as `meta.reviewedSha`");
+  expect(pr, "a seat or rerun worktree must be cut at the reviewed commit").not.toMatch(/git worktree add <[a-z-]+> <headSha>/);
+  expect(pr).toContain("the commit it reviewed (`meta.reviewedSha`, else `meta.headSha`)"); // the manual reset fallback
+  expect(pr, "the anchor rule names the commit the lenses read").not.toContain("Anchor to the head SHA**");
+  expect(flat(read("review-pr/lenses/interrogate.md")), "a seat's worktree is cut at the reviewed commit").not.toContain("checked out at the head SHA");
+  expect(flat(read("review-issues/SKILL.md"))).toContain("a review that recorded another `meta.reviewedSha` read a merged tree");
+  const fixer = flat(consumers["resolve-review"]);
+  expect(fixer).toContain("`meta.reviewedSha` when the review recorded one, else `meta.headSha`");
+  expect(fixer).toContain("the commit the review read (`meta.reviewedSha`, else `meta.headSha`)");
+  expect(read("review-pr/reset-workspace.sh")).toContain(".meta.reviewedSha // .meta.headSha");
+  expect(read("review-pr/publish.ts")).toContain("checkReviewedSha(report.meta, "); // wired into main, not only defined
+  expect(read("review-pr/render.ts")).toContain("|| offHead(m)) return \"\";"); // no line link off-head
+});
+
+// Two more contracts with readers outside SKILL.md.
+test("the compact index shape and the archived resolution log are stated the same by every doc that uses them", () => {
+  const INDEX = "`{ id, lens, severity, category, file, line, title, claim, mechanism, fix }`";
+  for (const rel of ["review-pr/SKILL.md", "review-pr/lenses/finding-style.md"]) expect(flat(read(rel)), rel).toContain(INDEX);
+  for (const rel of ["review-pr/SKILL.md", "resolve-review/SKILL.md", "review-issues/SKILL.md"]) {
+    expect(flat(read(rel)), rel).toContain("`resolution-<label>.md`");
+  }
+  expect(read("review-pr/reset-workspace.sh")).toContain('"review-report/resolution-${label}.md"');
+});
+
+// What the guard's exit 3 compares is stated by the script and by both skills
+// that tell an agent how to read it.
+test("check-clean's tree comparison is described as status and content wherever it is described", () => {
+  expect(read("review-pr/check-clean.sh")).toContain("xargs -0 cksum --");
+  for (const rel of ["review-pr/SKILL.md", "resolve-review/SKILL.md"]) {
+    const text = flat(read(rel));
+    expect(text, rel).not.toContain("compares `git status --porcelain` before and after");
+    expect(text, rel).toMatch(/compares the tree before and after[^.]*content/);
+  }
+});

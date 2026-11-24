@@ -44,7 +44,9 @@ The user may pass arguments when invoking the skill (e.g. `/review-issues <args>
 1. **Load the findings.** Read `review-report/findings.json`, or the `path=` file
    when given (run `review-pr` or `review-fix` first if it's missing; check for
    `findings-pr<N>.json` archives when chaining across PRs). If
-   `review-report/resolution.md` exists and belongs to the same review, drop
+   the review's resolution log exists — `review-report/resolution.md` for the
+   current findings, `resolution-<label>.md` beside a `findings-<label>.json`
+   archive — drop
    findings it marks `fixed` — don't file debt that's already paid.
 2. **Select.** Findings at/below the severity band, minus any filter, minus
    `intent` findings (PR-disclosure judgments belong to a human, not a tracker).
@@ -104,7 +106,8 @@ The user may pass arguments when invoking the skill (e.g. `/review-issues <args>
      when grouped).
    - Body: a 2–4 sentence *what & why* condensed from the finding's evidence; the
      locations as a `file:line` list (permalinks at `meta.headSha` when `meta.repo`
-     is set); the suggestion (the fix recipe a later agent will follow); severity
+     is set and the review read that commit; a review that recorded another
+     `meta.reviewedSha` read a merged tree, so its locations stay plain text); the suggestion (the fix recipe a later agent will follow); severity
      and the cited `rule` if any; the source (`PR #N` / branch); and the last line
      exactly: `` `review-debt-fp-<hash>` ``.
    - Labels: `review-debt` plus **one topical label matched against the repo's

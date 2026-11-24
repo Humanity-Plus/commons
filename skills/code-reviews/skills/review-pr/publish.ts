@@ -74,7 +74,7 @@
  */
 
 import { basename, dirname, join } from "node:path";
-import { isClass } from "./render.ts";
+import { isClass, normalizeReport, offHead, validateReport } from "./render.ts";
 
 // ---------- types (subset of render.ts's schema) ----------
 type Sev = "critical" | "high" | "medium" | "low" | "nitpick";
@@ -99,6 +99,7 @@ interface Report {
     repo?: string;
     prNumber?: number | null;
     headSha?: string;
+    reviewedSha?: string; // the commit the lenses read, when not headSha — see checkReviewedSha()
     author?: string;
     generatedAt?: string;
     model?: string;
@@ -182,6 +183,22 @@ export function checkPrMismatch(
     `findings file describes PR #${metaPr}, but --pr ${argPr} was given — refusing to publish ` +
     `another PR's findings. (Stale review-report/? Re-run the review for PR ${argPr}, or point ` +
     `at the right findings file.)`
+  );
+}
+
+// A merge-forward review reads a merged tree (meta.reviewedSha), but a review
+// can only be posted on a commit the PR has (meta.headSha). When they differ,
+// the findings' line numbers describe code GitHub would anchor somewhere else,
+// so the publish is refused unless it carries no inline comments. The file is
+// the only witness: pushing the merge does not change what it recorded, which
+// is why the way out is a fresh review, not a retry.
+export function checkReviewedSha(meta: { headSha?: string; reviewedSha?: string }, bodyOnly = false): string | null {
+  if (bodyOnly || !offHead(meta)) return null;
+  return (
+    `the lenses read ${meta.reviewedSha!.slice(0, 7)}, but the PR's head was ${meta.headSha!.slice(0, 7)} — ` +
+    `the findings' line numbers describe a tree the PR did not have, so nothing was posted. ` +
+    `Push the reviewed commit and re-run the review (it then records one SHA), or pass ` +
+    `--body-only to post the review now without inline comments or line links.`
   );
 }
 
@@ -280,7 +297,7 @@ export function toGfm(text: string, meta: Report["meta"] = {}): string {
       ""
     );
     // `path/to/file.ts:42` → blob permalink (needs repo + headSha for stable links).
-    if (meta.repo && meta.headSha) {
+    if (meta.repo && meta.headSha && !offHead(meta)) {
       out = out.replace(/`([\w./@-]+\/[\w./@-]+?\.[A-Za-z]\w{0,9})(?::(\d+))?`/g, (_m, p, ln) => {
         const anchor = ln ? `#L${ln}` : "";
         const label = ln ? `${p}:${ln}` : p;
@@ -446,6 +463,10 @@ export function buildReview(
     body.push(
       `> Posted as a comment (GitHub doesn't allow ${verdictLabel.toLowerCase()} on your own PR) — the review's verdict is **${verdictLabel}**.`
     );
+  if (offHead(meta))
+    body.push(
+      `> Reviewed as merged at \`${meta.reviewedSha!.slice(0, 7)}\`, not at this PR's head: line numbers are that tree's, so the references below are not links.`
+    );
   if (report.verdict.summary) body.push(toGfm(report.verdict.summary, meta));
   body.push(severityTally(findings));
   const blast = blastRadiusLine(report, meta);
@@ -602,7 +623,14 @@ if (import.meta.main) {
     process.exit(1);
   }
 
-  const report: Report = JSON.parse(await Bun.file(findingsPath).text());
+  const report: Report = normalizeReport(JSON.parse(await Bun.file(findingsPath).text()));
+  // the same refusal render.ts gives: in a no-report run nothing else has checked the file
+  const problems = validateReport(report);
+  if (problems.length) {
+    console.error(`✗ ${findingsPath} is structurally malformed:`);
+    for (const p of problems) console.error(`  - ${p}`);
+    process.exit(1);
+  }
   report.meta ??= {};
   report.verdict ??= { decision: "comment", confidence: "low", summary: "" };
   report.findings ??= [];
@@ -621,6 +649,11 @@ if (import.meta.main) {
   const mismatch = checkPrMismatch(report.meta.prNumber, opts["pr"] as string | undefined);
   if (mismatch) {
     console.error(`✗ ${mismatch}`);
+    process.exit(1);
+  }
+  const refusal = checkReviewedSha(report.meta, Boolean(opts["body-only"]));
+  if (refusal) {
+    console.error(`✗ ${refusal}`);
     process.exit(1);
   }
   const minSeverity = opts["min-severity"] as Sev | undefined;

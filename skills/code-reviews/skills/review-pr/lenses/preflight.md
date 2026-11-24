@@ -34,7 +34,10 @@ write file refs as `` `path/file.ts:4` ``.
    `medium` / `low`) reflecting how strongly the diff implies it.
 3. **Distinguish "a human must decide" from "someone should run this check."**
    When an item is *verifiable* — a specific query, command, or dashboard would
-   settle it — say exactly how in a `verifiable` field (e.g.
+   settle it — say exactly how in a `verifiable` field; when the check needs a
+   file rather than a one-liner, write it under `review-report/lenses/probes/`,
+   the one folder besides your findings file you may write to, and make
+   `verifiable` the command that runs it (e.g.
    `"npx convex env list --prod | grep STRIPE"` or `"check the alerts page for a
    rule on session-store growth"`). The field documents *how*; executing it
    against a live system remains a human action (or an explicitly asked-for one).

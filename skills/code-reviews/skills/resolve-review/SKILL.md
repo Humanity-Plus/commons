@@ -70,7 +70,8 @@ working tree, so the boundary moves:
    if there are unrelated uncommitted changes, warn that fixes will mix with them
    (offer to stash or branch); don't silently proceed on a messy tree.
 2. **Load findings.** Read `review-report/findings.json` (or use the in-session set).
-   **Check the file describes this checkout first:** when its `meta.headSha` isn't
+   **Check the file describes this checkout first:** when the commit it reviewed —
+   `meta.reviewedSha` when the review recorded one, else `meta.headSha` — isn't
    `git rev-parse HEAD`, the code has moved since the review and its anchors may
    point at changed lines. Stop and ask whether to re-run the review or proceed
    anyway, rather than planning edits against code the findings never saw.
@@ -221,7 +222,13 @@ For each task, smallest blast radius first:
    ```
 
    Never "fix" the artifact, never count it as a failure, and never let it
-   contaminate the before/after comparison with the baseline.
+   contaminate the before/after comparison with the baseline. The guard also
+   compares the tree before and after the check — git status, and the content
+   of modified and untracked files — and exits 3
+   when a passing check changed a file: a committed generated file is stale,
+   and regenerating and committing it is part of the fix (or a hand-back when
+   it is not yours to regenerate). Run no whole-repo check while another agent
+   is still writing into `review-report/`.
 2. **Mutation-test every `zombies` fix — required, not initiative.** A newly added
    test that passes proves nothing: it may not guard anything. After writing the
    test(s) for a test-gap finding, temporarily reintroduce the defect the test is
@@ -338,7 +345,8 @@ For each task, smallest blast radius first:
 4. Show `git diff --stat` so the scope of edits is visible. **Do not commit** unless
    explicitly asked; if asked, follow the host's git-safety rules.
 5. **State what the review covered vs what exists now.** The findings are
-   evidence about `meta.headSha`; after your fixes the head has moved. Name
+   evidence about the commit the review read (`meta.reviewedSha`, else
+   `meta.headSha`); after your fixes the head has moved. Name
    both SHAs in the report, and when the fixes materially changed security- or
    authorization-relevant code, recommend a fresh `/review-pr` run explicitly —
    a review of the pre-fix head is not evidence about the post-fix tree, and
@@ -349,7 +357,8 @@ For each task, smallest blast radius first:
 ## Status vocabulary (use these exact words in the report)
 
 `fixed` · `partial` · `skipped` · `failed` — defined in Phase 4. Keep the mapping stable
-so a follow-up run (or a human) can diff against a prior `resolution.md`. The
+so a follow-up run (or a human) can diff against a prior `resolution.md` (the
+workspace reset archives it as `resolution-<label>.md` beside its findings). The
 Driven-features block has its own five: `passed` · `regressed` · `known-failing` ·
 `unreachable` · `not-affected`. The Classes block's levels are `types` · `check` ·
 `test` · `prose only`.

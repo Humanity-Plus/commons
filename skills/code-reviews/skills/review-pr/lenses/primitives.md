@@ -37,9 +37,11 @@ block.
   ruler it is measured with. If the diff edits the map, record `mapUpdated:
   true` but classify against the base version.
 
-The orchestrator skips this lens (objective condition) when the base branch has
+The orchestrator skips this lens (objective conditions) when the base branch has
 no `primitives.yaml` anywhere under `docs/` — skip note: *"no primitives map —
-run map-primitives"*.
+run map-primitives"* — or when every changed file is a test or documentation —
+skip note: *"test-only or docs-only diff"*. At the medium tier it may share a
+seat with `intent` and `preflight`; it still answers into its own output.
 
 ## Steps
 

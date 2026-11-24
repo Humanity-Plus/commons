@@ -30,7 +30,10 @@ The user may pass options when invoking the skill (e.g. `/publish-review <option
 - A **URL** → link that as the full HTML report instead (`--report-url`).
 - A **severity** (e.g. `medium`) → only findings at/above it become inline comments
   (`--min-severity`); the rest fold into the review body.
-- **`body-only`** → one summary comment, no inline comments.
+- **`body-only`** → one summary comment, no inline comments. It is also the
+  way through when `publish.ts` refuses a review that read a merged tree the PR
+  does not have (`meta.reviewedSha` differs from `meta.headSha`): the other way
+  is to push the merge and re-run the review.
 - **`recap`** → put the system-recap block on the PR (requires the review to have
   a `systemChange` section from the primitives lens). **Which channel depends on
   ownership**: on your own PR, upsert it into the description

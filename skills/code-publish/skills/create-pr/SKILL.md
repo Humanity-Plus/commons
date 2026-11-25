@@ -71,8 +71,16 @@ understand it well enough yet to file it.
 Structure, in this order:
 
 1. **Problem** — from the user's original request: what was wrong, missing,
-   or needed, and for whom. 2–4 sentences. This comes first because it's the
+   or needed, and who it hurt. 2–4 sentences. This comes first because it's the
    one thing a reader cannot get from the diff.
+   - **Open with the harm as someone would observe it, then the mechanism**:
+     "sign-in stops responding for every tenant", "uploads over 40MB time
+     out". Name who suffers it, not only who causes it.
+   - **A security fix states three facts**: who can trigger it, what breaks or
+     leaks, and who is affected. When the likely misreading is worse than the
+     truth, say what does not happen ("nothing is exposed").
+   - **Check that it stands alone**: would a reviewer who has not opened the
+     linked issue describe the problem the way the issue does?
 2. **Solution** — how the change addresses it, at the level of approach and
    key decisions (and trade-offs, if any were real). Name the important moving
    parts; do not inventory files.
@@ -112,6 +120,11 @@ confirm *how*.
   explains nothing; "uploads over 40MB were timing out" does.
 - **Hedged claims** — "should work", "improves performance". Give the number
   or the test, or mark it unverified.
+- **Keeping the actor and dropping the impact** — a linked issue's attack path
+  compressed into one sentence. "A project writer could make the shared server
+  lay out a PDF for minutes" names who and how; a reviewer read it as a data
+  leak. The problem was that the same server handles sign-in for every tenant,
+  and it stopped answering.
 
 ## 4. Filing
 
@@ -134,7 +147,9 @@ When asked to bring an **existing** PR's title and body up to this standard
 2. Read the PR (`gh pr view <n> --json title,body,commits`), its full diff,
    and any linked issues — then apply sections 2 and 3 exactly as if filing
    fresh. The Problem section usually hides in the linked issue or the first
-   commit message; dig it out rather than paraphrasing the old body.
+   commit message; dig it out rather than paraphrasing the old body, and carry
+   its impact across with it: the description is read by people who never open
+   the issue.
 3. **Preserve what other tools maintain**: the system-recap block between its
    `<!-- system-recap:start/end -->` markers, attribution footers, and any
    HTML-comment markers you don't recognize — rewrite around them, never

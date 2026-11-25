@@ -887,30 +887,31 @@ could easily have been padded.
   lenses read both sides of a seam without tracing the contract between them
   (tracing is an instruction, not a visibility property). Runs whole-diff at the
   `seams` role's tier; on sharded runs it always runs.
-- `lenses/primitives.md` — system-change classification (composes/extends/adds per
-  touched primitive) + primitive-drift findings. **Skip if** the base branch has no
-  `primitives.yaml` under `docs/` (note: *"no primitives map — run map-primitives"*).
-  **Also skip when** every changed file is a test or documentation (note:
-  *"test-only or docs-only diff"*): such a change declares nothing a primitive
-  could be. Anything else runs it. A value re-declared inside an existing consumer
-  file, or a verb added to a file the map does not list, touches no mapped source
-  and adds no module, and is exactly what this lens exists to catch — so the skip
-  stops there, and the lens's cost is met by the shared seat above (field: it ran
-  alone on every small refactor of three queue runs and its one finding repeated
-  `conventions`).
+- `lenses/primitives.md` — plain-language system-change overview, explicit
+  primitive duplication check (`duplicationCheck`), and classification
+  (`composes`/`extends`/`adds` per touched primitive, with `mapped` flag on new
+  primitives and `invariantsViolated` vs `invariantsTouched`). **Skip if** the
+  base branch has no `primitives.yaml` under `docs/` (note: *"no primitives map
+  — run map-primitives"*). **Also skip when** every changed file is a test or
+  documentation (note: *"test-only or docs-only diff"*): such a change declares
+  nothing a primitive could be. Anything else runs it. A value re-declared
+  inside an existing consumer file, or a verb added to a file the map does not
+  list, touches no mapped source and adds no module, and is exactly what this
+  lens exists to catch — so the skip stops there, and the lens's cost is met by
+  the shared seat above (field: it ran alone on every small refactor of three
+  queue runs and its one finding repeated `conventions`).
   Like `conventions` it returns a two-key object `{ systemChange, findings }` —
   merge `findings` into the pool and carry `systemChange` to the report (see Phase 4).
-- `lenses/blast-radius.md` — what the change reaches beyond the diff, and the one
-  **safety fact** it is safe because of: the lens names the load-bearing
-  assumption, proves it as far as reading allows (an evidence rung in the
-  `verifiedBy` vocabulary), writes the `probe` that would settle it by execution,
-  walks the reach past grep (other readers of the same bytes, the library at its
-  pinned version, the path production actually runs, timing, rollback), and
-  returns what it **cleared** as first-class output. **Skip below the medium
-  tier** — the only skip. It runs whole-diff at the `blast-radius` role's tier. Like `primitives` it returns a
-  two-key object `{ blastRadius, findings }` — merge `findings` into the pool,
-  settle the safety fact's probe in Phase 3, and carry `blastRadius` to the
-  report (see Phase 4).
+- `lenses/blast-radius.md` — collateral-impact check: answers in plain language
+  whether this PR affects parts of the system outside its stated goal in an
+  unintended way (`impact`: `contained` | `side-effects` | `breaking`), lists
+  any unintended `sideEffects` and concise one-line `cleared` areas without
+  lecturing on runtime internals, and optionally names a single load-bearing
+  `safetyFact` + `probe` when an executable check is genuinely needed. **Skip
+  below the medium tier** — the only skip. It runs whole-diff at the
+  `blast-radius` role's tier. Like `primitives` it returns a two-key object
+  `{ blastRadius, findings }` — merge `findings` into the pool, settle any
+  `safetyFact.probe` in Phase 3, and carry `blastRadius` to the report (see Phase 4).
 
 The skip conditions above are **exhaustive and objective** (no manifest changed, no
 convention docs, no PR body). Never skip a lens because the diff *looks*
@@ -1372,22 +1373,23 @@ phase ends. The fix phase (`resolve-review`) drives the touched features the
 same way after fixes land and compares against this run, and loops built on
 it (a PR queue) cover the rest of a change's reach.
 
-**The blast-radius safety fact gets the experiment treatment too.** The lens
-returns the fact at the best rung reading reached, plus a `probe`. On an owned
-checkout (or under the repo's `## Trust` opt-in), run the probe exactly as you
-would an experiment claim — the repo's existing test setup only (which, on an
-owned checkout, includes its verify skill; see above), command and output
-recorded — and update the fact: output supports the claim →
-`evidence: "experiment"`, `status: "proven"`, the output appended to `proof`;
-output contradicts it → `status: "contradicted"`, and route the contradiction
-back to the lens as a targeted question (the orchestrator-observations rule) —
-a contradicted safety fact is usually the most important finding of the run,
-and it enters through the front door like every other. On an untrusted
-checkout, leave the lens's rung and status untouched, never execute to improve
-them, and record in `limitations`: *"safety fact unproven by execution
-(untrusted checkout) — probe: `<probe>`"*. `cleared` entries are claims too:
-a verified finding from any lens that contradicts one moves it out of
-`cleared` (Phase 4 reconciles the rest).
+**The blast-radius probe gets the experiment treatment too (when present).**
+When `blastRadius.safetyFact` carries a `probe`, run it on an owned checkout (or
+under the repo's `## Trust` opt-in) exactly as you would an experiment claim —
+the repo's existing test setup only (which, on an owned checkout, includes its
+verify skill; see above), command and output recorded — and update the fact:
+output supports the claim → `evidence: "experiment"`, `status: "proven"`, the
+output appended to `proof`; output contradicts it → `status: "contradicted"`,
+`blastRadius.impact: "breaking"`, and route the contradiction back to the lens
+as a targeted question (the orchestrator-observations rule) — a contradicted
+safety fact is usually the most important finding of the run, and it enters
+through the front door like every other. On an untrusted checkout, leave the
+lens's rung and status untouched (do **not** mark `blastRadius.impact` worse
+just because a probe wasn't executed), never execute to improve them, and record
+in `limitations`: *"safety fact unproven by execution (untrusted checkout) —
+probe: `<probe>`"*. `cleared` entries are claims too: a verified finding from
+any lens that contradicts one moves it out of `cleared` (Phase 4 reconciles the
+rest).
 
 **Interrogate findings are settled by rerun, never by a skeptic's reading.**
 For each `lens: "interrogate"` finding: create a fresh scratch worktree at the
@@ -1573,15 +1575,18 @@ contradiction between a lens's fetch and the stale Phase 0 measurement).
    that fires sets `classEvidence` to one line naming what it found:
    - **Several sites in this diff** — the finding carries `locations` (the
      arbiter's swarm collapse). Evidence: `N sites in this diff`.
-   - **A rule that rests on prose** — a `conventions` finding whose `rule` cites a
-     **repo-authored** rule (a path under `docs/`, `AGENTS.md`, `CLAUDE.md`,
-     `REVIEW.md`, `.cursor/rules/`) that the agent instruction file's
-     `## Rules and what enforces them` table lists with `prose only` in its
-     *Enforced by* cell, or does not list at all. A `Fowler, …` smell citation or
-     a `sibling: …` precedent is not a repo rule and never fires this test (field:
-     as first written it would have marked every baseline-smell nitpick a class).
-     Applies only when that table exists; without it the test is skipped, not
-     failed. Evidence: `rule table: prose only` / `rule table: not listed`.
+   - **A rule that rests on prose** — a `conventions` finding at **`medium` or
+     higher** (skip `low`/`nitpick` so minor style nudges don't crowd the
+     Classes card) whose `rule` cites a **repo-authored** rule (a path under
+     `docs/`, `AGENTS.md`, `CLAUDE.md`, `REVIEW.md`, `.cursor/rules/`) that the
+     agent instruction file's `## Rules and what enforces them` table lists
+     with `prose only` in its *Enforced by* cell, or does not list at all. A
+     `Fowler, …` smell citation or a `sibling: …` precedent is not a repo rule
+     and never fires this test (field: as first written it would have marked
+     every baseline-smell nitpick a class). Applies only when that table
+     exists; without it the test is skipped, not failed. Write human-readable
+     evidence naming the rule (e.g. `rule in docs/conventions/security.md has no
+     automated check yet`), not raw internal labels like `rule table: not listed`.
    - **Seen before** — the same mistake in a **different PR or branch**: an
      archived `review-report/findings-*.json` of this checkout whose
      `meta.prNumber` (or `meta.head` in local mode) differs from this run's
@@ -1645,6 +1650,25 @@ contradiction between a lens's fetch and the stale Phase 0 measurement).
    `review-report/lenses/probes/` gets that file's content as a fenced block in
    `safetyFact.proof` or the finding's evidence — the next run wipes the folder,
    and no reader of the report has it.
+   **Two-altitude polish on overview sections before writing `findings.json`:**
+   - **`verdict.summary`**: lead with the verdict and the 2–4 concrete decisions
+     or fixes needed before merge, in plain English. Link every referenced
+     finding (`[overwrites manual shipping choice](#f-seams-1)`) instead of
+     printing bare internal IDs like `(seams-1)`.
+   - **`systemChange` & `blastRadius`**: keep overview copy plain-English and
+     behavior-focused — strip runtime-internal lectures, symbol inventories,
+     and pipeline jargon. Verify `systemChange.overall` is never weaker than
+     its `added` list (`added.length > 0` → `overall: "adds"`), and verify
+     `systemChange.duplicationCheck` clearly states whether any primitive was
+     duplicated.
+   - **Deduplicate manual checks across cards**: if a manual pre-merge step
+     (e.g. setting an env var or running a physical-device check) already lives
+     in `preflight`, reference it once rather than pasting the full command
+     into `summary`, `blastRadius`, `preflight`, and `limitations`.
+   - **Normalize `triage` shape**: ensure every `triage.groups[].files` item is
+     `{ "path": string, "status": "added"|"modified"|"deleted" }`, every group
+     has a `reason` (copy `scope` if `reason` is absent), and `triage.skipped`
+     is `string[]`.
    Then assemble the full report object and write it to
    `review-report/findings.json` — **this exact shape** (`render.ts` now fails
    loudly on malformed sections; the common authoring mistakes are a flat

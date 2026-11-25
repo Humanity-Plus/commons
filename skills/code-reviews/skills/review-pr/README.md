@@ -234,48 +234,53 @@ section of `REVIEW.md` (see `REVIEW.example.md`).
 
 ## The report
 
-- **Findings by severity** (donut, total = every finding) sits next to **Findings by
-  section**, which breaks the total into *Findings · Test gaps · Preflight ·
-  Dependencies* with counts and per-section severity chips — so a big donut number
-  never implies that many *code* findings. Each section renders even when empty (with
-  an explanatory state) and shows a count badge in its heading.
+- A **compact overview bar** sits right below the header with severity pill
+  counts and section jump links, keeping **Summary**, **System change**, and
+  **Blast radius** above the fold. Empty sections (*Conventions*, *Test gaps*,
+  *Preflight*, *Dependencies*) are omitted rather than rendered as blank cards,
+  and the file-level **Files reviewed** triage map and **Scope & limitations**
+  (with the lenses run) sit collapsed at the bottom as the audit trail.
+- **Two altitudes:** overview cards (*Summary*, *System change*, *Blast radius*)
+  stay in plain English at the behavior and architecture level; code quotes,
+  `file:line` permalinks, and proofs live inside findings.
 - Findings are written like a **short teaching article** aimed at a junior dev.
-  `evidence`, `suggestion`, and the verdict `summary` accept **native HTML + inline
-  CSS *and* Markdown** — so a finding can carry an inline `<svg>` diagram, a
-  `callout` box, side-by-side `cols`, status `badge`s, or a `<table>`, not just
-  prose. Markdown (subheadings, lists, **bold**/*italic*, tables, `inline code`,
-  fenced code with ```` ```diff ```` colorized) still works for text. Inline **code**
-  (lavender chips) and **file/line references** (blue permalinks with a highlighted
-  line number) are styled distinctly.
+  `evidence`, `suggestion`, and the verdict `summary` accept **native HTML +
+  inline CSS *and* Markdown** — so a finding can carry an inline `<svg>`
+  diagram, a `callout` box, side-by-side `cols`, status `badge`s, or a
+  `<table>`, not just prose. Markdown (subheadings, lists, **bold**/*italic*,
+  tables, `inline code`, fenced code with ```` ```diff ```` colorized, and
+  in-page `#f-...` finding links) still works for text. Inline **code**
+  (lavender chips) and **file/line references** (blue permalinks with a
+  highlighted line number) are styled distinctly.
 - **Security:** all of that content is derived from an untrusted diff, so it passes
   through an allowlist sanitizer in `render.ts` (`sanitizeHtml`) before hitting the
   browser — `<script>`, `on*` handlers, `javascript:`/remote `url()`, `<iframe>`/etc.
   are stripped, while a rich tag/attribute/SVG subset and a constrained `style`
   attribute survive. Full visual expression, nothing executable.
-- The **ZOMBIES** section carries a legend explaining every letter, and **Scope &
-  limitations** is a visible card (not buried footer text; sharded runs are noted
-  there automatically).
+- **Test gaps** list missing tests by feature area with readable category labels
+  (`Exceptions`, `Boundaries`, `Interface`, …), with the ZOMBIES coverage matrix
+  and glossary collapsed underneath.
 - A finding the arbiter **grouped** renders as one card with a location list for
   every occurrence; findings **folded** past the report budget land in a collapsed
   *More findings* section; on `holistic` runs a **Holistic comparison** card shows
   the lens-vs-generalist overlap counts and lists holistic-only findings.
 - A finding Phase 4 marked as a **class** — the same mistake at several sites, a
-  cited rule that rests on prose, or a defect a past review already found —
-  carries a `class` chip and its evidence line, and a **Classes** card lists them:
-  those are what `resolve-review` hardens with `fix-the-class` instead of only
-  patching.
+  medium+ cited rule that rests on prose, or a defect a past review already found
+  — carries a `class` chip and its plain-language evidence line, and a **Classes**
+  card lists them: those are what `resolve-review` hardens with `fix-the-class`
+  instead of only patching.
 - When the `conventions` lens runs, a **Conventions & stack conformance** card shows a
   per-area ✓/⚠/✗ scorecard (Convex, React, TypeScript, Tests, …), and a dedicated
   **Conventions** section lists the craft findings with the repo rule each one cites.
 - When the `blast-radius` lens runs (medium tier and up), a **Blast radius** card
-  leads the report: the one **safety fact** the change rests on, how far up the
-  evidence ladder it got (asserted → documented → traced → command-settled →
-  observed; the same names as `verifiedBy`), the probe that settles it, the risks
-  the lens **cleared** with how it checked, its open risks linked to their
-  finding cards, and the cheapest check to run before merge. On your own
-  checkout the orchestrator runs the probe, so the fact arrives proven or
-  contradicted rather than argued; `publish.ts` puts the same line at the top of
-  the GitHub review body, and `resolve-review` re-runs the probe after its fixes.
+  answers whether the PR affects parts of the system outside its stated goal in an
+  unintended way: a collateral-impact pill (`Contained` / `Side effects` /
+  `Breaking reach`), a plain-English summary, any unintended side effects or open
+  risks front and center, a collapsed list of checked & unaffected areas, and an
+  optional collapsed verification assumption + probe (surfaced loudly if
+  contradicted). On your own checkout the orchestrator runs the probe; `publish.ts`
+  puts the summary line at the top of the GitHub review body, and `resolve-review`
+  re-runs any probe after its fixes.
 - On `panel` runs, a **Panel** card lists every external seat (runner, model,
   findings found / kept / dropped with the drop reason, or why the seat did not
   run) and the panel-only findings: what another model family saw that no host
@@ -286,10 +291,12 @@ section of `REVIEW.md` (see `REVIEW.example.md`).
   that proves it: the repro command, the output observed, the output the intent
   required, and the repro patch when one was needed.
 - When the `primitives` lens runs (repo has a `primitives.yaml` map — bootstrap
-  one with the `map-primitives` skill), a **System
-  change** card classifies every touched primitive (composes / extends / adds),
-  calls out touched invariants, and renders unmapped new primitives loudest — and
-  `recap.ts` can generate a GitHub-native mermaid recap block for the PR
+  one with the `map-primitives` skill), a **System change** card explains in plain
+  English how the system changes, runs an explicit **primitive duplication check**
+  (`No duplicate primitives` vs `Duplicates an existing primitive`), classifies
+  every touched primitive (`Uses` / `Extends` / `Adds`), separates newly mapped
+  primitives from unmapped ones, and reserves warning icons for violated invariants
+  — and `recap.ts` can generate a GitHub-native mermaid recap block for the PR
   description (own PRs, on request).
 
 The finding house style lives in `lenses/finding-style.md`, which the orchestrator

@@ -508,6 +508,11 @@
     "mapPath": "docs/project/primitives.yaml",
     "overall": "adds",
     "mapUpdated": false,
+    "summary": "Extends the Charge model with payment-capture fields and introduces a background retry queue for transient payment failures.",
+    "duplicationCheck": {
+      "status": "clean",
+      "summary": "Reuses the existing Charge and Session definitions; the retry queue is a new capability."
+    },
     "primitives": [
       {
         "id": "charge",
@@ -542,31 +547,41 @@
     ],
     "added": [
       {
-        "name": "capture-retry-queue",
+        "name": "Capture retry queue",
+        "mapped": false,
         "files": [
           "src/pay/retryQueue.ts"
         ],
-        "note": "New durable-retry primitive, not in the map."
+        "note": "New durable-retry primitive, not yet listed in the primitives map."
       }
     ]
   },
   "blastRadius": {
+    "impact": "breaking",
     "summary": "Payment capture now retries transient Stripe network errors up to three times before failing the order.",
+    "sideEffects": [
+      {
+        "area": "Production checkout",
+        "effect": "The retry loop sits behind the NEW_CAPTURE flag, which is off in production, so production behavior does not change.",
+        "severity": "high",
+        "findingId": "blast-radius-1"
+      }
+    ],
     "safetyFact": {
-      "claim": "Repeating a capture call for an intent that is already captured returns the captured intent instead of charging twice, at the lockfile's `stripe@14.2.0`.",
+      "claim": "Repeating a capture call for an already-captured order returns the existing charge instead of charging twice.",
       "evidence": "experiment",
       "status": "proven",
-      "proof": "`node_modules/stripe/lib/resources/PaymentIntents.js:40` reuses the idempotency key the diff passes at `src/pay/charge.ts:48`. Probe run on the owned checkout: `bun test src/pay/charge.test.ts -t 'capture retry'` → 1 pass; the mock recorded one charge across three calls.",
+      "proof": "The installed Stripe client forwards the order's idempotency key on every retry attempt (`src/pay/charge.ts:48`). Probe run on the owned checkout: `bun test src/pay/charge.test.ts -t 'capture retry'` → 1 pass; the mock recorded one charge across three calls.",
       "probe": "bun test src/pay/charge.test.ts -t 'capture retry'"
     },
     "cleared": [
       {
-        "what": "Other readers of `charges.attempts`",
-        "how": "grep across `src/` and `workers/`: only `reports/daily.ts` reads it, and it sums the column, so a higher count is harmless."
+        "what": "Daily billing reports",
+        "how": "Sums `charges.attempts`, so a higher retry count is handled cleanly."
       },
       {
         "what": "Rollback",
-        "how": "The new column is nullable with a default; the previous release never reads it."
+        "how": "The new column is nullable with a default; the previous release ignores it."
       }
     ],
     "preMerge": "Run the capture tests once with `STRIPE_MOCK_FAIL_FIRST=1` so the retry path executes against the mock."

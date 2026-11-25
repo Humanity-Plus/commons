@@ -46,17 +46,21 @@
  *   "systemChange"?: {                                    // primitives lens
  *     "mapPath"?: string, "overall"?: "composes"|"extends"|"adds",
  *     "mapUpdated"?: boolean,
+ *     "summary"?: string,                                 // plain-English system-change overview
+ *     "duplicationCheck"?: { "status": "clean"|"duplicated", "summary"?: string, "duplicates"?: string[] },
  *     "primitives": [{ "id", "name", "area"?, "classification",
- *                      "files"?, "invariantsTouched"?, "relatesTo"?, "note"? }],
- *     "added"?: [{ "name", "files"?, "note"? }]
+ *                      "files"?, "invariantsTouched"?, "invariantsViolated"?, "relatesTo"?, "note"? }],
+ *     "added"?: [{ "name", "mapped"?, "files"?, "note"? }]
  *   },
  *   "blastRadius"?: {                                     // blast-radius lens
- *     "summary"?: string,                                 // the change in behavior terms
- *     "safetyFact": { "claim": string,                    // the load-bearing assumption
- *                     "evidence": "advisory"|"documentation"|"skeptic"|"mechanical"|"experiment",
- *                     "status": "proven"|"unproven"|"contradicted",
- *                     "proof"?: string, "probe"?: string },
- *     "cleared"?: [{ "what": string, "how"?: string }],   // risks checked and found to hold
+ *     "impact"?: "contained"|"side-effects"|"breaking",   // collateral impact on existing system
+ *     "summary"?: string,                                 // the intended change in behavior terms
+ *     "sideEffects"?: [{ "area": string, "effect": string, "severity"?: "high"|"medium"|"low", "findingId"?: string }],
+ *     "safetyFact"?: { "claim": string,                   // optional load-bearing assumption + probe
+ *                      "evidence": "advisory"|"documentation"|"skeptic"|"mechanical"|"experiment",
+ *                      "status": "proven"|"unproven"|"contradicted",
+ *                      "proof"?: string, "probe"?: string },
+ *     "cleared"?: [{ "what": string, "how"?: string }],   // areas checked and confirmed unaffected
  *     "preMerge"?: string                                 // the cheapest check before merge
  *   },
  *   "findings": Finding[],       // standard schema + lens-specific extras
@@ -216,6 +220,7 @@ interface SystemChangePrimitive {
   classification: Classification;
   files?: string[];
   invariantsTouched?: string[];
+  invariantsViolated?: string[];
   relatesTo?: string[];
   note?: string;
 }
@@ -224,15 +229,30 @@ interface SystemChange {
   mapPath?: string;
   overall?: Classification;
   mapUpdated?: boolean;
+  summary?: string;
+  duplicationCheck?: {
+    status: "clean" | "duplicated";
+    summary?: string;
+    duplicates?: string[];
+  };
   primitives: SystemChangePrimitive[];
-  added?: Array<{ name: string; files?: string[]; note?: string }>;
+  added?: Array<{ name: string; mapped?: boolean; files?: string[]; note?: string }>;
 }
 
 type Evidence = "advisory" | "documentation" | "skeptic" | "mechanical" | "experiment";
 type FactStatus = "proven" | "unproven" | "contradicted";
+type BlastImpact = "contained" | "side-effects" | "breaking";
+interface BlastSideEffect {
+  area: string;
+  effect: string;
+  severity?: "high" | "medium" | "low";
+  findingId?: string;
+}
 interface BlastRadius {
+  impact?: BlastImpact;
   summary?: string;
-  safetyFact: { claim: string; evidence?: Evidence; status?: FactStatus; proof?: string; probe?: string };
+  sideEffects?: BlastSideEffect[];
+  safetyFact?: { claim: string; evidence?: Evidence; status?: FactStatus; proof?: string; probe?: string };
   cleared?: Array<{ what: string; how?: string }>;
   preMerge?: string;
 }
@@ -281,8 +301,19 @@ export function validateReport(r: any): string[] {
       errs.push("systemChange must be an object whose primitives is an array");
   }
   if (r.blastRadius !== undefined) {
-    if (!isObj(r.blastRadius) || !isObj(r.blastRadius.safetyFact) || typeof r.blastRadius.safetyFact.claim !== "string")
-      errs.push("blastRadius must be an object whose safetyFact is an object with a string claim");
+    if (!isObj(r.blastRadius))
+      errs.push("blastRadius must be an object");
+    else if (r.blastRadius.safetyFact !== undefined) {
+      if (!isObj(r.blastRadius.safetyFact) || typeof r.blastRadius.safetyFact.claim !== "string")
+        errs.push("blastRadius.safetyFact must be an object with a string claim");
+    } else if (
+      r.blastRadius.impact === undefined &&
+      r.blastRadius.summary === undefined &&
+      !Array.isArray(r.blastRadius.sideEffects) &&
+      !Array.isArray(r.blastRadius.cleared)
+    ) {
+      errs.push("blastRadius must include impact, summary, sideEffects, cleared, or safetyFact");
+    }
   }
   return errs;
 }
@@ -306,18 +337,20 @@ export function normalizeReport<T extends { findings?: unknown }>(report: T): T 
   return report;
 }
 const SEV: Record<Sev, { label: string; color: string; dot: string }> = {
-  critical: { label: "Critical", color: "#ff8589", dot: "🔴" },
-  high: { label: "High", color: "#ffa057", dot: "🟠" },
-  medium: { label: "Medium", color: "#f2c063", dot: "🟡" },
-  low: { label: "Low", color: "#6ea8fe", dot: "🔵" },
-  nitpick: { label: "Nitpick", color: "#8b8d98", dot: "⚪" },
+  critical: { label: "Critical", color: "var(--danger)", dot: "🔴" },
+  high: { label: "High", color: "var(--high)", dot: "🟠" },
+  medium: { label: "Medium", color: "var(--warn)", dot: "🟡" },
+  low: { label: "Low", color: "var(--info)", dot: "🔵" },
+  nitpick: { label: "Nitpick", color: "var(--muted)", dot: "⚪" },
 };
-const RISK: Record<string, string> = { high: "#ff8589", medium: "#f2c063", low: "#5fd39a" };
+const sevDot = (color: string): string =>
+  `<span class="sev-dot" style="background:${color}" aria-hidden="true"></span>`;
+const RISK: Record<string, string> = { high: "var(--danger)", medium: "var(--warn)", low: "var(--ok)" };
 // System-change classification (primitives lens): adds > extends > composes.
 const CLASSIFICATION: Record<Classification, { label: string; color: string }> = {
-  adds: { label: "Adds", color: "#ff8589" },
-  extends: { label: "Extends", color: "#f2c063" },
-  composes: { label: "Composes", color: "#5fd39a" },
+  adds: { label: "Adds", color: "var(--danger)" },
+  extends: { label: "Extends", color: "var(--warn)" },
+  composes: { label: "Composes", color: "var(--ok)" },
 };
 // Blast-radius evidence ladder (same names as a finding's verifiedBy) and the
 // safety fact's status: proven only when command output or a run settled it.
@@ -329,21 +362,26 @@ const EVIDENCE: Record<Evidence, { rung: number; label: string }> = {
   experiment: { rung: 5, label: "observed" },
 };
 const FACT_STATUS: Record<FactStatus, { label: string; color: string }> = {
-  proven: { label: "Proven", color: "#5fd39a" },
-  unproven: { label: "Unproven", color: "#f2c063" },
-  contradicted: { label: "Contradicted", color: "#ff8589" },
+  proven: { label: "Proven", color: "var(--ok)" },
+  unproven: { label: "Unproven", color: "var(--warn)" },
+  contradicted: { label: "Contradicted", color: "var(--danger)" },
+};
+const BLAST_IMPACT: Record<BlastImpact, { label: string; color: string }> = {
+  contained: { label: "Contained", color: "var(--ok)" },
+  "side-effects": { label: "Side effects", color: "var(--warn)" },
+  breaking: { label: "Breaking reach", color: "var(--danger)" },
 };
 const MARK: Record<Mark, { g: string; c: string }> = {
-  pass: { g: "✓", c: "#5fd39a" },
-  warn: { g: "!", c: "#f2c063" },
-  fail: { g: "✕", c: "#ff8589" },
-  unknown: { g: "?", c: "#8b8d98" },
+  pass: { g: "✓", c: "var(--ok)" },
+  warn: { g: "!", c: "var(--warn)" },
+  fail: { g: "✕", c: "var(--danger)" },
+  unknown: { g: "?", c: "var(--muted)" },
 };
 const ZLET = ["Z", "O", "M", "B", "I", "E", "S"];
 const VERDICT: Record<string, { label: string; color: string }> = {
-  "request-changes": { label: "Request Changes", color: "#ff8589" },
-  comment: { label: "Comment", color: "#f2c063" },
-  approve: { label: "Approve", color: "#5fd39a" },
+  "request-changes": { label: "Request Changes", color: "var(--danger)" },
+  comment: { label: "Comment", color: "var(--warn)" },
+  approve: { label: "Approve", color: "var(--ok)" },
 };
 
 // ---------- helpers ----------
@@ -463,8 +501,9 @@ function sanitizeAttrs(raw: string, tag: string): string {
     if (name.startsWith("on")) continue; // never allow event handlers
     if (name === "href") {
       if (tag !== "a") continue;
-      const u = /^#[\w-]+$/.test(val) ? val : safeUrl(val.replace(/&amp;/g, "&"));
-      if (u) out.push(`href="${esc(u)}" target="_blank" rel="noopener nofollow"`);
+      const isHash = /^#[\w-]+$/.test(val);
+      const u = isHash ? val : safeUrl(val.replace(/&amp;/g, "&"));
+      if (u) out.push(isHash ? `href="${esc(u)}"` : `href="${esc(u)}" target="_blank" rel="noopener nofollow"`);
       continue;
     }
     const ok = OK_ATTR.has(name) || /^(data|aria)-[a-z][\w-]*$/.test(name);
@@ -588,9 +627,11 @@ function mdInlineFmt(raw: string, m: Meta, tok: Tok): string {
       if (i % 2 === 1) return tok(inlineCode(esc(seg), m)); // code span: escaped + protected
       let out = seg.replace(/\*\*([^*]+)\*\*/g, (_x, c) => `<strong>${c}</strong>`);
       out = out.replace(/\*([^*\n]+)\*/g, (_x, c) => `<em>${c}</em>`);
-      out = out.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_x, t, u) =>
-        safeUrl(String(u)) ? `<a href="${safeUrl(String(u))}">${t}</a>` : `[${t}](${u})`
-      );
+      out = out.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_x, t, u) => {
+        const s = String(u);
+        if (/^#[\w-]+$/.test(s)) return `<a href="${esc(s)}">${t}</a>`;
+        return safeUrl(s) ? `<a href="${safeUrl(s)}">${t}</a>` : `[${t}](${u})`;
+      });
       return out;
     })
     .join("");
@@ -732,91 +773,39 @@ const LENS_SECTION: Record<string, SectionKey> = {
 };
 const sectionOf = (f: Finding): SectionKey => LENS_SECTION[f.lens] ?? "findings";
 
-// ---------- charts ----------
-function donut(counts: Record<Sev, number>): string {
-  const total = SEV_ORDER.reduce((a, s) => a + counts[s], 0);
-  const R = 52, C = 2 * Math.PI * R, cx = 70, cy = 70;
-  if (total === 0) {
-    return `<svg viewBox="0 0 140 140" class="donut" role="img" aria-label="No findings">
-      <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#24262f" stroke-width="16"/>
-      <text x="${cx}" y="${cy - 2}" class="donut-num">0</text>
-      <text x="${cx}" y="${cy + 16}" class="donut-lbl">findings</text></svg>`;
-  }
-  let offset = 0;
-  const segs = SEV_ORDER.filter((s) => counts[s] > 0)
-    .map((s) => {
-      const frac = counts[s] / total;
-      const len = frac * C;
-      const seg = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none"
-        stroke="${SEV[s].color}" stroke-width="16"
-        stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-offset}"
-        transform="rotate(-90 ${cx} ${cy})"><title>${SEV[s].label}: ${counts[s]}</title></circle>`;
-      offset += len;
-      return seg;
-    })
+// Compact inline overview bar: severity pills on the left, jump links to
+// non-empty sections on the right — keeps Summary, System change, and Blast
+// radius above the fold instead of burying them under dashboard charts.
+function statsBar(r: Report, counts: Record<Sev, number>): string {
+  const total = r.findings.length;
+  const sevPills = SEV_ORDER.filter((s) => counts[s] > 0)
+    .map(
+      (s) =>
+        `<span class="stat-pill" style="--sc:${SEV[s].color}">${sevDot(SEV[s].color)}<b>${counts[s]}</b> ${SEV[s].label.toLowerCase()}</span>`
+    )
     .join("");
-  return `<svg viewBox="0 0 140 140" class="donut" role="img" aria-label="Findings by severity">
-    <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#24262f" stroke-width="16"/>
-    ${segs}
-    <text x="${cx}" y="${cy - 2}" class="donut-num">${total}</text>
-    <text x="${cx}" y="${cy + 16}" class="donut-lbl">findings</text></svg>`;
-}
+  const sevPart = sevPills
+    ? `<div class="stat-sevs"><span class="stat-total"><b>${total}</b> finding${total === 1 ? "" : "s"}</span>${sevPills}</div>`
+    : `<div class="stat-sevs"><span class="stat-total stat-clean">✓ 0 findings</span></div>`;
 
-function severityLegend(counts: Record<Sev, number>): string {
-  return `<ul class="legend">${SEV_ORDER.map(
-    (s) =>
-      `<li><span class="swatch" style="background:${SEV[s].color}"></span>
-        <span class="legend-lbl">${SEV[s].label}</span>
-        <span class="legend-num">${counts[s]}</span></li>`
-  ).join("")}</ul>`;
-}
-
-// Breakdown of findings by destination section — answers "where do the N total
-// findings actually live?" so a big donut number doesn't imply N code findings.
-function composition(findings: Finding[]): string {
-  const rows = (Object.keys(SECTIONS) as SectionKey[])
+  const jumps = (Object.keys(SECTIONS) as SectionKey[])
     .map((key) => {
       const meta = SECTIONS[key];
-      const items = findings.filter((f) => sectionOf(f) === key);
-      const n = items.length;
-      const sevs = SEV_ORDER.filter((s) => items.some((f) => f.severity === s))
-        .map((s) => {
-          const c = items.filter((f) => f.severity === s).length;
-          return `<span class="mini-sev" style="--c:${SEV[s].color}" title="${c} ${SEV[s].label}">${c}</span>`;
-        })
-        .join("");
-      return `<a class="comp-row${n ? "" : " comp-empty"}" href="#${meta.anchor}">
-        <span class="comp-count">${n}</span>
-        <span class="comp-body">
-          <span class="comp-name">${meta.label}${
-        meta.tag ? ` <span class="comp-tag">${esc(meta.tag)}</span>` : ""
-      }</span>
-          <span class="comp-desc">${esc(meta.desc)}</span>
-        </span>
-        <span class="comp-sevs">${n ? sevs : `<span class="comp-none">none</span>`}</span>
-      </a>`;
+      const n = r.findings.filter((f) => sectionOf(f) === key && !f.folded).length;
+      if (!n) return "";
+      return `<a class="stat-jump" href="#${meta.anchor}">${meta.label} <span>${n}</span></a>`;
     })
+    .filter(Boolean)
     .join("");
-  return `<div class="composition">${rows}</div>`;
+
+  return `<nav class="stats-bar" aria-label="Review summary">${sevPart}${
+    jumps ? `<div class="stat-jumps">${jumps}</div>` : ""
+  }</nav>`;
 }
 
 // small pill showing a section's finding count next to its <h2>
 const countBadge = (n: number): string =>
   `<span class="head-count"${n ? "" : ` data-zero="1"`}>${n}</span>`;
-
-function heatmap(groups: any[]): string {
-  if (!groups.length) return `<p class="empty">No feature areas.</p>`;
-  return `<div class="heatmap">${groups
-    .map((g) => {
-      const c = RISK[g.risk] ?? "#8b8d98";
-      return `<div class="heat-cell" style="--risk:${c}">
-        <div class="heat-risk">${esc(g.risk)}</div>
-        <div class="heat-name">${esc(g.name)}</div>
-        <div class="heat-files">${g.files.length} file${g.files.length === 1 ? "" : "s"}</div>
-      </div>`;
-    })
-    .join("")}</div>`;
-}
 
 function zombiesMatrix(findings: Finding[], groups: any[]): string {
   const zf = findings.filter((f) => f.lens === "zombies" && !f.folded);
@@ -868,68 +857,138 @@ function verdictBadge(v: Report["verdict"]): string {
   </div>`;
 }
 
-// System change (primitives lens): which primitives the diff touches, how hard
-// (composes/extends/adds), and which invariants are in play. `adds` entries are
-// the "did the agent invent a new shape?" alarm and render loudest.
+// System change (primitives lens): plain-language summary of how the system
+// changes, an explicit primitive duplication check, and the touched/added
+// primitives. Keeps satisfied invariants quiet and distinguishes newly mapped
+// primitives from unmapped ones.
 function systemChangeCard(r: Report): string {
   const sc = r.systemChange;
   if (!sc) return "";
-  const overall = CLASSIFICATION[(sc.overall ?? "composes") as Classification] ?? CLASSIFICATION.composes;
+  const m = r.meta;
   const prims = Array.isArray(sc.primitives) ? sc.primitives : [];
   const added = Array.isArray(sc.added) ? sc.added : [];
+  const order: Classification[] = ["adds", "extends", "composes"];
 
-  const pill = (c: Classification) => {
+  // Overall classification is never weaker than what is actually in the lists.
+  const worstRank = Math.min(
+    sc.overall && order.includes(sc.overall) ? order.indexOf(sc.overall) : 2,
+    added.length ? 0 : 2,
+    ...prims.map((p) => (order.includes(p.classification) ? order.indexOf(p.classification) : 2))
+  );
+  const overallKey = order[worstRank] ?? "composes";
+  const overall = CLASSIFICATION[overallKey];
+
+  const pillLabel: Record<Classification, string> = {
+    composes: "Uses",
+    extends: "Extends",
+    adds: "Adds",
+  };
+  const pill = (c: Classification, labelOverride?: string) => {
     const k = CLASSIFICATION[c] ?? CLASSIFICATION.composes;
-    return `<span class="sc-pill" style="--pc:${k.color}">${k.label}</span>`;
+    return `<span class="sc-pill" style="--pc:${k.color}">${esc(labelOverride ?? pillLabel[c] ?? k.label)}</span>`;
   };
 
-  const order: Classification[] = ["adds", "extends", "composes"];
+  // Explicit duplication check — prefer lens-authored check, else infer cleanly from findings.
+  const dupFindings = r.findings.filter(
+    (f) => f.lens === "primitives" && /re-?declared|duplicat/i.test(f.category || "")
+  );
+  const dup = sc.duplicationCheck ?? {
+    status: dupFindings.length ? ("duplicated" as const) : ("clean" as const),
+    summary: dupFindings.length
+      ? `${dupFindings.length} existing primitive${dupFindings.length === 1 ? "" : "s"} re-declared inline instead of reused.`
+      : "No duplicate primitives detected — existing domain shapes are reused.",
+    duplicates: dupFindings.map((f) => f.title),
+  };
+  const dupClean = dup.status !== "duplicated";
+  const dupList =
+    !dupClean && dup.duplicates?.length
+      ? `<ul class="sc-dup-list">${dup.duplicates.map((d) => `<li>${renderInline(d, m)}</li>`).join("")}</ul>`
+      : "";
+  const dupBanner = `<div class="sc-dup ${dupClean ? "sc-dup-ok" : "sc-dup-bad"}">
+    <div class="sc-dup-head">${dupClean ? "✓ No duplicate primitives" : "⚠ Duplicates an existing primitive"}</div>
+    ${dup.summary ? `<div class="sc-dup-text">${renderInline(dup.summary, m)}</div>` : ""}${dupList}
+  </div>`;
+
+  const renderFiles = (files?: string[]) => {
+    if (!files?.length) return "";
+    const joined = files.map(esc).join(" · ");
+    if (files.length <= 2) return `<div class="sc-files-line">${joined}</div>`;
+    return `<details class="sc-files-fold"><summary>${files.length} files</summary><div class="sc-files-line">${joined}</div></details>`;
+  };
+
   const rows = [...prims]
     .sort((a, b) => order.indexOf(a.classification) - order.indexOf(b.classification))
     .map((p) => {
-      const inv = (p.invariantsTouched ?? [])
-        .map((i) => `<li class="sc-inv">⚠ ${esc(i)}</li>`)
+      const violated = (p.invariantsViolated ?? [])
+        .map((i) => `<li class="sc-inv sc-inv-warn">⚠ ${esc(i)}</li>`)
+        .join("");
+      const touched = (p.invariantsTouched ?? [])
+        .map((i) => `<li class="sc-inv sc-inv-ok">✓ Checked invariant: ${esc(i)}</li>`)
         .join("");
       return `<div class="sc-row" style="--pc:${(CLASSIFICATION[p.classification] ?? CLASSIFICATION.composes).color}">
         <div class="sc-head">${pill(p.classification)}<span class="sc-name">${esc(p.name || p.id)}</span>
-          ${p.area ? `<span class="comp-tag">${esc(p.area)}</span>` : ""}
-          ${p.files?.length ? `<code class="sc-files">${p.files.map(esc).join(" · ")}</code>` : ""}</div>
-        ${p.note ? `<div class="sc-note">${esc(p.note)}</div>` : ""}
-        ${inv ? `<ul class="sc-invs">${inv}</ul>` : ""}
+          ${p.area ? `<span class="comp-tag">${esc(p.area)}</span>` : ""}</div>
+        ${p.note ? `<div class="sc-note">${renderInline(p.note, m)}</div>` : ""}
+        ${violated || touched ? `<ul class="sc-invs">${violated}${touched}</ul>` : ""}
+        ${renderFiles(p.files)}
       </div>`;
     })
     .join("");
 
-  const addedBlock = added.length
-    ? `<div class="sc-added"><div class="sc-added-head">⚠ New primitives not in the map</div>
-       ${added
+  // Split new primitives into mapped (informational) vs unmapped (warning).
+  const hasUnmappedFinding = r.findings.some(
+    (f) => f.lens === "primitives" && /unmapped/i.test(f.category || "")
+  );
+  const isMapped = (a: { mapped?: boolean }) =>
+    a.mapped !== undefined ? a.mapped : sc.mapUpdated === true && !hasUnmappedFinding;
+  const mappedAdded = added.filter(isMapped);
+  const unmappedAdded = added.filter((a) => !isMapped(a));
+
+  const mappedAddedBlock = mappedAdded.length
+    ? `<div class="sc-added sc-added-mapped"><div class="sc-added-head sc-added-head-ok">New primitives (mapped in this PR)</div><div class="sc-list">
+       ${mappedAdded
+         .map(
+           (a) => `<div class="sc-row" style="--pc:var(--info)">
+             <div class="sc-head"><span class="sc-pill" style="--pc:var(--info)">New · mapped</span><span class="sc-name">${esc(a.name)}</span></div>
+             ${a.note ? `<div class="sc-note">${renderInline(a.note, m)}</div>` : ""}
+             ${renderFiles(a.files)}</div>`
+         )
+         .join("")}</div></div>`
+    : "";
+
+  const unmappedAddedBlock = unmappedAdded.length
+    ? `<div class="sc-added"><div class="sc-added-head">⚠ New primitives not in the map</div><div class="sc-list sc-list-warn">
+       ${unmappedAdded
          .map(
            (a) => `<div class="sc-row" style="--pc:${CLASSIFICATION.adds.color}">
-             <div class="sc-head">${pill("adds")}<span class="sc-name">${esc(a.name)}</span>
-             ${a.files?.length ? `<code class="sc-files">${a.files.map(esc).join(" · ")}</code>` : ""}</div>
-             ${a.note ? `<div class="sc-note">${esc(a.note)}</div>` : ""}</div>`
+             <div class="sc-head">${pill("adds", "Adds · unmapped")}<span class="sc-name">${esc(a.name)}</span></div>
+             ${a.note ? `<div class="sc-note">${renderInline(a.note, m)}</div>` : ""}
+             ${renderFiles(a.files)}</div>`
          )
-         .join("")}</div>`
+         .join("")}</div></div>`
     : "";
 
   const mapBadge =
     sc.mapUpdated === undefined
       ? ""
       : sc.mapUpdated
-        ? `<span class="chip chip-ok">map updated in this PR</span>`
-        : prims.some((p) => p.classification !== "composes") || added.length
+        ? `<span class="chip chip-ok">map updated</span>`
+        : prims.some((p) => p.classification !== "composes") || unmappedAdded.length
           ? `<span class="chip sc-stale">map NOT updated</span>`
           : "";
 
+  const primList = rows ? `<div class="sc-list">${rows}</div>` : "";
   const body =
     prims.length || added.length
-      ? `${rows}${addedBlock}`
-      : `<div class="empty">No mapped primitive touched — the change composes entirely outside the map.</div>`;
+      ? `${primList}${mappedAddedBlock}${unmappedAddedBlock}`
+      : `<div class="empty">No mapped primitive touched — the change stays outside existing system primitives.</div>`;
 
   return `<section class="card"><h2>System change
     <span class="sc-pill sc-overall" style="--pc:${overall.color}">${overall.label}</span>
     ${mapBadge}
     ${sc.mapPath ? `<span class="head-total">${esc(sc.mapPath)}</span>` : ""}</h2>
+    ${sc.summary ? `<p class="sc-summary">${renderInline(sc.summary, m)}</p>` : ""}
+    ${dupBanner}
     ${body}</section>`;
 }
 
@@ -944,8 +1003,8 @@ function classesCard(r: Report): string {
   const items = classes
     .map((f) => {
       const sev = SEV[f.severity] ?? SEV.medium;
-      return `<li><a href="#f-${esc(f.id)}">${sev.dot} ${esc(f.title)}</a>${
-        f.file ? ` <span class="cls-where">${fileRef(m, f.file, f.line)}</span>` : ""
+      return `<li><a class="cls-title" href="#f-${esc(f.id)}">${sevDot(sev.color)}<span>${esc(f.title)}</span></a>${
+        f.file ? `<span class="cls-where">${fileRef(m, f.file, f.line)}</span>` : ""
       }<span class="cls-why">${renderInline(f.classEvidence, m)}</span></li>`;
     })
     .join("");
@@ -954,56 +1013,98 @@ function classesCard(r: Report): string {
     <ul class="cls-list">${items}</ul></section>`;
 }
 
-// Blast radius (blast-radius lens): the one assumption the change is safe
-// because of — with how far up the evidence ladder it got — what the lens
-// cleared, the open risks (its findings, linked), and the cheapest pre-merge
-// check. The status pill is the headline: a contradicted fact renders loudest.
+// Blast radius (blast-radius lens): answers whether this PR affects parts of
+// the system outside its stated goal in an unintended way. Unintended effects
+// lead the card; cleared checks and any optional runtime assumption/probe stay
+// collapsed unless contradicted.
 function blastRadiusCard(r: Report): string {
   const br = r.blastRadius;
   if (!br) return "";
   const m = r.meta;
-  const sf = br.safetyFact ?? { claim: "" };
-  const status = FACT_STATUS[(sf.status ?? "unproven") as FactStatus] ?? FACT_STATUS.unproven;
-  const ev = EVIDENCE[(sf.evidence ?? "advisory") as Evidence] ?? EVIDENCE.advisory;
-  const ladder = [1, 2, 3, 4, 5]
-    .map((n) => `<span class="br-rung${n <= ev.rung ? " br-rung-on" : ""}"></span>`)
-    .join("");
+  const sf = br.safetyFact;
+  const sfContradicted = sf?.status === "contradicted";
   const risks = r.findings.filter((f) => f.lens === "blast-radius");
-  const riskList = risks.length
-    ? `<ul class="br-list">${risks
-        .map((f) => {
-          const sev = SEV[f.severity] ?? SEV.medium;
-          return `<li><a href="#f-${esc(f.id)}">${sev.dot} ${esc(f.title)}</a>${
-            f.likelihood ? `<span class="br-like">likelihood ${esc(f.likelihood)}</span>` : ""
-          }</li>`;
-        })
-        .join("")}</ul>`
-    : `<div class="empty">No open risks filed by the walk.</div>`;
-  const cleared = Array.isArray(br.cleared) ? br.cleared : [];
-  const clearedList = cleared.length
-    ? `<ul class="br-list br-cleared">${cleared
-        .map(
-          (c) =>
-            `<li>✓ ${renderInline(c.what, m)}${c.how ? `<span class="br-how">${renderInline(c.how, m)}</span>` : ""}</li>`
-        )
-        .join("")}</ul>`
-    : `<div class="empty">Nothing recorded as cleared.</div>`;
+  const sideEffects = Array.isArray(br.sideEffects) ? br.sideEffects : [];
+  const linkedFindingIds = new Set(sideEffects.map((s) => s.findingId).filter(Boolean));
+  const extraRisks = risks.filter((f) => !linkedFindingIds.has(f.id));
+  const totalEffects = sideEffects.length + extraRisks.length;
 
-  return `<section class="card br-card"><h2>Blast radius
-    <span class="sc-pill" style="--pc:${status.color}">${status.label}</span>
-    <span class="head-total">${risks.length} open risk${risks.length === 1 ? "" : "s"} · ${cleared.length} cleared</span></h2>
-    ${br.summary ? `<p class="br-summary">${renderInline(br.summary, m)}</p>` : ""}
-    <div class="br-fact" style="--pc:${status.color}">
-      <div class="br-fact-head"><span class="br-tag">Safety fact</span>
+  // Collateral impact headline: Contained | Side effects | Breaking reach.
+  const derivedImpact: BlastImpact = sfContradicted
+    ? "breaking"
+    : br.impact && br.impact in BLAST_IMPACT
+      ? br.impact
+      : risks.some((f) => f.severity === "critical" || f.severity === "high") ||
+          sideEffects.some((s) => s.severity === "high")
+        ? "breaking"
+        : totalEffects > 0
+          ? "side-effects"
+          : "contained";
+  const impact = BLAST_IMPACT[derivedImpact];
+
+  const effectItems = [
+    ...sideEffects.map((s) => {
+      const sev = SEV[(s.severity ?? "medium") as Sev] ?? SEV.medium;
+      const link = s.findingId ? ` <a class="br-link" href="#f-${esc(s.findingId)}">details ↓</a>` : "";
+      return `<li><span class="br-effect-area">${sevDot(sev.color)}<b>${esc(s.area)}</b></span> — ${renderInline(s.effect, m)}${link}</li>`;
+    }),
+    ...extraRisks.map((f) => {
+      const sev = SEV[f.severity] ?? SEV.medium;
+      return `<li><a class="br-risk-link" href="#f-${esc(f.id)}">${sevDot(sev.color)}<span>${esc(f.title)}</span></a>${
+        f.likelihood ? `<span class="br-like">likelihood ${esc(f.likelihood)}</span>` : ""
+      }</li>`;
+    }),
+  ];
+
+  const effectsBlock = effectItems.length
+    ? `<div class="br-effects"><div class="br-tag">Unintended effects &amp; open risks</div><ul class="br-list">${effectItems.join("")}</ul></div>`
+    : `<div class="br-contained">✓ No unintended effects on existing system behavior.</div>`;
+
+  // Safety fact / runtime assumption: loud when contradicted, collapsed otherwise.
+  let factBlock = "";
+  if (sf?.claim) {
+    const status = FACT_STATUS[(sf.status ?? "unproven") as FactStatus] ?? FACT_STATUS.unproven;
+    const ev = EVIDENCE[(sf.evidence ?? "advisory") as Evidence] ?? EVIDENCE.advisory;
+    const ladder = [1, 2, 3, 4, 5]
+      .map((n) => `<span class="br-rung${n <= ev.rung ? " br-rung-on" : ""}"></span>`)
+      .join("");
+    const inner = `<div class="br-fact" style="--pc:${status.color}">
+      <div class="br-fact-head"><span class="br-tag">Verification assumption${
+        sfContradicted ? ` <span class="sc-pill sc-pill-sm" style="--pc:${status.color}">${status.label}</span>` : ""
+      }</span>
         <span class="br-ladder" title="evidence rung ${ev.rung} of 5 — ${esc(ev.label)}">${ladder}<span class="br-rung-lbl">${esc(ev.label)}</span></span></div>
       <div class="br-claim">${renderInline(sf.claim, m)}</div>
       ${sf.proof ? `<div class="br-proof md">${renderRich(sf.proof, m)}</div>` : ""}
       ${sf.probe ? `<div class="pf-verify"><span class="pf-verify-tag">probe</span><code>${esc(sf.probe)}</code></div>` : ""}
-    </div>
-    <div class="br-cols">
-      <div><div class="br-tag">Open risks</div>${riskList}</div>
-      <div><div class="br-tag">Cleared</div>${clearedList}</div>
-    </div>
+    </div>`;
+    factBlock = sfContradicted
+      ? inner
+      : `<details class="br-details"><summary>Verification assumption <span class="sc-pill sc-pill-sm" style="--pc:${status.color}">${status.label}</span> <span class="br-det-hint">${esc(ev.label)}</span></summary>${inner}</details>`;
+  }
+
+  const cleared = Array.isArray(br.cleared) ? br.cleared : [];
+  const clearedBlock = cleared.length
+    ? `<details class="br-details"><summary>Checked &amp; unaffected <span class="head-count">${cleared.length}</span></summary>
+        <ul class="br-list br-cleared">${cleared
+          .map(
+            (c) =>
+              `<li>✓ <b>${renderInline(c.what, m)}</b>${c.how ? `<span class="br-how">${renderInline(c.how, m)}</span>` : ""}</li>`
+          )
+          .join("")}</ul></details>`
+    : "";
+
+  const headerMeta = `${totalEffects ? `${totalEffects} unintended effect${totalEffects === 1 ? "" : "s"}` : "no unintended effects"}${
+    cleared.length ? ` · ${cleared.length} checked &amp; unaffected` : ""
+  }`;
+
+  return `<section class="card br-card"><h2>Blast radius
+    <span class="sc-pill" style="--pc:${impact.color}">${impact.label}</span>
+    <span class="head-total">${headerMeta}</span></h2>
+    ${br.summary ? `<p class="br-summary">${renderInline(br.summary, m)}</p>` : ""}
+    ${sfContradicted ? factBlock : ""}
+    ${effectsBlock}
+    ${clearedBlock}
+    ${!sfContradicted ? factBlock : ""}
     ${br.preMerge ? `<div class="br-premerge"><span class="br-tag">Before merge</span>${renderInline(br.preMerge, m)}</div>` : ""}
   </section>`;
 }
@@ -1011,7 +1112,7 @@ function blastRadiusCard(r: Report): string {
 function findingCard(m: Meta, f: Finding): string {
   const s = SEV[f.severity] ?? SEV.medium;
   const badges = [
-    `<span class="chip" style="--cc:${s.color}">${s.dot} ${s.label}</span>`,
+    `<span class="chip chip-sev" style="--cc:${s.color}">${sevDot(s.color)}${s.label}</span>`,
     `<span class="chip chip-lens">${esc(f.lens)}</span>`,
     f.category ? `<span class="chip chip-cat">${esc(f.category)}</span>` : "",
     f.verified ? `<span class="chip chip-ok">✓ verified</span>` : "",
@@ -1086,7 +1187,7 @@ function severityGroups(m: Meta, findings: Finding[]): string {
     const group = findings.filter((f) => f.severity === sev);
     if (!group.length) return "";
     return `<div class="sev-group">
-      <h3 class="sev-head" style="--sc:${SEV[sev].color}">${SEV[sev].dot} ${SEV[sev].label}
+      <h3 class="sev-head" style="--sc:${SEV[sev].color}">${sevDot(SEV[sev].color)}${SEV[sev].label}
         <span class="count">${group.length}</span></h3>
       ${group.map((f) => findingCard(m, f)).join("")}
     </div>`;
@@ -1104,9 +1205,9 @@ function findingsSection(m: Meta, findings: Finding[]): string {
 }
 
 const SCORE: Record<ScoreStatus, { g: string; c: string; label: string }> = {
-  pass: { g: "✓", c: "#5fd39a", label: "conforms" },
-  warn: { g: "!", c: "#f2c063", label: "minor issues" },
-  fail: { g: "✕", c: "#ff8589", label: "violations" },
+  pass: { g: "✓", c: "var(--ok)", label: "conforms" },
+  warn: { g: "!", c: "var(--warn)", label: "minor issues" },
+  fail: { g: "✕", c: "var(--danger)", label: "violations" },
   na: { g: "–", c: "#8b8d98", label: "not applicable" },
 };
 
@@ -1132,24 +1233,15 @@ function scorecardCard(r: Report): string {
 
 function conventionsSection(m: Meta, findings: Finding[]): string {
   const conv = findings.filter((f) => sectionOf(f) === "conventions" && !f.folded);
+  if (!conv.length) return "";
   const head = `<h2>Conventions ${countBadge(conv.length)} <span class="section-tag">CRAFT</span></h2>`;
-  const body = !conv.length
-    ? `<p class="empty">No convention or craft issues — the change matches the
-      repository's own structure, readability, DRY, naming, and tech-stack rules
-      (or no convention docs were found to check against).</p>`
-    : severityGroups(m, conv);
-  return `<section id="conventions" class="card">${head}${body}</section>`;
+  return `<section id="conventions" class="card">${head}${severityGroups(m, conv)}</section>`;
 }
 
 function dependencySection(m: Meta, findings: Finding[]): string {
   const deps = findings.filter((f) => f.lens === "warm" && !f.folded);
+  if (!deps.length) return "";
   const head = `<h2>Dependencies ${countBadge(deps.length)} <span class="section-tag">WARM</span></h2>`;
-  if (!deps.length) {
-    return `<section id="deps" class="card">${head}
-      <p class="empty">No dependency manifest changed in this PR — the WARM audit
-      (<b>W</b>orth&nbsp;it · <b>A</b>live · <b>R</b>ight-sized · <b>M</b>aintained&nbsp;securely)
-      was skipped.</p></section>`;
-  }
   const mk = (x?: Mark) => {
     const d = MARK[x ?? "unknown"];
     return `<span class="mark" style="--mc:${d.c}">${d.g}</span>`;
@@ -1179,12 +1271,8 @@ function dependencySection(m: Meta, findings: Finding[]): string {
 
 function zombiesSection(m: Meta, findings: Finding[], groups: any[]): string {
   const zf = findings.filter((f) => f.lens === "zombies" && !f.folded);
-  const head = `<h2>Test gaps ${countBadge(zf.length)} <span class="section-tag">ZOMBIES</span></h2>`;
-  if (!zf.length) {
-    return `<section id="tests" class="card">${head}
-      <p class="empty">No high-value test gaps found — the changed code's Zero / One /
-      Many / Boundaries / Interface / Exceptions / Simple cases look adequately covered.</p></section>`;
-  }
+  if (!zf.length) return "";
+  const head = `<h2>Test gaps ${countBadge(zf.length)}</h2>`;
   const byArea = new Map<string, Finding[]>();
   for (const f of zf) {
     const a = f.featureArea || "General";
@@ -1196,37 +1284,35 @@ function zombiesSection(m: Meta, findings: Finding[], groups: any[]): string {
       items.sort((a, b) => ZLET.indexOf((a.zombiesLetter || "").toUpperCase()) - ZLET.indexOf((b.zombiesLetter || "").toUpperCase()));
       return `<div class="test-group"><h3>${esc(area)}</h3>
         ${items
-          .map(
-            (f) => `<div class="test-item">
-          <span class="zbadge" title="${zName((f.zombiesLetter || "").toUpperCase())}">${esc(
-              (f.zombiesLetter || "?").toUpperCase()
-            )}</span>
+          .map((f) => {
+            const letter = (f.zombiesLetter || "").toUpperCase();
+            const catLabel = zName(letter) !== letter ? zName(letter) : f.category || "Test";
+            return `<div class="test-item">
+          <span class="zcat" title="${esc(zDesc[letter] ?? catLabel)}">${esc(catLabel)}</span>
           <div class="test-body">
             <div class="test-title">${esc(f.title)}${
               f.partial ? ` <span class="partial-tag">partial</span>` : ""
             }</div>
             <div class="test-fix md">${renderRich(f.suggestion, m)}</div>
             ${f.file ? `<div class="test-ref">${fileRef(m, f.file, f.line)}</div>` : ""}
-          </div></div>`
-          )
+          </div></div>`;
+          })
           .join("")}
       </div>`;
     })
     .join("");
   return `<section id="tests" class="card">${head}
-    ${zombiesKey()}
-    ${zombiesMatrix(findings, groups)}
-    ${blocks}</section>`;
+    ${blocks}
+    <details class="br-details"><summary>Coverage matrix <span class="section-tag">ZOMBIES</span></summary>
+      ${zombiesKey()}
+      ${zombiesMatrix(findings, groups)}
+    </details></section>`;
 }
 
 function preflightSection(m: Meta, findings: Finding[]): string {
   const pf = findings.filter((f) => f.lens === "preflight" && !f.folded);
+  if (!pf.length) return "";
   const head = `<h2>Preflight checklist ${countBadge(pf.length)} <span class="section-tag">before merge</span></h2>`;
-  if (!pf.length) {
-    return `<section id="preflight" class="card">${head}
-      <p class="empty">No deploy-time actions detected — no migrations, new config/secrets,
-      infra, or post-deploy watch items implied by this diff.</p></section>`;
-  }
   const byCat = new Map<string, Finding[]>();
   for (const f of pf) {
     if (!byCat.has(f.category)) byCat.set(f.category, []);
@@ -1241,7 +1327,7 @@ function preflightSection(m: Meta, findings: Finding[]): string {
         <input type="checkbox" id="pf-${esc(cat)}-${i}">
         <div class="pf-main">
           <label for="pf-${esc(cat)}-${i}">
-            <span class="pf-conf pf-${esc(f.confidence ?? "medium")}">${esc(f.confidence ?? "")}</span>
+            ${f.confidence ? `<span class="pf-conf pf-${esc(f.confidence)}">${esc(f.confidence)}</span>` : ""}
             <span class="pf-title">${esc(f.title)}</span>
             ${f.file ? `<span class="pf-ref">${fileRef(m, f.file, f.line)}</span>` : ""}
           </label>
@@ -1260,33 +1346,44 @@ function preflightSection(m: Meta, findings: Finding[]): string {
 }
 
 function triageSection(m: Meta, triage: Report["triage"]): string {
-  if (!triage.groups?.length) return "";
-  const groups = triage.groups
-    .map(
-      (g) => `<details class="tri-group" open>
-      <summary><span class="tri-risk" style="background:${RISK[g.risk] ?? "#8b8d98"}">${esc(
+  if (!triage.groups?.length && !triage.skipped?.length) return "";
+  const totalFiles =
+    (triage.groups ?? []).reduce((n, g) => n + (Array.isArray(g.files) ? g.files.length : 0), 0) +
+    (triage.skipped?.length ?? 0);
+  const renderTriageFile = (f: any) => {
+    if (typeof f === "string") return `<li>${fileRef(m, f, 0)}</li>`;
+    const p = f?.path ?? f?.file ?? "";
+    const st = f?.status ?? "";
+    return `<li>${st ? `<span class="status status-${esc(st)}">${esc(st)}</span> ` : ""}${fileRef(m, p, 0)}</li>`;
+  };
+  const renderSkipped = (s: any) => {
+    if (typeof s === "string") return `<li><code>${esc(s)}</code></li>`;
+    const p = s?.file ?? s?.path ?? "";
+    const reason = s?.reason ? ` <span class="loc-note">${esc(s.reason)}</span>` : "";
+    return `<li><code>${esc(p)}</code>${reason}</li>`;
+  };
+  const groups = (triage.groups ?? [])
+    .map((g) => {
+      const desc = g.reason || g.scope || "";
+      const files = Array.isArray(g.files) ? g.files : [];
+      return `<details class="tri-group">
+      <summary><span class="tri-risk" style="--rc:${RISK[g.risk] ?? "var(--muted)"}">${esc(
         g.risk
       )}</span> <span class="tri-name">${esc(g.name)}</span>
-        <span class="tri-count">${g.files.length}</span></summary>
-      ${g.reason ? `<p class="tri-reason">${renderInline(g.reason, m)}</p>` : ""}
-      <ul class="tri-files">${g.files
-        .map(
-          (f: any) =>
-            `<li><span class="status status-${esc(f.status)}">${esc(f.status)}</span> ${fileRef(
-              m,
-              f.path,
-              0
-            )}</li>`
-        )
-        .join("")}</ul></details>`
-    )
+        <span class="tri-count">${files.length}</span></summary>
+      ${desc ? `<p class="tri-reason">${renderInline(desc, m)}</p>` : ""}
+      <ul class="tri-files">${files.map(renderTriageFile).join("")}</ul></details>`;
+    })
     .join("");
   const skipped = triage.skipped?.length
-    ? `<details class="tri-group"><summary><span class="tri-risk" style="background:#3a3d49">skip</span>
+    ? `<details class="tri-group"><summary><span class="tri-risk" style="--rc:var(--muted)">skip</span>
         <span class="tri-name">Auto-generated</span><span class="tri-count">${triage.skipped.length}</span></summary>
-        <ul class="tri-files">${triage.skipped.map((s) => `<li><code>${esc(s)}</code></li>`).join("")}</ul></details>`
+        <ul class="tri-files">${triage.skipped.map(renderSkipped).join("")}</ul></details>`
     : "";
-  return `<section class="card"><h2>Triage map</h2>${groups}${skipped}</section>`;
+  return `<section class="card"><details class="fold-details">
+    <summary>Files reviewed ${countBadge(totalFiles)}
+      <span class="fold-hint">${triage.groups?.length ?? 0} area${triage.groups?.length === 1 ? "" : "s"} — click to expand</span></summary>
+    ${groups}${skipped}</details></section>`;
 }
 
 const ALL_LENSES = ["triage", "first-five", "conventions", "intent", "warm", "zombies", "preflight"] as const;
@@ -1327,9 +1424,15 @@ function limitationsCard(r: Report): string {
       }; the seams lens covered cross-area contracts.`
     : "";
   const items = [...(shardNote ? [shardNote] : []), ...(r.limitations ?? [])];
-  if (!items.length) return "";
-  return `<section class="card limits-card"><h2>Scope &amp; limitations</h2>
-    <ul class="limits">${items.map((l) => `<li>${renderInline(l, r.meta)}</li>`).join("")}</ul></section>`;
+  const hasLenses = Array.isArray(r.meta?.lenses) && r.meta.lenses.length > 0;
+  if (!items.length && !hasLenses) return "";
+  const listHtml = items.length
+    ? `<ul class="limits">${items.map((l) => `<li>${renderInline(l, r.meta)}</li>`).join("")}</ul>`
+    : "";
+  return `<section class="card limits-card"><details class="fold-details">
+    <summary>Scope &amp; limitations ${items.length ? countBadge(items.length) : ""}
+      <span class="fold-hint">audit trail &amp; lenses run — click to expand</span></summary>
+    ${listHtml}${hasLenses ? lensesStrip(r) : ""}</details></section>`;
 }
 
 // Findings the arbiter marked `folded: true` (beyond the report budget) — shown in
@@ -1456,469 +1559,600 @@ function page(r: Report): string {
   const shaShort = (m.headSha || "").slice(0, 7);
   const prUrl = safeUrl(m.url);
 
+  const vMeta = VERDICT[r.verdict.decision] ?? { label: r.verdict.decision, color: "#8b8d98" };
+
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Review — ${esc(m.title)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  /* "Midnight" visual language. */
+  /* Editorial Engineering Dossier — obsidian dark default, warm-paper light mode. */
   :root{
-    --bg:#08090c; --panel:#101116; --panel2:#16171e; --border:#24262f; --border2:#31343f;
-    --text:#e2e3e9; --head:#f7f8fa; --muted:#9a9daa; --accent:#828fff; --accent2:#5e6ad2;
+    --bg:#0c0e12; --panel:#12151b; --panel2:#171b23; --code-bg:#0a0c10;
+    --border:rgba(255,255,255,.075); --border2:rgba(255,255,255,.135);
+    --text:#cfd4df; --head:#f2f4f8; --muted:#8b92a3;
+    --accent:#8b95ff; --link:#7cc4fa; --link-hover:#a8d8ff;
+    --ok:#59c993; --warn:#e5be67; --high:#f29e63; --danger:#f07178; --info:#70b0f5;
+    --r-card:14px; --r-inset:10px; --r-inner:6px;
+    --measure:68ch;
     --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
-    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --sans:"Instrument Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    color-scheme:dark light;
+  }
+  @media(prefers-color-scheme:light){
+    :root{
+      --bg:#f6f5f1; --panel:#ffffff; --panel2:#f2f0ea; --code-bg:#f4f2ec;
+      --border:rgba(20,24,31,.09); --border2:rgba(20,24,31,.16);
+      --text:#2c323f; --head:#13161e; --muted:#5e6677;
+      --accent:#4f5bd5; --link:#1b6ec2; --link-hover:#14569b;
+      --ok:#187a4e; --warn:#8f5d00; --high:#b85214; --danger:#be303d; --info:#1d62ad;
+    }
   }
   *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
   body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
-    line-height:1.55;font-size:15px;-webkit-font-smoothing:antialiased}
+    line-height:1.62;font-size:15px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
   body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
-    background:radial-gradient(60% 40% at 50% -5%,rgba(94,106,210,.16),transparent 70%),var(--bg)}
+    background:radial-gradient(65% 36% at 50% -6%,color-mix(in srgb,var(--vc,#8b95ff) 11%,transparent),transparent 72%),var(--bg)}
+  .verdict-rail{height:3px;width:100%;background:linear-gradient(90deg,var(--vc),color-mix(in srgb,var(--vc) 35%,transparent) 75%,transparent)}
   a{color:inherit}
-  .wrap{max-width:960px;margin:0 auto;padding:32px 24px 80px}
-  .ref{font-family:var(--mono);font-size:12.5px;color:#7ec2ff;text-decoration:none;white-space:nowrap}
-  .ref:hover{text-decoration:underline}
-  code{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
-  .empty{color:var(--muted);font-style:italic;padding:8px 0}
+  .wrap{max-width:920px;margin:0 auto;padding:36px 24px 88px}
+  .ref{font-family:var(--mono);font-size:12px;color:var(--link);text-decoration:none;white-space:nowrap}
+  .ref:hover{color:var(--link-hover);text-decoration:underline}
+  code{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .empty{color:var(--muted);font-style:italic;padding:6px 0;font-size:14px}
+  .sev-dot{display:inline-block;width:7px;height:7px;border-radius:50%;flex:none}
+
+  @media(prefers-reduced-motion:no-preference){
+    @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    .top,.stats-bar,.card{animation:rise .24s ease-out both}
+    .stats-bar{animation-delay:35ms}
+    .summary-card{animation-delay:65ms}
+  }
 
   /* header */
   .top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;
-    padding-bottom:24px;border-bottom:1px solid var(--border);margin-bottom:28px}
-  .top h1{margin:0 0 6px;font-size:22px;letter-spacing:-.02em;color:var(--head)}
-  .top .sub{color:var(--muted);font-size:13px}
-  .top .sub a{color:#7ec2ff;text-decoration:none}
-  .meta-row{display:flex;gap:16px;margin-top:12px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
-  .meta-row b{color:var(--text);font-weight:600}
-  .diffstat .add{color:#5fd39a}
-  .diffstat .del{color:#ff8589}
-  .verdict{display:flex;flex-direction:column;align-items:flex-end;gap:4px;
-    padding:12px 18px;border-radius:12px;border:1px solid var(--vc);
-    background:color-mix(in srgb,var(--vc) 12%,transparent);white-space:nowrap}
-  .verdict-label{font-weight:700;font-size:16px;color:var(--vc)}
-  .verdict-conf{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+    padding-bottom:24px;border-bottom:1px solid var(--border);margin-bottom:20px}
+  .top-main{min-width:0;flex:1}
+  .top h1{margin:0 0 8px;font-size:clamp(1.4rem,1.18rem + .85vw,1.88rem);font-weight:600;
+    line-height:1.18;letter-spacing:-.025em;color:var(--head);overflow-wrap:anywhere}
+  .top .sub{color:var(--muted);font-size:13.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .top .sub a{color:var(--link);text-decoration:none;font-weight:500}
+  .top .sub a:hover{text-decoration:underline}
+  .meta-row{display:flex;gap:8px 16px;margin-top:12px;font-size:12.5px;color:var(--muted);flex-wrap:wrap;
+    font-variant-numeric:tabular-nums}
+  .meta-row b{color:var(--text);font-weight:500}
+  .diffstat{font-family:var(--mono);font-size:12px}
+  .diffstat .add{color:var(--ok)}
+  .diffstat .del{color:var(--danger)}
+  .verdict{display:flex;flex-direction:column;align-items:flex-end;gap:3px;
+    padding:11px 16px;border-radius:var(--r-inset);
+    border:1px solid color-mix(in srgb,var(--vc) 34%,var(--border));
+    background:color-mix(in srgb,var(--vc) 10%,var(--panel));white-space:nowrap}
+  .verdict-label{font-weight:600;font-size:15px;letter-spacing:-.01em;
+    color:color-mix(in srgb,var(--vc) 88%,var(--head))}
+  .verdict-conf{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
 
-  /* dashboard */
-  .dash{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px}
-  @media(max-width:720px){.dash{grid-template-columns:1fr}.top{flex-direction:column}}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;
-    padding:20px 22px;margin-bottom:16px;transition:border-color .15s}
+  /* compact stats bar */
+  .stats-bar{display:flex;justify-content:space-between;align-items:center;gap:10px 18px;flex-wrap:wrap;
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--r-card);
+    padding:12px 18px;margin-bottom:20px}
+  .stat-sevs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;font-variant-numeric:tabular-nums}
+  .stat-total{color:var(--head);font-weight:500;margin-right:4px}
+  .stat-total b{font-weight:600}
+  .stat-clean{color:var(--ok)}
+  .stat-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text);
+    background:color-mix(in srgb,var(--sc) 9%,var(--panel2));
+    border:1px solid color-mix(in srgb,var(--sc) 24%,var(--border));
+    border-radius:999px;padding:2px 10px}
+  .stat-pill b{font-weight:600;color:var(--head)}
+  .stat-jumps{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .stat-jump{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
+    text-decoration:none;background:transparent;border:1px solid var(--border);
+    border-radius:999px;padding:3px 10px;transition:border-color .14s,color .14s,background .14s}
+  .stat-jump:hover{border-color:color-mix(in srgb,var(--accent) 50%,var(--border));
+    background:color-mix(in srgb,var(--accent) 8%,transparent);color:var(--head)}
+  .stat-jump span{font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+
+  /* cards */
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-card);
+    padding:24px 28px;margin-bottom:18px;transition:border-color .15s}
   .card:hover{border-color:var(--border2)}
-  .card h2{margin:0 0 16px;font-size:15px;letter-spacing:.01em;display:flex;align-items:center;
-    gap:10px;color:var(--head)}
-  .section-tag{font-size:11px;font-weight:500;color:var(--muted);background:var(--panel2);
-    padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.05em}
-  .summary-card{grid-column:1/-1}
-  .summary-card p{margin:0;color:var(--text)}
+  .card h2{margin:0 0 18px;font-size:15.5px;font-weight:600;letter-spacing:-.01em;display:flex;
+    align-items:center;gap:10px;color:var(--head);flex-wrap:wrap}
+  .section-tag{font-size:10px;font-weight:600;color:var(--muted);background:var(--panel2);
+    border:1px solid var(--border);padding:2px 8px;border-radius:999px;
+    text-transform:uppercase;letter-spacing:.07em}
+  .summary-card .summary-body{max-width:var(--measure)}
+  .summary-card p{margin:0 0 12px;color:var(--text)}
 
-  .sev-split{display:flex;align-items:center;gap:22px}
-  .donut{width:130px;height:130px;flex:none}
-  .donut-num{fill:var(--text);font-size:26px;font-weight:700;text-anchor:middle;font-family:var(--sans)}
-  .donut-lbl{fill:var(--muted);font-size:10px;text-anchor:middle;text-transform:uppercase;letter-spacing:.08em}
-  .legend{list-style:none;margin:0;padding:0;flex:1;display:grid;gap:7px}
-  .legend li{display:flex;align-items:center;gap:9px;font-size:13px}
-  .swatch{width:11px;height:11px;border-radius:3px;flex:none}
-  .legend-lbl{flex:1;color:var(--muted)}
-  .legend-num{font-variant-numeric:tabular-nums;font-weight:600}
+  /* section heading badges */
+  .head-count{font-size:11.5px;font-weight:600;color:var(--muted);background:var(--panel2);
+    border:1px solid var(--border);border-radius:999px;padding:1px 9px;min-width:24px;
+    text-align:center;font-variant-numeric:tabular-nums}
+  .head-count[data-zero]{opacity:.5}
+  .head-total{font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.02em;margin-left:auto}
 
-  .heatmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
-  .heat-cell{border-radius:0 10px 10px 0;padding:12px;border:1px solid var(--border);
-    border-left:4px solid var(--risk);background:var(--panel2)}
-  .heat-risk{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--risk);font-weight:700}
-  .heat-name{font-weight:600;margin:3px 0;font-size:14px}
-  .heat-files{color:var(--muted);font-size:12px}
+  /* luminance-matched tinted pills (no neon solid fills) */
+  .sc-pill{display:inline-flex;align-items:center;font-size:10.5px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.06em;border-radius:999px;padding:2px 10px;flex:none;
+    color:color-mix(in srgb,var(--pc) 88%,var(--head));
+    background:color-mix(in srgb,var(--pc) 14%,transparent);
+    border:1px solid color-mix(in srgb,var(--pc) 32%,var(--border))}
+  .sc-pill-sm{font-size:9.5px;padding:1px 8px}
+  .sc-overall{font-size:10.5px}
+  .sc-stale{color:color-mix(in srgb,var(--danger) 90%,var(--head));
+    border-color:color-mix(in srgb,var(--danger) 35%,var(--border));
+    background:color-mix(in srgb,var(--danger) 10%,transparent)}
+
+  /* system change (primitives lens) */
+  .sc-summary{margin:0 0 14px;font-size:14.5px;line-height:1.6;color:var(--text);max-width:var(--measure)}
+  .sc-dup{display:flex;flex-direction:column;gap:3px;border:1px solid var(--border);
+    border-radius:var(--r-inset);padding:12px 16px;margin-bottom:16px}
+  .sc-dup-ok{background:color-mix(in srgb,var(--ok) 7%,var(--panel2));
+    border-color:color-mix(in srgb,var(--ok) 24%,var(--border))}
+  .sc-dup-ok .sc-dup-head{color:color-mix(in srgb,var(--ok) 88%,var(--head))}
+  .sc-dup-bad{background:color-mix(in srgb,var(--danger) 9%,var(--panel2));
+    border-color:color-mix(in srgb,var(--danger) 32%,var(--border))}
+  .sc-dup-bad .sc-dup-head{color:color-mix(in srgb,var(--danger) 88%,var(--head))}
+  .sc-dup-head{font-size:13px;font-weight:600;letter-spacing:-.005em}
+  .sc-dup-text{font-size:13px;color:var(--muted);max-width:var(--measure)}
+  .sc-dup-list{margin:6px 0 0;padding-left:18px;font-size:12.5px;color:var(--text)}
+  .sc-list{border:1px solid var(--border);border-radius:var(--r-inset);background:var(--panel2);overflow:hidden}
+  .sc-list-warn{border-color:color-mix(in srgb,var(--danger) 30%,var(--border))}
+  .sc-row{padding:14px 16px;border-top:1px solid var(--border)}
+  .sc-row:first-child{border-top:none}
+  .sc-head{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .sc-name{font-weight:600;font-size:14px;color:var(--head);letter-spacing:-.01em}
+  .comp-tag{font-size:10px;font-weight:500;color:var(--muted);background:var(--panel);
+    border:1px solid var(--border);border-radius:999px;padding:1px 8px;
+    text-transform:uppercase;letter-spacing:.06em}
+  .sc-note{color:var(--text);font-size:13.5px;line-height:1.58;margin-top:6px;max-width:var(--measure)}
+  .sc-invs{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:4px;max-width:var(--measure)}
+  .sc-inv{font-size:12px;line-height:1.5}
+  .sc-inv-warn{color:color-mix(in srgb,var(--warn) 90%,var(--head));font-weight:500}
+  .sc-inv-ok{color:var(--muted)}
+  .sc-files-line{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:8px;overflow-wrap:anywhere}
+  .sc-files-fold{margin-top:7px;font-size:11.5px;color:var(--muted)}
+  .sc-files-fold summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:5px;
+    padding:2px 0;transition:color .12s}
+  .sc-files-fold summary:hover{color:var(--text)}
+  .sc-files-fold summary::-webkit-details-marker{display:none}
+  .sc-files-fold summary::before{content:"▸";font-size:10px}
+  .sc-files-fold[open] summary::before{content:"▾"}
+  .sc-added{margin-top:16px}
+  .sc-added-head{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+    color:color-mix(in srgb,var(--danger) 88%,var(--head));margin-bottom:8px}
+  .sc-added-head-ok{color:var(--muted)}
+
+  /* blast radius (blast-radius lens) */
+  .br-summary{margin:0 0 14px;font-size:14.5px;line-height:1.62;color:var(--text);max-width:var(--measure)}
+  .br-tag{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--muted);margin-bottom:8px}
+  .br-effects{margin-bottom:14px;padding:14px 16px;border-radius:var(--r-inset);
+    background:var(--panel2);border:1px solid var(--border)}
+  .br-contained{font-size:13.5px;font-weight:500;color:color-mix(in srgb,var(--ok) 88%,var(--head));
+    padding:11px 15px;border-radius:var(--r-inset);
+    background:color-mix(in srgb,var(--ok) 7%,var(--panel2));
+    border:1px solid color-mix(in srgb,var(--ok) 24%,var(--border));margin-bottom:12px}
+  .br-effect-area{display:inline-flex;align-items:center;gap:7px}
+  .br-effect-area b{color:var(--head);font-weight:600}
+  .br-risk-link{display:inline-flex;align-items:baseline;gap:8px}
+  .br-risk-link .sev-dot{transform:translateY(-1px)}
+  .br-link{margin-left:6px;font-size:12px;color:var(--link)}
+  .br-details{margin-top:10px;border:1px solid var(--border);border-radius:var(--r-inset);
+    background:var(--panel2);padding:10px 15px;transition:border-color .14s}
+  .br-details:hover{border-color:var(--border2)}
+  .br-details summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;
+    font-size:13px;font-weight:500;color:var(--muted)}
+  .br-details summary:hover{color:var(--text)}
+  .br-details summary::-webkit-details-marker{display:none}
+  .br-details summary::before{content:"▸";font-size:11px;color:var(--muted);width:10px}
+  .br-details[open] summary::before{content:"▾"}
+  .br-details[open] summary{margin-bottom:12px;color:var(--head)}
+  .br-det-hint{font-weight:400;font-size:11.5px;color:var(--muted)}
+  .br-fact{border:1px solid color-mix(in srgb,var(--pc) 26%,var(--border));
+    border-radius:var(--r-inner);background:var(--panel);padding:14px 16px;margin-bottom:4px}
+  .br-fact-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+  .br-fact-head .br-tag{margin:0;display:inline-flex;align-items:center;gap:8px}
+  .br-ladder{display:inline-flex;align-items:center;gap:4px}
+  .br-rung{width:7px;height:7px;border-radius:50%;background:var(--border2)}
+  .br-rung-on{background:var(--accent)}
+  .br-rung-lbl{font-size:11px;color:var(--muted);margin-left:5px}
+  .br-claim{font-size:14px;font-weight:500;line-height:1.5;margin:0 0 8px;color:var(--head);max-width:var(--measure)}
+  .br-proof{font-size:13px;color:var(--muted);max-width:var(--measure)}
+  .br-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+  .br-list li{font-size:13.5px;line-height:1.55;max-width:var(--measure)}
+  .br-list a{color:var(--link);text-decoration:none}
+  .br-list a:hover{color:var(--link-hover);text-decoration:underline}
+  .br-like,.br-how{display:block;font-size:12.5px;color:var(--muted);margin:3px 0 0 15px;line-height:1.5}
+  .br-cleared{gap:10px}
+  .br-cleared li{color:color-mix(in srgb,var(--ok) 82%,var(--text));font-size:13px}
+  .br-cleared li b{color:var(--head);font-weight:500}
+  .br-cleared .br-how{color:var(--muted)}
+  .br-premerge{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:13px;
+    color:var(--text);max-width:var(--measure)}
+  .br-premerge .br-tag{display:inline;margin-right:8px}
+
+  /* classes card — wrapping path on its own line so long paths never clip */
+  .cls-list{list-style:none;margin:0;padding:0;display:grid;gap:0;
+    border:1px solid var(--border);border-radius:var(--r-inset);background:var(--panel2);overflow:hidden}
+  .cls-list li{padding:12px 16px;border-top:1px solid var(--border);font-size:13.5px}
+  .cls-list li:first-child{border-top:none}
+  .cls-title{display:inline-flex;align-items:baseline;gap:8px;color:var(--head);font-weight:500;
+    text-decoration:none;line-height:1.4}
+  .cls-title .sev-dot{transform:translateY(-1px)}
+  .cls-title:hover{color:var(--link);text-decoration:underline}
+  .cls-where{display:block;margin:4px 0 0 15px;min-width:0}
+  .cls-where .ref{white-space:normal;overflow-wrap:anywhere;font-size:11.5px;color:var(--muted)}
+  .cls-where a.ref:hover{color:var(--link)}
+  .cls-why{display:block;font-size:12px;color:var(--muted);margin:3px 0 0 15px}
 
   /* findings */
-  .sev-group{margin-bottom:22px}
-  .sev-head{font-size:14px;margin:0 0 12px;display:flex;align-items:center;gap:8px;color:var(--sc)}
-  .sev-head .count{background:var(--panel2);color:var(--muted);font-size:12px;
-    padding:1px 9px;border-radius:20px;font-weight:600}
-  .finding{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--sc);
-    border-radius:0 10px 10px 0;padding:18px 22px 20px;margin-bottom:12px}
-  .finding-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
-  .chips{display:flex;gap:6px;flex-wrap:wrap}
-  .chip{font-size:11px;padding:2px 9px;border-radius:20px;background:var(--panel2);
-    color:var(--muted);white-space:nowrap;border:1px solid var(--border)}
-  .chip[style*="--cc"]{color:var(--cc);border-color:color-mix(in srgb,var(--cc) 40%,transparent)}
-  .chip-ok{color:#5fd39a;border-color:#2f5c45}
-  .finding-title{margin:13px 0 12px;font-size:16.5px;font-weight:700;line-height:1.35;
-    letter-spacing:-.01em;color:var(--head)}
+  .sev-group{margin-bottom:26px}
+  .sev-group:last-child{margin-bottom:0}
+  .sev-head{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
+    margin:0 0 12px;display:flex;align-items:center;gap:8px;
+    color:color-mix(in srgb,var(--sc) 88%,var(--head))}
+  .sev-head .count{background:var(--panel2);color:var(--muted);font-size:11px;border:1px solid var(--border);
+    padding:0 8px;border-radius:999px;font-weight:600;font-variant-numeric:tabular-nums}
+  .finding{background:var(--panel2);border:1px solid var(--border);
+    border-left:2.5px solid color-mix(in srgb,var(--sc) 75%,var(--border));
+    border-radius:0 var(--r-inset) var(--r-inset) 0;padding:20px 22px;margin-bottom:14px}
+  .finding:last-child{margin-bottom:0}
+  .finding-head{display:flex;justify-content:space-between;gap:10px 14px;align-items:flex-start;flex-wrap:wrap}
+  .finding-ref{min-width:0;max-width:100%}
+  .finding-ref .ref{white-space:normal;overflow-wrap:anywhere;font-size:11.5px;color:var(--muted);
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--r-inner);
+    padding:2px 8px;display:inline-block}
+  .finding-ref a.ref:hover{color:var(--link);border-color:color-mix(in srgb,var(--link) 40%,var(--border));text-decoration:none}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;
+    padding:2px 9px;border-radius:999px;background:var(--panel);color:var(--muted);
+    white-space:nowrap;border:1px solid var(--border)}
+  .chip[style*="--cc"]{color:color-mix(in srgb,var(--cc) 88%,var(--head));
+    background:color-mix(in srgb,var(--cc) 11%,var(--panel));
+    border-color:color-mix(in srgb,var(--cc) 28%,var(--border))}
+  .chip-ok{color:color-mix(in srgb,var(--ok) 88%,var(--head));
+    border-color:color-mix(in srgb,var(--ok) 28%,var(--border));
+    background:color-mix(in srgb,var(--ok) 8%,var(--panel))}
+  .chip-like{color:color-mix(in srgb,var(--warn) 88%,var(--head));
+    border-color:color-mix(in srgb,var(--warn) 28%,var(--border))}
+  .chip-group{color:color-mix(in srgb,var(--accent) 85%,var(--head));
+    border-color:color-mix(in srgb,var(--accent) 32%,var(--border))}
+  .chip-class{color:color-mix(in srgb,var(--warn) 88%,var(--head));
+    border-color:color-mix(in srgb,var(--warn) 32%,var(--border))}
+  .chip-src{color:color-mix(in srgb,var(--info) 88%,var(--head));
+    border-color:color-mix(in srgb,var(--info) 32%,var(--border))}
+  a.chip-tracked{color:color-mix(in srgb,var(--ok) 88%,var(--head));
+    border-color:color-mix(in srgb,var(--ok) 32%,var(--border));text-decoration:none}
+  a.chip-tracked:hover{border-color:var(--ok)}
+  .finding-title{margin:14px 0 12px;font-size:clamp(1rem,.95rem + .22vw,1.1rem);font-weight:600;
+    line-height:1.34;letter-spacing:-.015em;color:var(--head);max-width:var(--measure)}
   .finding-evidence{margin:0 0 14px}
-  .finding-fix{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:13px 15px;margin-top:14px}
-  .fix-tag{color:var(--accent);font-weight:700;font-size:11px;text-transform:uppercase;
-    letter-spacing:.05em;margin-bottom:8px}
-  /* cited rule (conventions lens) */
-  .finding-rule{display:flex;align-items:baseline;gap:8px;margin:0 0 12px;font-size:12.5px;color:var(--muted)}
-  .finding-rule .rule-tag{flex:none;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
-    color:#f7d494;background:color-mix(in srgb,#f2c063 14%,var(--panel2));
-    border:1px solid color-mix(in srgb,#f2c063 32%,var(--border));border-radius:20px;padding:1px 8px}
-  .finding-rule code{color:#bcc3ff}
-  /* arbiter regrade note */
-  .finding-regrade{display:flex;align-items:baseline;gap:8px;margin:0 0 12px;font-size:12.5px;color:var(--muted)}
-  .finding-regrade .regrade-tag{flex:none;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
-    color:#a5d3ff;background:color-mix(in srgb,#7ec2ff 14%,var(--panel2));
-    border:1px solid color-mix(in srgb,#7ec2ff 32%,var(--border));border-radius:20px;padding:1px 8px}
-  /* grouped finding (arbiter swarm-collapse): every occurrence listed */
-  .loc-list{list-style:none;margin:0 0 12px;padding:9px 13px;display:grid;gap:4px;
-    background:var(--panel2);border:1px solid var(--border);border-radius:8px}
+  .finding-fix{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-inner);
+    padding:14px 16px;margin-top:14px}
+  .fix-tag{color:var(--accent);font-weight:600;font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.07em;margin-bottom:8px}
+  /* cited rule / regrade / class lines */
+  .finding-rule,.finding-regrade,.finding-class{display:flex;align-items:baseline;gap:8px;
+    margin:0 0 12px;font-size:12.5px;color:var(--muted);line-height:1.5;overflow-wrap:anywhere}
+  .rule-tag,.regrade-tag,.class-tag{flex:none;font-size:9.5px;font-weight:600;text-transform:uppercase;
+    letter-spacing:.06em;border-radius:999px;padding:1px 8px}
+  .rule-tag,.class-tag{color:color-mix(in srgb,var(--warn) 88%,var(--head));
+    background:color-mix(in srgb,var(--warn) 12%,var(--panel));
+    border:1px solid color-mix(in srgb,var(--warn) 28%,var(--border))}
+  .regrade-tag{color:color-mix(in srgb,var(--info) 88%,var(--head));
+    background:color-mix(in srgb,var(--info) 12%,var(--panel));
+    border:1px solid color-mix(in srgb,var(--info) 28%,var(--border))}
+  .finding-rule code{color:var(--accent)}
+  /* grouped finding locations */
+  .loc-list{list-style:none;margin:0 0 14px;padding:10px 14px;display:grid;gap:5px;
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--r-inner)}
   .loc-list li{font-size:12.5px}
   .loc-list .loc-note{color:var(--muted);margin-left:8px}
-  .chip-group{color:#bcc3ff;border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
-  /* class mark (Phase 4): chip on the card, its evidence line, and the Classes card */
-  .chip-class{color:#f7d494;border-color:color-mix(in srgb,#f2c063 45%,transparent)}
-  .finding-class{display:flex;align-items:baseline;gap:8px;margin:0 0 12px;font-size:12.5px;color:var(--muted)}
-  .finding-class .class-tag{flex:none;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
-    color:#f7d494;background:color-mix(in srgb,#f2c063 14%,var(--panel2));
-    border:1px solid color-mix(in srgb,#f2c063 32%,var(--border));border-radius:20px;padding:1px 8px}
-  .cls-list{list-style:none;margin:0;padding:0;display:grid;gap:7px}
-  .cls-list li{font-size:13px}
-  .cls-list a{color:var(--text);text-decoration:none}
-  .cls-list a:hover{text-decoration:underline}
-  .cls-where{margin-left:6px}
-  .cls-why{display:block;font-size:12px;color:var(--muted);margin:1px 0 2px 20px}
-  .chip-src{color:#a5d3ff;border-color:color-mix(in srgb,#7ec2ff 40%,transparent)}
-  a.chip-tracked{color:#8ce8b8;border-color:color-mix(in srgb,#5fd39a 40%,transparent);text-decoration:none}
-  a.chip-tracked:hover{border-color:#5fd39a}
-  /* folded "More findings" section */
+
+  /* folded sections */
   .fold-details summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;
-    font-size:15px;font-weight:700;letter-spacing:.01em}
+    font-size:14.5px;font-weight:600;letter-spacing:-.01em;color:var(--head);flex-wrap:wrap}
   .fold-details summary::-webkit-details-marker{display:none}
-  .fold-details summary::before{content:"▸";color:var(--muted);font-size:12px;transition:transform .12s}
+  .fold-details summary::before{content:"▸";color:var(--muted);font-size:11px;transition:transform .12s}
   .fold-details[open] summary::before{transform:rotate(90deg)}
   .fold-details[open] summary{margin-bottom:16px}
-  .fold-hint{font-size:11.5px;font-weight:400;color:var(--muted)}
-  /* holistic comparison card */
+  .fold-hint{font-size:12px;font-weight:400;color:var(--muted)}
+
+  /* eval cards (holistic / interrogate / panel) */
   .holi-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
-  .holi-stat{border:1px solid var(--border);border-radius:10px;background:var(--panel2);
-    padding:10px 12px;text-align:center}
-  .holi-num{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
-  .holi-lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
-  .holi-only-head{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
-    font-weight:700;margin-bottom:7px}
-  .holi-list{list-style:none;margin:0;padding:0;display:grid;gap:5px}
-  .holi-list li{font-size:13px}
-  .holi-list a{color:#7ec2ff;text-decoration:none}
+  .irg-stats{grid-template-columns:repeat(2,1fr)}
+  .holi-stat{border:1px solid var(--border);border-radius:var(--r-inset);background:var(--panel2);
+    padding:12px;text-align:center}
+  .holi-num{font-size:22px;font-weight:600;color:var(--head);font-variant-numeric:tabular-nums}
+  .holi-lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:2px}
+  .holi-only-head{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+    font-weight:600;margin-bottom:8px}
+  .holi-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+  .holi-list li{font-size:13.5px}
+  .holi-list a{color:var(--link);text-decoration:none}
   .holi-list a:hover{text-decoration:underline}
 
   /* conventions / stack scorecard */
-  .scorecard{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
-  .score-cell{border-radius:0 10px 10px 0;padding:11px 13px;border:1px solid var(--border);
-    border-left:4px solid var(--sq);background:var(--panel2)}
-  .score-head{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+  .scorecard{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+  .score-cell{border-radius:var(--r-inset);padding:13px 15px;border:1px solid var(--border);
+    background:var(--panel2)}
+  .score-head{display:flex;align-items:center;gap:9px;margin-bottom:5px}
   .score-mark{width:20px;height:20px;flex:none;border-radius:50%;display:inline-flex;align-items:center;
-    justify-content:center;font-weight:700;font-size:12px;color:var(--sq);
+    justify-content:center;font-weight:600;font-size:11.5px;color:var(--sq);
     background:color-mix(in srgb,var(--sq) 15%,transparent)}
-  .score-area{font-weight:600;font-size:14px}
-  .score-note{color:var(--muted);font-size:12px;line-height:1.45}
+  .score-area{font-weight:600;font-size:13.5px;color:var(--head)}
+  .score-note{color:var(--muted);font-size:12.5px;line-height:1.5}
   .score-note code{font-size:11.5px}
 
   /* dependency table */
-  .deptable,.zmatrix{width:100%;border-collapse:collapse;font-size:13px}
-  /* Fixed layout: otherwise unbreakable Notes content (40-char SHAs, long
-     command strings in inline code) sets the column width and pushes the table
-     past the card, crushing Package to one word per line. */
+  .deptable,.zmatrix{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
   .deptable{table-layout:fixed}
   .deptable th:first-child{width:19%}
   .deptable th:nth-child(6){width:10%}
   .dep-name,.dep-note{overflow-wrap:anywhere}
-  /* Inline code is nowrap elsewhere (short refs in wide columns); in the narrow
-     Notes cell a long SHA or command chip must wrap or it blows out the table.
-     Embedded markdown tables likewise: fixed layout so min-content width of a
-     cell can't exceed the column. */
   td.dep-note code.md-code{white-space:normal}
   .dep-note .md-table,.dep-note table{table-layout:fixed}
-  .deptable th,.deptable td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
-  .deptable th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .deptable th,.deptable td{padding:10px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
+  .deptable th{color:var(--muted);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em}
   .deptable td:nth-child(2),.deptable td:nth-child(3),.deptable td:nth-child(4),.deptable td:nth-child(5),
   .deptable th:nth-child(2),.deptable th:nth-child(3),.deptable th:nth-child(4),.deptable th:nth-child(5){text-align:center;width:34px}
-  .dep-name{font-weight:600}
+  .dep-name{font-weight:600;color:var(--head)}
   .dep-eco{display:block;font-weight:400;color:var(--muted);font-size:11px;margin-top:2px}
   .mark{display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;
-    border-radius:50%;font-weight:700;font-size:12px;color:var(--mc);
+    border-radius:50%;font-weight:600;font-size:11.5px;color:var(--mc);
     background:color-mix(in srgb,var(--mc) 15%,transparent)}
-  .dep-verdict{text-transform:capitalize;font-weight:600}
+  .dep-verdict{text-transform:capitalize;font-weight:600;color:var(--head)}
   .dep-note{color:var(--muted);font-size:12.5px}
-  .dep-suggestion{margin-top:5px;color:var(--text)}
+  .dep-suggestion{margin-top:6px;color:var(--text)}
   .dep-note .dep-suggestion p{margin:0}
   .dep-note .dep-suggestion .md-pre{margin:6px 0 0}
 
-  /* zombies matrix */
-  .zmatrix{margin-bottom:18px}
+  /* test gaps */
+  .zmatrix{margin-bottom:14px}
   .zmatrix th,.zmatrix td{border:1px solid var(--border);padding:7px;text-align:center}
   .zmatrix th:first-child,.zarea{text-align:left;font-weight:600}
   .zarea{color:var(--text)}
   .zc{color:var(--muted)}
-  .zc-on{background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--text);font-weight:700}
-  .zc-partial{background:color-mix(in srgb,#f2c063 22%,transparent)}
+  .zc-on{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--head);font-weight:600}
+  .zc-partial{background:color-mix(in srgb,var(--warn) 18%,transparent)}
   .matrix-key{font-size:12px;color:var(--muted);margin:0 0 4px}
-  .zc-partial-key{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;
-    background:color-mix(in srgb,#f2c063 40%,transparent)}
-  .test-group{margin-top:16px}
-  .test-group h3,.pf-group h3,.tri-group{font-size:13px}
-  .test-group h3{color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px}
-  .test-item{display:flex;gap:12px;padding:9px 0;border-top:1px solid var(--border)}
-  .zbadge{flex:none;width:26px;height:26px;border-radius:7px;background:var(--panel2);
-    display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-family:var(--mono)}
-  .test-title{font-weight:600;font-size:14px}
-  .partial-tag{font-size:10px;background:#3f351c;color:#f2c063;padding:1px 7px;border-radius:20px;margin-left:6px}
-  .test-fix{color:var(--muted);font-size:13px;margin:2px 0}
+  .zc-partial-key{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:middle;
+    background:color-mix(in srgb,var(--warn) 40%,transparent)}
+  .test-group{margin-top:18px}
+  .test-group:first-of-type{margin-top:0}
+  .test-group h3,.pf-group h3{font-size:11px;font-weight:600;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.07em;margin:0 0 8px}
+  .test-item{display:flex;gap:14px;padding:12px 0;border-top:1px solid var(--border);align-items:flex-start}
+  .zcat{flex:none;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+    color:color-mix(in srgb,var(--accent) 88%,var(--head));
+    background:color-mix(in srgb,var(--accent) 11%,var(--panel2));
+    border:1px solid color-mix(in srgb,var(--accent) 26%,var(--border));
+    border-radius:var(--r-inner);padding:3px 9px;min-width:86px;text-align:center}
+  .test-body{min-width:0;flex:1}
+  .test-title{font-weight:600;font-size:14px;color:var(--head);line-height:1.4;max-width:var(--measure)}
+  .partial-tag{font-size:10px;font-weight:600;background:color-mix(in srgb,var(--warn) 14%,transparent);
+    color:color-mix(in srgb,var(--warn) 88%,var(--head));border:1px solid color-mix(in srgb,var(--warn) 28%,var(--border));
+    padding:1px 7px;border-radius:999px;margin-left:6px;vertical-align:1px}
+  .test-fix{color:var(--muted);font-size:13px;margin:4px 0 0;max-width:var(--measure)}
   .test-fix.md p{margin:0}
-  .test-fix.md .md-pre{margin:6px 0 0}
-  .test-ref{margin-top:2px}
+  .test-fix.md .md-pre{margin:8px 0 0}
+  .test-ref{margin-top:6px}
+  .test-ref .ref{white-space:normal;overflow-wrap:anywhere;font-size:11.5px;color:var(--muted)}
+  .test-ref a.ref:hover{color:var(--link)}
 
   /* preflight */
-  .pf-group{margin-bottom:14px}
-  .pf-group h3{color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px}
+  .pf-group{margin-bottom:16px}
+  .pf-group:last-child{margin-bottom:0}
   .checklist{list-style:none;margin:0;padding:0}
-  .checklist li{display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--border);align-items:flex-start}
-  .checklist input{margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex:none}
-  .pf-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+  .checklist li{display:flex;gap:11px;padding:11px 0;border-top:1px solid var(--border);align-items:flex-start}
+  .checklist input{margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex:none;cursor:pointer}
+  .pf-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
   .checklist label{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;cursor:pointer}
   .checklist input:checked + .pf-main .pf-title{text-decoration:line-through;color:var(--muted)}
-  .pf-conf{font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:1px 7px;border-radius:20px;font-weight:700}
-  .pf-high{background:#3f2026;color:#ffb0b3}.pf-medium{background:#3f351c;color:#f2c063}.pf-low{background:#1e3350;color:#7ec2ff}
-  .pf-title{font-weight:600;font-size:14px}
-  .pf-note{color:var(--muted);font-size:12.5px}
-  .pf-verify{display:flex;align-items:baseline;gap:8px;margin-top:4px}
-  .pf-verify-tag{flex:none;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
-    color:#8ce8b8;background:color-mix(in srgb,#5fd39a 14%,var(--panel2));
-    border:1px solid color-mix(in srgb,#5fd39a 32%,var(--border));border-radius:20px;padding:1px 8px}
+  .pf-conf{font-size:10px;text-transform:uppercase;letter-spacing:.05em;padding:1px 8px;
+    border-radius:999px;font-weight:600}
+  .pf-high{background:color-mix(in srgb,var(--danger) 14%,transparent);
+    color:color-mix(in srgb,var(--danger) 88%,var(--head));border:1px solid color-mix(in srgb,var(--danger) 30%,var(--border))}
+  .pf-medium{background:color-mix(in srgb,var(--warn) 14%,transparent);
+    color:color-mix(in srgb,var(--warn) 88%,var(--head));border:1px solid color-mix(in srgb,var(--warn) 30%,var(--border))}
+  .pf-low{background:color-mix(in srgb,var(--info) 14%,transparent);
+    color:color-mix(in srgb,var(--info) 88%,var(--head));border:1px solid color-mix(in srgb,var(--info) 30%,var(--border))}
+  .pf-title{font-weight:600;font-size:14px;color:var(--head)}
+  .pf-ref .ref{white-space:normal;overflow-wrap:anywhere;font-size:11.5px}
+  .pf-note{color:var(--muted);font-size:13px;max-width:var(--measure)}
+  .pf-verify{display:flex;align-items:baseline;gap:8px;margin-top:6px;padding:8px 11px;
+    border-radius:var(--r-inner);background:var(--code-bg);border:1px solid var(--border)}
+  .pf-verify-tag{flex:none;font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+    color:color-mix(in srgb,var(--ok) 88%,var(--head));
+    background:color-mix(in srgb,var(--ok) 12%,transparent);
+    border:1px solid color-mix(in srgb,var(--ok) 28%,var(--border));border-radius:999px;padding:1px 8px}
   /* a flex item will not shrink below its longest token: a probe or repro command with a long path overflowed the page */
-  .pf-verify code{font-size:11.5px;color:#d5d7e0;min-width:0;overflow-wrap:anywhere}
+  .pf-verify code{font-size:11.5px;color:var(--text);min-width:0;overflow-wrap:anywhere}
   .pf-note.md p{margin:0}
-  .pf-note.md .md-pre{margin:6px 0 0}
+  .pf-note.md .md-pre{margin:8px 0 0}
 
-  /* system change (primitives lens) */
-  .sc-pill{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
-    color:#08090c;background:var(--pc);border-radius:20px;padding:2px 9px;flex:none}
-  .sc-overall{font-size:11px}
-  .sc-stale{color:#ffb0b3;border-color:color-mix(in srgb,#ff8589 40%,transparent)}
-  .sc-row{border:1px solid var(--border);border-left:4px solid var(--pc);border-radius:0 10px 10px 0;
-    background:var(--panel2);padding:11px 14px;margin-bottom:8px}
-  .sc-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  .sc-name{font-weight:600;font-size:14px}
-  .sc-files{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
-  .sc-note{color:var(--muted);font-size:12.5px;margin-top:4px}
-  .sc-invs{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:3px}
-  .sc-inv{font-size:12.5px;color:#f7d494}
-  .sc-added{margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)}
-  .sc-added-head{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
-    color:#ffb0b3;margin-bottom:8px}
-
-  /* blast radius (blast-radius lens) */
-  .br-summary{margin:0 0 12px;font-size:14px;color:var(--text)}
-  .br-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}
-  .br-fact{border:1px solid var(--border);border-left:4px solid var(--pc);border-radius:0 10px 10px 0;
-    background:var(--panel2);padding:11px 14px;margin-bottom:12px}
-  .br-fact-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-  .br-fact-head .br-tag{margin:0}
-  .br-ladder{display:inline-flex;align-items:center;gap:3px}
-  .br-rung{width:9px;height:9px;border-radius:50%;background:var(--border)}
-  .br-rung-on{background:var(--accent)}
-  .br-rung-lbl{font-size:11px;color:var(--muted);margin-left:6px}
-  .br-claim{font-size:14.5px;font-weight:600;line-height:1.45;margin:6px 0 4px;color:var(--head)}
-  .br-proof{font-size:12.5px;color:var(--muted)}
-  .br-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  @media (max-width:720px){.br-cols{grid-template-columns:1fr}}
-  .br-list{list-style:none;margin:0;padding:0;display:grid;gap:5px}
-  .br-list li{font-size:13px}
-  .br-list a{color:#7ec2ff;text-decoration:none}
-  .br-list a:hover{text-decoration:underline}
-  .br-like,.br-how{display:block;font-size:12px;color:var(--muted);margin:1px 0 2px 20px}
-  .br-cleared li{color:#8ce8b8}
-  .br-cleared .br-how{color:var(--muted)}
-  .br-premerge{margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);font-size:13px}
-  .br-premerge .br-tag{display:inline;margin-right:8px}
-  .chip-like{color:#f7d494;border-color:color-mix(in srgb,#f2c063 40%,transparent)}
-
-  /* interrogate: the run that proves a finding, and the per-seat ledger card */
-  .repro{margin-top:12px;border:1px solid var(--border);border-radius:8px;padding:10px 13px;background:var(--panel2)}
+  /* interrogate repro */
+  .repro{margin-top:14px;border:1px solid var(--border);border-radius:var(--r-inner);
+    padding:12px 14px;background:var(--panel)}
   .repro .pf-verify{margin-top:0}
-  .repro-out{margin:8px 0 0;padding:9px 12px;background:#0b0c10;border:1px solid var(--border);border-radius:6px;
-    font-size:11.5px;line-height:1.5;overflow-x:auto;color:#ffb0b3}
+  .repro-out{margin:8px 0 0;padding:10px 12px;background:var(--code-bg);border:1px solid var(--border);
+    border-radius:var(--r-inner);font-size:11.5px;line-height:1.5;overflow-x:auto;
+    color:color-mix(in srgb,var(--danger) 88%,var(--head))}
   .repro-expected{margin-top:8px;font-size:12.5px;color:var(--text)}
-  .repro-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8ce8b8;margin-right:8px}
+  .repro-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+    color:color-mix(in srgb,var(--ok) 88%,var(--head));margin-right:8px}
   .repro-patch{margin-top:8px;font-size:12px}
   .repro-patch summary{cursor:pointer;color:var(--muted)}
-  .repro-patch pre{margin:6px 0 0;padding:9px 12px;background:#0b0c10;border:1px solid var(--border);border-radius:6px;
-    font-size:11.5px;overflow-x:auto}
-  .irg-stats{grid-template-columns:repeat(2,1fr)}
-  .irg-table{width:100%;border-collapse:collapse;font-size:12.5px;margin:0 0 14px}
-  .irg-table th,.irg-table td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
-  .irg-table th{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .repro-patch pre{margin:6px 0 0;padding:10px 12px;background:var(--code-bg);border:1px solid var(--border);
+    border-radius:var(--r-inner);font-size:11.5px;overflow-x:auto}
+  .irg-table{width:100%;border-collapse:collapse;font-size:12.5px;margin:0 0 14px;font-variant-numeric:tabular-nums}
+  .irg-table th,.irg-table td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
+  .irg-table th{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
   .irg-seat{font-family:var(--mono)}
-  .irg-n{font-variant-numeric:tabular-nums;text-align:right}
-  .irg-why{display:block;font-size:11.5px;color:var(--muted);text-align:left;min-width:240px}
+  .irg-n{text-align:right}
+  .irg-why{display:block;font-size:11.5px;color:var(--muted);text-align:left;min-width:220px}
   .table-scroll{overflow-x:auto}
 
-  /* triage */
-  .tri-group{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:4px 14px;margin-bottom:8px}
+  /* triage (Files reviewed) */
+  .tri-group{background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-inset);
+    padding:4px 14px;margin-bottom:8px}
+  .tri-group:last-child{margin-bottom:0}
   .tri-group summary{cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 0;list-style:none}
   .tri-group summary::-webkit-details-marker{display:none}
-  .tri-risk{font-size:10px;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:20px;
-    color:#08090c;font-weight:700}
-  .tri-name{font-weight:600;flex:1}
-  .tri-count{color:var(--muted);font-size:12px}
-  .tri-reason{color:var(--muted);font-size:13px;margin:2px 0 8px}
+  .tri-risk{font-size:10px;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;
+    border-radius:999px;font-weight:600;
+    color:color-mix(in srgb,var(--rc) 88%,var(--head));
+    background:color-mix(in srgb,var(--rc) 13%,transparent);
+    border:1px solid color-mix(in srgb,var(--rc) 30%,var(--border))}
+  .tri-name{font-weight:600;flex:1;color:var(--head);font-size:13.5px}
+  .tri-count{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+  .tri-reason{color:var(--muted);font-size:13px;margin:2px 0 10px;max-width:var(--measure)}
   .tri-files{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:5px}
-  .tri-files li{display:flex;gap:9px;align-items:center;font-size:13px}
-  .status{font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:1px 7px;border-radius:5px;
-    font-weight:700;flex:none}
-  .status-added{background:#17352a;color:#5fd39a}.status-modified{background:#3a301a;color:#f2c063}
-  .status-deleted{background:#3a1c1e;color:#ffa6a9}
+  .tri-files li{display:flex;gap:8px;align-items:baseline;font-size:12.5px;min-width:0}
+  .tri-files .ref{white-space:normal;overflow-wrap:anywhere}
+  .status{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;padding:1px 6px;
+    border-radius:4px;font-weight:600;flex:none}
+  .status-added{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
+  .status-modified{background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn)}
+  .status-deleted{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
 
-  /* section heading badges */
-  .head-count{font-size:12px;font-weight:600;color:var(--muted);background:var(--panel2);
-    border:1px solid var(--border);border-radius:20px;padding:1px 10px;min-width:24px;text-align:center}
-  .head-count[data-zero]{opacity:.5}
-  .head-total{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-
-  /* composition (by-section) */
-  .composition{display:flex;flex-direction:column;gap:6px}
-  .comp-row{display:flex;align-items:center;gap:14px;padding:10px 12px;border-radius:10px;
-    border:1px solid var(--border);background:var(--panel2);text-decoration:none;color:inherit;transition:border-color .12s}
-  .comp-row:hover{border-color:var(--accent)}
-  .comp-empty{opacity:.55}
-  .comp-count{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;min-width:26px;text-align:center}
-  .comp-body{flex:1;display:flex;flex-direction:column;gap:1px;min-width:0}
-  .comp-name{font-weight:600;font-size:14px}
-  .comp-tag{font-size:9.5px;font-weight:600;color:var(--muted);background:var(--panel);
-    border:1px solid var(--border);border-radius:20px;padding:1px 6px;text-transform:uppercase;letter-spacing:.05em;margin-left:4px}
-  .comp-desc{color:var(--muted);font-size:12px}
-  .comp-sevs{display:flex;gap:4px;align-items:center}
-  .mini-sev{font-size:11px;font-weight:700;color:#08090c;background:var(--c);border-radius:6px;
-    min-width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;padding:0 4px;
-    font-variant-numeric:tabular-nums}
-  .comp-none{font-size:11px;color:var(--muted);font-style:italic}
-
-  /* summary body + lenses strip */
+  /* lenses strip inside audit trail */
   .summary-body p:first-child{margin-top:0}
   .summary-body p:last-child{margin-bottom:0}
-  .lenses-strip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px;
+  .lenses-strip{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:14px;
     padding-top:14px;border-top:1px solid var(--border)}
-  .lenses-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
-  .lens-chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;padding:2px 9px;border-radius:20px;
+  .lenses-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+  .lens-chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;padding:2px 9px;border-radius:999px;
     border:1px solid var(--border);background:var(--panel2)}
-  .lens-dot{width:7px;height:7px;border-radius:50%;flex:none}
-  .lens-on{color:var(--text)}.lens-on .lens-dot{background:#5fd39a}
-  .lens-off{color:var(--muted)}.lens-off .lens-dot{background:#3a3d49}
-  .lens-off{text-decoration:line-through;text-decoration-color:#3a3d49}
+  .lens-dot{width:6px;height:6px;border-radius:50%;flex:none}
+  .lens-on{color:var(--text)}.lens-on .lens-dot{background:var(--ok)}
+  .lens-off{color:var(--muted);text-decoration:line-through;opacity:.7}.lens-off .lens-dot{background:var(--border2)}
 
-  /* markdown-rendered content — tuned to read like a short article */
-  .md{font-size:14px;line-height:1.65;color:var(--text)}
+  /* markdown-rendered content — constrained prose measure, roomy code/tables */
+  .md{font-size:14px;line-height:1.66;color:var(--text)}
   .md > :first-child{margin-top:0}
   .md > :last-child{margin-bottom:0}
-  .md p{margin:0 0 13px}
-  /* subheadings: clear hierarchy + breathing room so sections are scannable */
-  .md .md-h{font-weight:700;letter-spacing:.01em;color:var(--text)}
+  .md p,.md .md-list,.md blockquote{max-width:var(--measure)}
+  .md p{margin:0 0 12px}
+  .md .md-h{font-weight:600;letter-spacing:-.005em;color:var(--head)}
   .md .md-h1{font-size:15.5px;margin:22px 0 9px;padding-bottom:6px;border-bottom:1px solid var(--border)}
   .md .md-h2{font-size:13.5px;margin:20px 0 8px;display:flex;align-items:center;gap:8px}
-  .md .md-h2::before{content:"";width:3px;height:14px;border-radius:2px;background:var(--accent);flex:none}
-  .md .md-h3{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:16px 0 6px}
+  .md .md-h2::before{content:"";width:2.5px;height:13px;border-radius:2px;background:var(--accent);flex:none}
+  .md .md-h3{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:16px 0 6px}
   .md .md-h:first-child{margin-top:0}
-  .md .md-list{margin:0 0 13px;padding-left:22px}
-  .md .md-list li{margin:4px 0}
-  .md strong{color:#fff;font-weight:700}
+  .md .md-list{margin:0 0 12px;padding-left:20px}
+  .md .md-list li{margin:5px 0}
+  .md strong{color:var(--head);font-weight:600}
   .md em{color:var(--text);font-style:italic}
-  .md a{color:#7ec2ff;text-decoration:none}.md a:hover{text-decoration:underline}
-  /* inline code — tinted lavender so it reads as "code" */
-  .md code.md-code{font-family:var(--mono);font-size:12px;font-weight:600;color:#bcc3ff;
-    background:color-mix(in srgb,var(--accent) 15%,var(--panel2));
-    border:1px solid color-mix(in srgb,var(--accent) 32%,var(--border));padding:1px 6px;border-radius:5px;white-space:nowrap}
-  /* file & file:line references — blue, monospace, with the line number emphasised */
-  .md .md-file{font-family:var(--mono);font-size:12px;font-weight:600;color:#7ec2ff;
-    text-decoration:none;white-space:nowrap;border-bottom:1px dotted color-mix(in srgb,#7ec2ff 45%,transparent)}
-  a.md-file:hover{color:#a5d3ff;border-bottom-style:solid}
-  .md .md-file .ln{color:#f7d494;font-weight:700}
-  .md-pre{background:#0b0c10;border:1px solid var(--border);border-radius:8px;padding:12px 14px;
-    overflow-x:auto;margin:0 0 14px;position:relative}
-  .md-pre code{background:none;border:none;padding:0;color:#d5d7e0;font-size:12px;line-height:1.55;white-space:pre;font-weight:400}
+  .md a{color:var(--link);text-decoration:none}
+  .md a:hover{color:var(--link-hover);text-decoration:underline}
+  .md code.md-code{font-family:var(--mono);font-size:11.8px;font-weight:500;
+    color:color-mix(in srgb,var(--accent) 82%,var(--head));
+    background:color-mix(in srgb,var(--accent) 10%,var(--panel));
+    border:1px solid color-mix(in srgb,var(--accent) 22%,var(--border));
+    padding:1px 5px;border-radius:5px;white-space:nowrap}
+  .md .md-file{font-family:var(--mono);font-size:11.8px;font-weight:500;color:var(--link);
+    text-decoration:none;white-space:nowrap;border-bottom:1px dotted color-mix(in srgb,var(--link) 45%,transparent)}
+  a.md-file:hover{color:var(--link-hover);border-bottom-style:solid}
+  .md .md-file .ln{color:var(--warn);font-weight:600}
+  .md-pre{background:var(--code-bg);border:1px solid var(--border);border-radius:var(--r-inner);
+    padding:13px 15px;overflow-x:auto;margin:0 0 14px;position:relative}
+  .md-pre code{background:none;border:none;padding:0;color:var(--text);font-size:12px;line-height:1.58;white-space:pre;font-weight:400}
   .md-pre[data-lang]::before{content:attr(data-lang);position:absolute;top:0;right:0;font-family:var(--mono);
-    font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
-    background:var(--panel2);border-bottom-left-radius:8px;border:1px solid var(--border);border-top:none;border-right:none;padding:2px 8px}
+    font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+    background:var(--panel2);border-bottom-left-radius:var(--r-inner);
+    border:1px solid var(--border);border-top:none;border-right:none;padding:2px 8px}
   .md-diff code .dl{display:block}
-  .md-diff .diff-add{background:color-mix(in srgb,#5fd39a 16%,transparent);color:#a3e8c0}
-  .md-diff .diff-del{background:color-mix(in srgb,#ff8589 16%,transparent);color:#ffb0b3}
-  .md-diff .diff-hunk{color:#7ec2ff}
-  /* markdown tables — a compact visualization primitive */
-  .md-table{width:100%;border-collapse:collapse;font-size:12.5px;margin:0 0 14px;border:1px solid var(--border);border-radius:8px;overflow:hidden}
-  .md-table th,.md-table td{padding:7px 11px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
-  .md-table th{background:var(--panel2);color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
-  .md-table tr:last-child td{border-bottom:none}
-  .md-table td{color:var(--text)}
-
-  /* ---- authored HTML: base tags the agent can hand-write ---- */
-  /* Generic tables (no class) get the same treatment as md-tables. */
-  .md table{width:100%;border-collapse:collapse;font-size:12.5px;margin:0 0 14px;border:1px solid var(--border);border-radius:8px;overflow:hidden}
-  .md table th,.md table td{padding:7px 11px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text)}
-  .md table th{background:var(--panel2);color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
-  .md table tr:last-child td{border-bottom:none}
-  .md blockquote{margin:0 0 14px;padding:8px 14px;border-left:3px solid var(--accent);
-    background:color-mix(in srgb,var(--accent) 8%,var(--panel2));border-radius:0 8px 8px 0;color:var(--muted)}
+  .md-diff .diff-add{background:color-mix(in srgb,var(--ok) 14%,transparent);color:color-mix(in srgb,var(--ok) 88%,var(--head))}
+  .md-diff .diff-del{background:color-mix(in srgb,var(--danger) 14%,transparent);color:color-mix(in srgb,var(--danger) 88%,var(--head))}
+  .md-diff .diff-hunk{color:var(--link)}
+  .md-table,.md table{width:100%;border-collapse:collapse;font-size:12.5px;margin:0 0 14px;
+    border:1px solid var(--border);border-radius:var(--r-inner);overflow:hidden;font-variant-numeric:tabular-nums}
+  .md-table th,.md-table td,.md table th,.md table td{padding:8px 12px;text-align:left;
+    border-bottom:1px solid var(--border);vertical-align:top;color:var(--text)}
+  .md-table th,.md table th{background:var(--panel2);color:var(--muted);font-weight:600;
+    font-size:10.5px;text-transform:uppercase;letter-spacing:.06em}
+  .md-table tr:last-child td,.md table tr:last-child td{border-bottom:none}
+  .md blockquote{margin:0 0 14px;padding:9px 14px;border-left:2.5px solid var(--accent);
+    background:color-mix(in srgb,var(--accent) 6%,var(--panel));border-radius:0 var(--r-inner) var(--r-inner) 0;color:var(--muted)}
   .md figure{margin:0 0 16px}
-  .md figcaption{font-size:11px;color:var(--muted);margin-top:7px;text-align:center;letter-spacing:.02em}
-  .md details{margin:0 0 12px;border:1px solid var(--border);border-radius:8px;background:var(--panel2);padding:0 14px}
-  .md summary{cursor:pointer;padding:10px 0;font-weight:600;color:var(--text)}
+  .md figcaption{font-size:11.5px;color:var(--muted);margin-top:8px;text-align:center}
+  .md details{margin:0 0 12px;border:1px solid var(--border);border-radius:var(--r-inner);background:var(--panel);padding:0 14px}
+  .md summary{cursor:pointer;padding:10px 0;font-weight:600;color:var(--head)}
   .md details[open] summary{border-bottom:1px solid var(--border);margin-bottom:10px}
   .md hr{border:none;border-top:1px solid var(--border);margin:18px 0}
   .md svg{max-width:100%;height:auto;display:block}
   .md kbd{font-family:var(--mono);font-size:11px;background:var(--panel2);border:1px solid var(--border);
     border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--text)}
-  .md mark{background:color-mix(in srgb,#f2c063 30%,transparent);color:inherit;border-radius:3px;padding:0 3px}
+  .md mark{background:color-mix(in srgb,var(--warn) 26%,transparent);color:inherit;border-radius:3px;padding:0 3px}
 
-  /* ---- reusable component classes for author HTML (class="…") ---- */
-  /* Callout / admonition boxes: <div class="callout note|warn|danger|ok"> */
-  .md .callout{margin:0 0 16px;padding:12px 15px;border:1px solid var(--border);border-left-width:4px;
-    border-radius:0 10px 10px 0;background:var(--panel2)}
+  /* reusable author HTML components */
+  .md .callout{margin:0 0 14px;padding:12px 15px;border:1px solid var(--border);border-left-width:3px;
+    border-radius:0 var(--r-inner) var(--r-inner) 0;background:var(--panel)}
   .md .callout > :last-child{margin-bottom:0}
-  .md .callout .callout-title{font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px;display:flex;align-items:center;gap:7px}
-  .md .callout.note{border-left-color:#7ec2ff}.md .callout.note .callout-title{color:#7ec2ff}
-  .md .callout.warn{border-left-color:#f2c063}.md .callout.warn .callout-title{color:#f2c063}
-  .md .callout.danger{border-left-color:#ff8589}.md .callout.danger .callout-title{color:#ffb0b3}
-  .md .callout.ok{border-left-color:#5fd39a}.md .callout.ok .callout-title{color:#8ce8b8}
-  /* Side-by-side / grid layout: <div class="cols"> or class="cols cols-3" */
-  .md .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0 0 16px;align-items:start}
+  .md .callout .callout-title{font-weight:600;font-size:11px;text-transform:uppercase;
+    letter-spacing:.06em;margin:0 0 5px;display:flex;align-items:center;gap:7px}
+  .md .callout.note{border-left-color:var(--info)}.md .callout.note .callout-title{color:var(--info)}
+  .md .callout.warn{border-left-color:var(--warn)}.md .callout.warn .callout-title{color:var(--warn)}
+  .md .callout.danger{border-left-color:var(--danger)}.md .callout.danger .callout-title{color:var(--danger)}
+  .md .callout.ok{border-left-color:var(--ok)}.md .callout.ok .callout-title{color:var(--ok)}
+  .md .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0 0 14px;align-items:start}
   .md .cols-3{grid-template-columns:repeat(3,1fr)}
   .md .cols > *{margin:0}
   @media(max-width:640px){.md .cols,.md .cols-3{grid-template-columns:1fr}}
-  /* Bordered panel for grouping content: <div class="panel"> */
-  .md .panel{border:1px solid var(--border);border-radius:10px;padding:13px 15px;background:var(--panel2)}
+  .md .panel{border:1px solid var(--border);border-radius:var(--r-inner);padding:13px 15px;background:var(--panel)}
   .md .panel > :last-child{margin-bottom:0}
-  /* Inline status badges/pills: <span class="badge red|green|amber|blue"> */
-  .md .badge{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:700;text-transform:uppercase;
-    letter-spacing:.04em;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:var(--panel2);color:var(--muted);white-space:nowrap}
-  .md .badge.red{color:#ffb0b3;border-color:color-mix(in srgb,#ff8589 45%,transparent);background:color-mix(in srgb,#ff8589 14%,transparent)}
-  .md .badge.green{color:#8ce8b8;border-color:color-mix(in srgb,#5fd39a 45%,transparent);background:color-mix(in srgb,#5fd39a 14%,transparent)}
-  .md .badge.amber{color:#f7d494;border-color:color-mix(in srgb,#f2c063 45%,transparent);background:color-mix(in srgb,#f2c063 14%,transparent)}
-  .md .badge.blue{color:#a5d3ff;border-color:color-mix(in srgb,#7ec2ff 45%,transparent);background:color-mix(in srgb,#7ec2ff 14%,transparent)}
-  /* Figure/diagram wrapper: <figure class="diagram">…svg…<figcaption>…</figure> */
-  .md .diagram{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:16px}
+  .md .badge{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:600;text-transform:uppercase;
+    letter-spacing:.05em;padding:2px 8px;border-radius:999px;border:1px solid var(--border);
+    background:var(--panel2);color:var(--muted);white-space:nowrap}
+  .md .badge.red{color:color-mix(in srgb,var(--danger) 88%,var(--head));border-color:color-mix(in srgb,var(--danger) 35%,var(--border));background:color-mix(in srgb,var(--danger) 12%,transparent)}
+  .md .badge.green{color:color-mix(in srgb,var(--ok) 88%,var(--head));border-color:color-mix(in srgb,var(--ok) 35%,var(--border));background:color-mix(in srgb,var(--ok) 12%,transparent)}
+  .md .badge.amber{color:color-mix(in srgb,var(--warn) 88%,var(--head));border-color:color-mix(in srgb,var(--warn) 35%,var(--border));background:color-mix(in srgb,var(--warn) 12%,transparent)}
+  .md .badge.blue{color:color-mix(in srgb,var(--info) 88%,var(--head));border-color:color-mix(in srgb,var(--info) 35%,var(--border));background:color-mix(in srgb,var(--info) 12%,transparent)}
+  .md .diagram{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-inner);padding:16px}
 
-  /* zombies legend */
-  .zkey{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px 16px;margin:0 0 18px;
-    padding:14px 16px;background:var(--panel2);border:1px solid var(--border);border-radius:10px}
-  .zkey-item{display:flex;gap:10px;align-items:baseline;margin:0}
-  .zkey dt{font-family:var(--mono);font-weight:700;color:var(--accent);width:14px;flex:none;font-size:13px}
+  /* zombies legend inside collapsed matrix */
+  .zkey{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 16px;margin:0 0 14px;
+    padding:12px 14px;background:var(--panel);border:1px solid var(--border);border-radius:var(--r-inner)}
+  .zkey-item{display:flex;gap:9px;align-items:baseline;margin:0}
+  .zkey dt{font-family:var(--mono);font-weight:600;color:var(--accent);width:14px;flex:none;font-size:12.5px}
   .zkey dd{margin:0;font-size:12px;color:var(--muted)}
-  .zkey dd b{color:var(--text);font-weight:600}
+  .zkey dd b{color:var(--text);font-weight:500}
 
   /* limitations */
-  .limits{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-  .limits li{position:relative;padding-left:20px;color:var(--muted);font-size:13px;line-height:1.5}
-  .limits li::before{content:"›";position:absolute;left:4px;top:-1px;color:var(--accent);font-weight:700}
+  .limits{list-style:none;margin:0;padding:0;display:grid;gap:8px;max-width:var(--measure)}
+  .limits li{position:relative;padding-left:18px;color:var(--muted);font-size:13px;line-height:1.55}
+  .limits li::before{content:"›";position:absolute;left:3px;top:-1px;color:var(--accent);font-weight:600}
 
-  footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--border);color:var(--muted);
-    font-size:12px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-  .foot-brand{font-weight:700;color:var(--text);background:var(--panel2);border:1px solid var(--border);
-    border-radius:6px;padding:2px 8px;letter-spacing:.02em}
+  footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--border);color:var(--muted);
+    font-size:12px;display:flex;gap:10px 14px;align-items:center;flex-wrap:wrap}
+  .foot-brand{font-family:var(--mono);font-weight:600;font-size:11px;color:var(--text);
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--r-inner);padding:2px 8px}
+
+  @media print{
+    body{background:#fff;color:#18191d;font-size:12pt}
+    body::before,.verdict-rail{display:none}
+    .card,.finding{break-inside:avoid;border-color:#d4d6dc;background:#fff}
+  }
   /* narrow screens — kept last so it wins over the nowrap rules above at equal specificity:
      tokens kept on one line on desktop wrap inside instead of widening the page */
   @media(max-width:720px){
+    .wrap{padding:24px 16px 64px}
+    .top{flex-direction:column;gap:16px}
+    .verdict{align-items:flex-start}
+    .card{padding:18px 18px}
+    .head-total{margin-left:0}
     .md code.md-code,.md .md-file,.head-total{white-space:normal;overflow-wrap:anywhere}
     /* file references outside .md (a finding's header, a test gap's ref): a long path must wrap, and its flex parent must be allowed to shrink */
     a.ref{white-space:normal;overflow-wrap:anywhere}
     .test-body,.finding-ref{min-width:0}
+    .test-item{flex-direction:column;gap:8px}
     .card h2{flex-wrap:wrap}
     /* flex rows with a pill + text: the text is an anonymous flex item, so its longest token must be allowed to break */
     .finding-rule,.finding-regrade,.finding-class{overflow-wrap:anywhere}
@@ -1926,10 +2160,10 @@ function page(r: Report): string {
     .md-table,.md table{display:block;overflow-x:auto}
     .md-table code.md-code,.md table code.md-code,.md-table .md-file,.md table .md-file{white-space:nowrap}}
 </style></head>
-<body><div class="wrap">
+<body style="--vc:${vMeta.color}"><div class="verdict-rail" style="--vc:${vMeta.color}"></div><div class="wrap">
 
   <div class="top">
-    <div>
+    <div class="top-main">
       <h1>${esc(m.title)}</h1>
       <div class="sub">${subtitle}${
     prUrl ? ` · <a href="${esc(prUrl)}" target="_blank" rel="noopener">open on GitHub ↗</a>` : ""
@@ -1947,23 +2181,19 @@ function page(r: Report): string {
     ${verdictBadge(r.verdict)}
   </div>
 
-  <div class="dash">
-    <section class="card summary-card"><h2>Summary</h2><div class="md summary-body">${renderRich(
-      r.verdict.summary,
-      m
-    )}</div>${lensesStrip(r)}</section>
-    <section class="card"><h2>By severity <span class="head-total">${r.findings.length} total</span></h2>
-      <div class="sev-split">${donut(counts)}${severityLegend(counts)}</div></section>
-    <section class="card"><h2>By section</h2>${composition(r.findings)}</section>
-  </div>
-  <section class="card"><h2>Risk by area</h2>${heatmap(r.triage.groups)}</section>
-  ${blastRadiusCard(r)}${classesCard(r)}${systemChangeCard(r)}${scorecardCard(r)}${holisticCard(r)}${interrogateCard(r)}${panelCard(r)}
+  ${statsBar(r, counts)}
+  <section class="card summary-card"><h2>Summary</h2><div class="md summary-body">${renderRich(
+    r.verdict.summary,
+    m
+  )}</div></section>
+  ${systemChangeCard(r)}${blastRadiusCard(r)}${classesCard(r)}
 
   ${findingsSection(m, r.findings)}
+  ${preflightSection(m, r.findings)}
   ${conventionsSection(m, r.findings)}
   ${zombiesSection(m, r.findings, r.triage.groups)}
-  ${preflightSection(m, r.findings)}
   ${dependencySection(m, r.findings)}${foldedSection(m, r.findings)}
+  ${scorecardCard(r)}${holisticCard(r)}${interrogateCard(r)}${panelCard(r)}
   ${triageSection(m, r.triage)}
   ${limitationsCard(r)}
 

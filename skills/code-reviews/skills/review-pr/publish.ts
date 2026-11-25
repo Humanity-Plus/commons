@@ -107,7 +107,10 @@ interface Report {
   };
   verdict: { decision: string; confidence: string; summary: string };
   blastRadius?: {
-    safetyFact: { claim: string; evidence?: string; status?: string; probe?: string };
+    impact?: "contained" | "side-effects" | "breaking";
+    summary?: string;
+    sideEffects?: Array<{ area: string; effect: string; severity?: string; findingId?: string }>;
+    safetyFact?: { claim: string; evidence?: string; status?: string; probe?: string };
     cleared?: Array<{ what: string }>;
   };
   findings: Finding[];
@@ -384,16 +387,33 @@ export function classesLine(report: Report, meta: Report["meta"] = {}): string {
   return `**${classes.length} class${classes.length === 1 ? "" : "es"} — fix the class, not the instance** (the same mistake at several sites, a rule resting on prose, or a defect a past review found):\n${items.join("\n")}`;
 }
 
-// One line for the blast-radius lens's safety fact: the load-bearing assumption,
-// whether it was proven, and how to settle it when it wasn't. Markdown that a
-// reviewer reads before any finding.
+// One line for the blast-radius lens: collateral impact on existing system
+// behavior (new shape) or the legacy safety-fact line when only safetyFact is
+// present. Markdown that a reviewer reads before any finding.
 export function blastRadiusLine(report: Report, meta: Report["meta"] = {}): string {
   const br = report.blastRadius;
-  if (!br?.safetyFact?.claim) return "";
+  if (!br) return "";
+  const cleared = br.cleared?.length ? ` · ${br.cleared.length} risk${br.cleared.length === 1 ? "" : "s"} cleared` : "";
+  if (br.impact || br.sideEffects?.length) {
+    const label =
+      br.impact === "breaking"
+        ? "**breaking reach**"
+        : br.impact === "side-effects"
+          ? "**side effects**"
+          : "**contained**";
+    const effects = br.sideEffects?.length
+      ? ` — ${br.sideEffects.map((s) => `${s.area}: ${toGfm(s.effect, meta)}`).join("; ")}`
+      : " — no unintended effects on existing behavior";
+    const probe =
+      br.safetyFact?.status && br.safetyFact.status !== "proven" && br.safetyFact.probe
+        ? ` · probe: \`${br.safetyFact.probe}\``
+        : "";
+    return `**Blast radius** — ${label}${effects}${cleared}${probe}`;
+  }
+  if (!br.safetyFact?.claim) return "";
   const sf = br.safetyFact;
   const status = sf.status === "proven" ? "**proven**" : sf.status === "contradicted" ? "**contradicted**" : "**unproven**";
   const how = sf.evidence ? ` (${sf.evidence}${sf.status !== "proven" && sf.probe ? `; probe: \`${sf.probe}\`` : ""})` : "";
-  const cleared = br.cleared?.length ? ` · ${br.cleared.length} risk${br.cleared.length === 1 ? "" : "s"} cleared` : "";
   return `**Blast radius** — safety fact: ${toGfm(sf.claim, meta)} — ${status}${how}${cleared}`;
 }
 

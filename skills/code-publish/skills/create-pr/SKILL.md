@@ -71,8 +71,8 @@ understand it well enough yet to file it.
 Structure, in this order:
 
 1. **Problem** — from the user's original request: what was wrong, missing,
-   or needed, and who it hurt. 2–4 sentences. This comes first because it's the
-   one thing a reader cannot get from the diff.
+   or needed, and who it affects. 2–4 sentences. This comes first because it's
+   the one thing a reader cannot get from the diff.
    - **Open with the harm as someone would observe it, then the mechanism**:
      "sign-in stops responding for every tenant", "uploads over 40MB time
      out". Name who suffers it, not only who causes it.

@@ -1801,7 +1801,7 @@ function page(r: Report): string {
     padding:0 8px;border-radius:999px;font-weight:600;font-variant-numeric:tabular-nums}
   .finding{background:var(--panel2);border:1px solid var(--border);
     border-left:2.5px solid color-mix(in srgb,var(--sc) 75%,var(--border));
-    border-radius:var(--r-inset);padding:20px 22px;margin-bottom:14px}
+    border-radius:0 var(--r-inset) var(--r-inset) 0;padding:20px 22px;margin-bottom:14px}
   .finding:last-child{margin-bottom:0}
   .finding-head{display:flex;justify-content:space-between;gap:10px 14px;align-items:flex-start;flex-wrap:wrap}
   .finding-ref{min-width:0;max-width:100%}

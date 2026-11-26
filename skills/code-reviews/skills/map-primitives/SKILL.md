@@ -1,6 +1,18 @@
 ---
 name: map-primitives
-description: Map a product repo's system primitives into a canonical docs/primitives.md (+ machine-readable primitives.yaml) and detect primitive drift — the same concept re-declared in multiple shapes across schema, validators, API surfaces, and UI. Covers all seven primitive areas (data, API, auth, workflows, agent tools, UI, infra), with data primitives as the deep default. Use when asked to "map primitives", bootstrap or refresh a primitives doc, audit a repo for primitive drift, or before building review tooling that needs a domain-model ground truth. Two modes: bootstrap (no map yet → inventory, drift report, write the map + AGENTS.md rule) and refresh (map exists → verify it against code, update it, report new drift). Documents honestly ("Known loose ends") rather than silently fixing; consolidation lands as separate follow-ups.
+description: >
+  Map a product repo's system primitives into a canonical docs/primitives.md
+  (+ machine-readable primitives.yaml) and detect primitive drift — the same
+  concept re-declared in multiple shapes across schema, validators, API
+  surfaces, and UI. Covers all seven primitive areas (data, API, auth,
+  workflows, agent tools, UI, infra), with data primitives as the deep
+  default. Use when asked to "map primitives", bootstrap or refresh a
+  primitives doc, audit a repo for primitive drift, or before building review
+  tooling that needs a domain-model ground truth. Two modes: bootstrap (no map
+  yet → inventory, drift report, write the map + AGENTS.md rule) and refresh
+  (map exists → verify it against code, update it, report new drift).
+  Documents honestly ("Known loose ends") rather than silently fixing;
+  consolidation lands as separate follow-ups.
 ---
 
 # Map primitives

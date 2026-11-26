@@ -1,5 +1,11 @@
 # humanity-plus-commons
 
+## 0.6.1
+
+### Patch Changes
+
+- [#54](https://github.com/Humanity-Plus/commons/pull/54) [`7c86984`](https://github.com/Humanity-Plus/commons/commit/7c86984d3cf0ef124925eb167924d65e239824b2) Thanks [@PaalTB](https://github.com/PaalTB)! - `map-primitives` now installs with the skills CLI. Its description wasn't valid YAML, so `npx skills add Humanity-Plus/commons` silently left it out, while the Claude Code plugin loaded it fine. CI now checks that every skill's frontmatter parses.
+
 ## 0.6.0
 
 ### Minor Changes

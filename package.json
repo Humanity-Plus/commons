@@ -13,6 +13,7 @@
     "version": "changeset version && node scripts/sync-plugin-version.mjs",
     "check-plugin-version": "node scripts/sync-plugin-version.mjs --check",
     "check-plugin-names": "node scripts/check-plugin-names.mjs",
+    "check-skill-frontmatter": "bun scripts/check-skill-frontmatter.mjs",
     "check-website-plugins": "node scripts/check-website-plugins.mjs",
     "test-scripts": "node --test scripts/*.test.mjs"
   },
